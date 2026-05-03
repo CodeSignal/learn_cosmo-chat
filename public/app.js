@@ -4,6 +4,88 @@
  */
 
 import { OctavusChat, createHttpTransport } from '@octavus/client-sdk';
+import { marked } from 'marked';
+import hljs from 'highlight.js/lib/core';
+import python from 'highlight.js/lib/languages/python';
+import javascript from 'highlight.js/lib/languages/javascript';
+import typescript from 'highlight.js/lib/languages/typescript';
+import bash from 'highlight.js/lib/languages/bash';
+import json from 'highlight.js/lib/languages/json';
+import sql from 'highlight.js/lib/languages/sql';
+import xml from 'highlight.js/lib/languages/xml';
+import markdown from 'highlight.js/lib/languages/markdown';
+import yaml from 'highlight.js/lib/languages/yaml';
+import plaintext from 'highlight.js/lib/languages/plaintext';
+import java from 'highlight.js/lib/languages/java';
+import csharp from 'highlight.js/lib/languages/csharp';
+import cpp from 'highlight.js/lib/languages/cpp';
+import c from 'highlight.js/lib/languages/c';
+import go from 'highlight.js/lib/languages/go';
+import rust from 'highlight.js/lib/languages/rust';
+import ruby from 'highlight.js/lib/languages/ruby';
+import php from 'highlight.js/lib/languages/php';
+import swift from 'highlight.js/lib/languages/swift';
+import kotlin from 'highlight.js/lib/languages/kotlin';
+
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('js', javascript);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('ts', typescript);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('shell', bash);
+hljs.registerLanguage('sh', bash);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('html', xml);
+hljs.registerLanguage('markdown', markdown);
+hljs.registerLanguage('yaml', yaml);
+hljs.registerLanguage('plaintext', plaintext);
+hljs.registerLanguage('java', java);
+hljs.registerLanguage('csharp', csharp);
+hljs.registerLanguage('cs', csharp);
+hljs.registerLanguage('cpp', cpp);
+hljs.registerLanguage('c', c);
+hljs.registerLanguage('go', go);
+hljs.registerLanguage('rust', rust);
+hljs.registerLanguage('ruby', ruby);
+hljs.registerLanguage('rb', ruby);
+hljs.registerLanguage('php', php);
+hljs.registerLanguage('swift', swift);
+hljs.registerLanguage('kotlin', kotlin);
+hljs.registerLanguage('kt', kotlin);
+
+// marked may HTML-encode the code text before passing it to the renderer;
+// decode it so hljs receives raw source, not entities.
+function decodeHtmlEntities(str) {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+// Custom renderer: single place for highlighting + block structure.
+// No markedHighlight plugin — that would double-process the code.
+const renderer = new marked.Renderer();
+renderer.code = function ({ text, lang }) {
+  const rawCode = decodeHtmlEntities(text);
+  const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+  const highlighted = hljs.highlight(rawCode, { language }).value;
+  const label = lang || 'code';
+  return `
+    <div class="code-block">
+      <div class="code-block__header">
+        <span class="code-block__lang label-medium">${label}</span>
+      </div>
+      <pre class="code-block__pre"><code class="hljs language-${language}">${highlighted}</code></pre>
+    </div>
+  `;
+};
+
+marked.use({ breaks: true, gfm: true, renderer });
 
 // ── DOM references ────────────────────────────────────────────
 const promptInput         = document.getElementById('promptInput');
@@ -79,13 +161,15 @@ function renderMessages(messages, status) {
       const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
       const streaming = msg.status === 'streaming';
 
+      const renderedHtml = marked.parse(text);
+
       row.className = 'message message--ai';
       row.innerHTML = `
         <div class="message__avatar">
           <span class="icon icon-cosmo-black icon-small"></span>
         </div>
-        <div class="message__body body-medium">
-          ${text}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}
+        <div class="message__body body-medium markdown">
+          ${renderedHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}
         </div>
       `;
     } else if (msg.role === 'user') {
