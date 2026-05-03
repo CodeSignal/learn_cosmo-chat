@@ -36,6 +36,23 @@ app.post('/api/sessions', async (req, res) => {
   }
 });
 
+// ── POST /api/upload-urls ─────────────────────────────────────
+// Proxies presigned S3 upload URL requests to Octavus.
+// The client uploads directly to S3; the API key never reaches the browser.
+app.post('/api/upload-urls', async (req, res) => {
+  const { sessionId, files } = req.body;
+  if (!sessionId || !Array.isArray(files)) {
+    return res.status(400).json({ error: 'sessionId and files[] are required' });
+  }
+  try {
+    const result = await octavus.files.getUploadUrls(sessionId, files);
+    res.json(result);
+  } catch (err) {
+    console.error('[upload-urls] Error:', err);
+    res.status(500).json({ error: 'Failed to get upload URLs' });
+  }
+});
+
 // ── POST /api/trigger ─────────────────────────────────────────
 // Attaches to an existing session and streams the agent response as SSE
 app.post('/api/trigger', async (req, res) => {

@@ -1,7 +1,11 @@
 triggers:
   user-message:
     input:
-      USER_MESSAGE: { type: string }
+      USER_MESSAGE:
+        type: string
+      FILES:
+        type: file[]
+        optional: true
 
 agent:
   model: openai/gpt-4o
@@ -15,6 +19,7 @@ handlers:
       role: user
       prompt: user-message
       input: [USER_MESSAGE]
+      files: [FILES]
       display: hidden
 
     Respond:

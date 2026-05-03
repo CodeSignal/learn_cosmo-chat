@@ -16,14 +16,21 @@ const attachmentPreview   = document.getElementById('attachmentPreview');
 const attachmentName      = document.getElementById('attachmentName');
 const removeAttachmentBtn = document.getElementById('removeAttachmentBtn');
 
-// ── Session + chat state ──────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────
 let chat = null;
+let sessionId = null;
+// Holds File objects waiting to be uploaded-and-sent
+let pendingFiles = [];
+// Holds resolved FileReference objects after successful upload
+let uploadedFileRefs = [];
+let isUploading = false;
 
+// ── Init ──────────────────────────────────────────────────────
 async function init() {
   try {
     const res = await fetch('/api/sessions', { method: 'POST' });
     if (!res.ok) throw new Error(await res.text());
-    const { sessionId } = await res.json();
+    ({ sessionId } = await res.json());
 
     const transport = createHttpTransport({
       request: (payload, options) =>
@@ -35,9 +42,17 @@ async function init() {
         }),
     });
 
-    chat = new OctavusChat({ transport });
+    // requestUploadUrls keeps the API key server-side
+    const requestUploadUrls = async (files) => {
+      const res = await fetch('/api/upload-urls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, files }),
+      });
+      return res.json();
+    };
 
-    // Re-render whenever message state changes
+    chat = new OctavusChat({ transport, requestUploadUrls });
     chat.subscribe(() => renderMessages(chat.messages, chat.status));
   } catch (err) {
     console.error('[ChatCPT] Failed to initialise session:', err);
@@ -46,14 +61,8 @@ async function init() {
 
 // ── Render messages ───────────────────────────────────────────
 function renderMessages(messages, status) {
-  // Hide empty state once there's something to show
-  if (messages.length > 0 && emptyState) {
-    emptyState.hidden = true;
-  } else if (messages.length === 0 && emptyState) {
-    emptyState.hidden = false;
-  }
+  if (emptyState) emptyState.hidden = messages.length > 0;
 
-  // Ensure messages container exists
   let messagesEl = chatHistory.querySelector('.messages');
   if (!messagesEl) {
     messagesEl = document.createElement('div');
@@ -67,9 +76,8 @@ function renderMessages(messages, status) {
     const row = document.createElement('div');
 
     if (msg.role === 'assistant') {
-      const textParts = msg.parts.filter((p) => p.type === 'text');
-      const textContent = textParts.map((p) => p.text).join('');
-      const isStreaming = msg.status === 'streaming';
+      const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
+      const streaming = msg.status === 'streaming';
 
       row.className = 'message message--ai';
       row.innerHTML = `
@@ -77,16 +85,21 @@ function renderMessages(messages, status) {
           <span class="icon icon-cosmo-black icon-small"></span>
         </div>
         <div class="message__body body-medium">
-          ${textContent}${isStreaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}
+          ${text}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}
         </div>
       `;
     } else if (msg.role === 'user') {
-      const textParts = msg.parts.filter((p) => p.type === 'text');
-      const textContent = textParts.map((p) => p.text).join('');
+      const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
+      const fileParts = msg.parts.filter((p) => p.type === 'file');
+
+      const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
 
       row.className = 'message message--user';
       row.innerHTML = `
-        <div class="box non-interactive message__bubble body-medium">${textContent}</div>
+        <div class="message__user-content">
+          ${filesHtml}
+          ${text ? `<div class="box non-interactive message__bubble body-medium">${text}</div>` : ''}
+        </div>
       `;
     } else {
       continue;
@@ -95,13 +108,26 @@ function renderMessages(messages, status) {
     messagesEl.appendChild(row);
   }
 
-  // Auto-scroll to bottom
   chatHistory.scrollTop = chatHistory.scrollHeight;
 
-  // Disable input while streaming
-  const isStreaming = status === 'streaming';
-  promptInput.disabled = isStreaming;
-  sendBtn.disabled = isStreaming || promptInput.value.trim().length === 0;
+  const streaming = status === 'streaming';
+  promptInput.disabled = streaming;
+  updateSendBtn();
+}
+
+function renderFilePart(part) {
+  if (part.mediaType?.startsWith('image/')) {
+    return `<img class="message__file-image" src="${part.url}" alt="${part.filename || 'image'}" />`;
+  }
+  return `
+    <a class="tag outline message__file-chip" href="${part.url}" target="_blank" rel="noopener">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+      ${part.filename || 'file'}
+    </a>
+  `;
 }
 
 // ── Send ──────────────────────────────────────────────────────
@@ -109,27 +135,78 @@ async function sendMessage() {
   if (!chat || sendBtn.disabled) return;
 
   const text = promptInput.value.trim();
-  if (!text) return;
+  if (!text && uploadedFileRefs.length === 0) return;
 
   promptInput.value = '';
-  sendBtn.disabled = true;
+  const filesToSend = [...uploadedFileRefs];
+  clearAttachment();
+  updateSendBtn();
 
   try {
     await chat.send(
       'user-message',
-      { USER_MESSAGE: text },
-      { userMessage: { content: text } },
+      {
+        USER_MESSAGE: text,
+        ...(filesToSend.length > 0 && { FILES: filesToSend }),
+      },
+      {
+        userMessage: {
+          content: text,
+          ...(filesToSend.length > 0 && { files: filesToSend }),
+        },
+      },
     );
   } catch (err) {
     console.error('[ChatCPT] Send error:', err);
   }
 }
 
-// ── Input wiring ──────────────────────────────────────────────
-promptInput.addEventListener('input', () => {
-  const isStreaming = chat?.status === 'streaming';
-  sendBtn.disabled = isStreaming || promptInput.value.trim().length === 0;
+// ── File handling ─────────────────────────────────────────────
+uploadBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  if (!file || !chat) return;
+
+  pendingFiles = [file];
+  isUploading = true;
+  attachmentName.textContent = file.name;
+  attachmentPreview.hidden = false;
+  attachmentPreview.classList.add('uploading');
+  updateSendBtn();
+
+  try {
+    // Pass the raw File; the SDK uploads it via requestUploadUrls and returns FileReferences
+    const refs = await chat.uploadFiles([file]);
+    uploadedFileRefs = refs;
+    attachmentPreview.classList.remove('uploading');
+    attachmentPreview.classList.add('ready');
+  } catch (err) {
+    console.error('[ChatCPT] Upload error:', err);
+    attachmentPreview.classList.remove('uploading');
+    attachmentPreview.classList.add('error');
+    attachmentName.textContent = `Upload failed: ${file.name}`;
+  } finally {
+    isUploading = false;
+    updateSendBtn();
+  }
 });
+
+removeAttachmentBtn.addEventListener('click', () => {
+  fileInput.value = '';
+  clearAttachment();
+  updateSendBtn();
+});
+
+function clearAttachment() {
+  pendingFiles = [];
+  uploadedFileRefs = [];
+  attachmentPreview.hidden = true;
+  attachmentPreview.classList.remove('uploading', 'ready', 'error');
+}
+
+// ── Input wiring ──────────────────────────────────────────────
+promptInput.addEventListener('input', updateSendBtn);
 
 promptInput.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !sendBtn.disabled) {
@@ -140,20 +217,12 @@ promptInput.addEventListener('keydown', (e) => {
 
 sendBtn.addEventListener('click', sendMessage);
 
-// ── File attachment ───────────────────────────────────────────
-uploadBtn.addEventListener('click', () => fileInput.click());
-
-fileInput.addEventListener('change', () => {
-  const file = fileInput.files[0];
-  if (!file) return;
-  attachmentName.textContent = file.name;
-  attachmentPreview.hidden = false;
-});
-
-removeAttachmentBtn.addEventListener('click', () => {
-  fileInput.value = '';
-  attachmentPreview.hidden = true;
-});
+function updateSendBtn() {
+  const streaming = chat?.status === 'streaming';
+  const hasText = promptInput.value.trim().length > 0;
+  const hasFile = uploadedFileRefs.length > 0;
+  sendBtn.disabled = streaming || isUploading || (!hasText && !hasFile);
+}
 
 // ── Boot ──────────────────────────────────────────────────────
 init();
