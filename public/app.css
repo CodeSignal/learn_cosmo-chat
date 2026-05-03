@@ -1,5 +1,7 @@
 /* ============================================================
    ChatCPT – Application Styles
+   Minimal custom CSS; structure and theming deferred to the
+   CodeSignal design system wherever possible.
    ============================================================ */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -8,13 +10,11 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background-color: var(--Colors-Background-Primary);
+  background-color: var(--Colors-Backgrounds-Main-Default);
   color: var(--Colors-Text-Body-Default);
 }
 
-/* ============================================================
-   APP SHELL
-   ============================================================ */
+/* ── App shell ── */
 .chat-app {
   display: flex;
   flex-direction: column;
@@ -32,7 +32,7 @@ html, body {
   scroll-behavior: smooth;
 }
 
-/* ── Empty state ── */
+/* Empty state: icon + heading, vertically + horizontally centered */
 .empty-state {
   flex: 1;
   display: flex;
@@ -40,16 +40,14 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: var(--UI-Spacing-spacing-ms);
-  color: var(--Colors-Text-Body-Default);
   user-select: none;
 }
 
 .empty-state__heading {
   margin: 0;
-  font-weight: 600;
 }
 
-/* ── Messages ── */
+/* Messages container (injected by JS when conversation starts) */
 .messages {
   display: flex;
   flex-direction: column;
@@ -57,6 +55,7 @@ html, body {
   gap: var(--UI-Spacing-spacing-xl);
 }
 
+/* Individual message row */
 .message {
   display: flex;
   gap: var(--UI-Spacing-spacing-ms);
@@ -65,14 +64,18 @@ html, body {
   margin: 0 auto;
 }
 
-.message--ai { align-items: flex-start; }
+/* AI: avatar + prose text */
+.message--ai {
+  align-items: flex-start;
+}
 
 .message__avatar {
   flex-shrink: 0;
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background-color: var(--Colors-Background-Secondary);
+  /* Use a box for the avatar background to get the right semantic colour */
+  background-color: var(--Colors-Backgrounds-Main-Medium);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -82,6 +85,7 @@ html, body {
 .message__body {
   flex: 1;
   line-height: 1.65;
+  color: var(--Colors-Text-Body-Default);
 }
 
 .message__body p { margin: 0 0 var(--UI-Spacing-spacing-xs); }
@@ -92,14 +96,21 @@ html, body {
 }
 .message__body li + li { margin-top: var(--UI-Spacing-spacing-xxs); }
 
-.message--user { justify-content: flex-end; }
+/* User: bubble aligned to the right */
+.message--user {
+  justify-content: flex-end;
+}
 
+/* User bubble uses .box.non-interactive from the design system.
+   We only override the background colour and alignment so it reads
+   as a distinct user turn rather than the default white box. */
 .message__bubble {
   max-width: 70%;
-  background-color: var(--Colors-Background-Secondary);
-  border-radius: var(--UI-Radius-radius-l);
-  padding: var(--UI-Spacing-spacing-ms) var(--UI-Spacing-spacing-m);
+  background-color: var(--Colors-Backgrounds-Main-Medium) !important;
+  justify-content: flex-start;
+  text-align: left;
   line-height: 1.6;
+  border-radius: var(--UI-Radius-radius-l) !important;
 }
 
 /* ============================================================
@@ -110,109 +121,78 @@ html, body {
   padding: var(--UI-Spacing-spacing-ms) var(--UI-Spacing-spacing-ml) var(--UI-Spacing-spacing-m);
 }
 
+/* .box.emphasized gives the always-visible neutral border.
+   We extend it into a column-flex container for the textarea + toolbar. */
 .composer {
-  display: flex;
-  flex-direction: column;
   max-width: 760px;
   margin: 0 auto;
-  border: 1px solid var(--Colors-Base-Neutral-400);
-  border-radius: var(--UI-Radius-radius-l);
-  padding: var(--UI-Spacing-spacing-ms);
-  background-color: var(--Colors-Background-Primary);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  padding: var(--UI-Spacing-spacing-ms) !important;
+  gap: var(--UI-Spacing-spacing-xs) !important;
+  cursor: default;
 }
 
-.composer:focus-within {
-  border-color: var(--Colors-Base-Neutral-600);
-  box-shadow: 0 0 0 3px var(--Colors-Base-Neutral-100);
-}
-
+/* Attachment chip row */
 .composer__attachment {
   display: flex;
   align-items: center;
   gap: var(--UI-Spacing-spacing-xxs);
-  margin-bottom: var(--UI-Spacing-spacing-xs);
 }
 
-.composer__input {
-  border: none;
-  outline: none;
-  resize: none;
-  background: transparent;
-  width: 100%;
-  font-family: inherit;
-  font-size: 1rem;
-  line-height: 1.6;
-  color: var(--Colors-Text-Body-Default);
+.composer__remove-btn {
+  min-width: unset;
+  padding: 0 var(--UI-Spacing-spacing-xxs);
+}
+
+/* Textarea: .input supplies border, background, typography.
+   We strip the fixed height and border so it blends into the box. */
+.composer__textarea {
+  height: auto !important;
   min-height: 26px;
   max-height: 200px;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  resize: none;
+  outline: none;
   overflow-y: auto;
   field-sizing: content;
+  padding: 0 !important;
+  border-radius: 0 !important;
 }
 
-.composer__input::placeholder {
-  color: var(--Colors-Text-Body-Subtle);
-}
-
+/* Toolbar: upload on the left, send on the right */
 .composer__toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: var(--UI-Spacing-spacing-xs);
 }
 
-.composer__icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* Upload button: inherit .button.button-tertiary.button-xsmall */
+.composer__attach-btn {
+  min-width: unset;
   width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: var(--Colors-Text-Body-Subtle);
-  transition: background-color 0.15s ease, color 0.15s ease;
   padding: 0;
 }
 
-.composer__icon-btn:hover {
-  background-color: var(--Colors-Background-Secondary);
-  color: var(--Colors-Text-Body-Default);
-}
-
-.composer__remove-btn { color: var(--Colors-Text-Body-Subtle); }
-
+/* Send button: inherit .button.button-primary, reshaped into a circle */
 .composer__send-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-width: unset;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  border: none;
-  cursor: pointer;
-  background-color: var(--Colors-Base-Primary-700);
-  color: #fff;
   padding: 0;
-  transition: background-color 0.15s ease;
+  border-radius: 50% !important;
 }
 
-.composer__send-btn:hover:not(:disabled) {
-  background-color: var(--Colors-Base-Primary-800);
-}
-
-.composer__send-btn:disabled {
-  background-color: var(--Colors-Background-Secondary);
-  color: var(--Colors-Text-Body-Subtle);
-  cursor: default;
-}
-
+/* Hint below composer */
 .composer__hint {
   max-width: 760px;
   margin: var(--UI-Spacing-spacing-xs) auto 0;
   text-align: center;
-  color: var(--Colors-Text-Body-Subtle);
+  color: var(--Colors-Text-Body-Secondary);
+  display: block;
 }
 
 /* ============================================================

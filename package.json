@@ -5,10 +5,19 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "build": "esbuild public/app.js --bundle --outfile=public/app.bundle.js --format=esm --platform=browser",
+    "build:watch": "esbuild public/app.js --bundle --outfile=public/app.bundle.js --format=esm --platform=browser --watch",
+    "start": "npm run build && node server.js",
+    "dev": "npm run build && node --watch server.js"
   },
   "dependencies": {
+    "@octavus/client-sdk": "^3.2.0",
+    "@octavus/server-sdk": "^3.2.0",
+    "dotenv": "^17.4.2",
     "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@octavus/cli": "^3.2.0",
+    "esbuild": "^0.28.0"
   }
 }
