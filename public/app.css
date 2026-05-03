@@ -17,8 +17,110 @@ html, body {
 /* ── App shell ── */
 .chat-app {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Chat main (right of sidebar) ── */
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--UI-Spacing-spacing-xs);
+  padding: var(--UI-Spacing-spacing-ms);
+  background-color: var(--Colors-Backgrounds-Main-Medium);
+  border-right: 1px solid var(--Colors-Stroke-Default);
+  overflow: hidden;
+}
+
+.sidebar__header {
+  display: flex;
+  align-items: center;
+  gap: var(--UI-Spacing-spacing-xs);
+  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-xxs);
+}
+
+.sidebar__title {
+  font-weight: 600;
+  color: var(--Colors-Text-Body-Default);
+}
+
+.sidebar__new-btn {
+  width: 100%;
+  justify-content: center;
+  gap: var(--UI-Spacing-spacing-xxs);
+}
+
+.sidebar__sessions {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 calc(-1 * var(--UI-Spacing-spacing-xxs));
+}
+
+/* ── Session list items ── */
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: var(--UI-Spacing-spacing-xxs);
+  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-xxs);
+  border-radius: var(--UI-Radius-radius-m);
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.session-item:hover {
+  background-color: var(--Colors-Backgrounds-Main-High);
+}
+
+.session-item--active {
+  background-color: var(--Colors-Backgrounds-Main-High);
+}
+
+.session-item__title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  color: var(--Colors-Text-Body-Default);
+  line-height: 1.4;
+}
+
+.session-item__delete {
+  flex-shrink: 0;
+  opacity: 0;
+  min-width: unset !important;
+  width: 22px;
+  height: 22px;
+  padding: 0 !important;
+  color: var(--Colors-Text-Body-Secondary);
+  transition: opacity 0.15s;
+}
+
+.session-item:hover .session-item__delete,
+.session-item--active .session-item__delete {
+  opacity: 1;
+}
+
+.session-item__delete:hover {
+  color: var(--Colors-Alert-Error-Default) !important;
 }
 
 /* ============================================================

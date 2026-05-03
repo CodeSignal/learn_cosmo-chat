@@ -37,9 +37,44 @@ async function writeSessionsFile(data) {
   await fs.writeFile(SESSIONS_FILE, JSON.stringify(data, null, 2));
 }
 
+function deriveTitle(messages) {
+  const first = messages?.find((m) => m.role === 'user');
+  if (!first?.content) return 'New conversation';
+  return first.content.length > 45 ? first.content.slice(0, 45) + '…' : first.content;
+}
+
+async function createNewSession() {
+  const sessionId = await octavus.agentSessions.create(AGENT_ID);
+  const record = {
+    session_id: sessionId,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    messages: [],
+    selected_submission: null,
+  };
+  const data = await readSessionsFile();
+  data.sessions.push(record);
+  await writeSessionsFile(data);
+  return record;
+}
+
+// ── GET /api/sessions ─────────────────────────────────────────
+// Lists all sessions (id, title, timestamps) sorted newest first.
+app.get('/api/sessions', async (req, res) => {
+  const data = await readSessionsFile();
+  const list = data.sessions
+    .map((s) => ({
+      session_id: s.session_id,
+      title: deriveTitle(s.messages),
+      created_at: s.created_at,
+      updated_at: s.updated_at,
+    }))
+    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
+  res.json({ sessions: list });
+});
+
 // ── GET /api/session ──────────────────────────────────────────
-// Returns the most recently updated session (with stored messages),
-// or creates a fresh Octavus session if none exist yet.
+// Returns a specific session by ?id=, the most recently updated, or creates one.
 app.get('/api/session', async (req, res) => {
   if (!AGENT_ID) {
     return res.status(503).json({ error: 'OCTAVUS_AGENT_ID is not configured' });
@@ -47,6 +82,14 @@ app.get('/api/session', async (req, res) => {
 
   const data = await readSessionsFile();
 
+  // Load a specific session when ?id= is provided
+  if (req.query.id) {
+    const session = data.sessions.find((s) => s.session_id === req.query.id);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    return res.json({ sessionId: session.session_id, messages: session.messages });
+  }
+
+  // Resume the most recently updated session
   if (data.sessions.length > 0) {
     const latest = data.sessions.reduce((a, b) =>
       (a.updated_at || a.created_at) > (b.updated_at || b.created_at) ? a : b,
@@ -56,21 +99,36 @@ app.get('/api/session', async (req, res) => {
 
   // No stored session — create one
   try {
-    const sessionId = await octavus.agentSessions.create(AGENT_ID);
-    const record = {
-      session_id: sessionId,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      messages: [],
-      selected_submission: null,
-    };
-    data.sessions.push(record);
-    await writeSessionsFile(data);
-    res.json({ sessionId, messages: [] });
+    const record = await createNewSession();
+    res.json({ sessionId: record.session_id, messages: [] });
   } catch (err) {
     console.error('[session] Error creating session:', err);
     res.status(500).json({ error: 'Failed to create session' });
   }
+});
+
+// ── POST /api/sessions ────────────────────────────────────────
+// Creates a brand-new Octavus session and adds it to the file.
+app.post('/api/sessions', async (req, res) => {
+  if (!AGENT_ID) {
+    return res.status(503).json({ error: 'OCTAVUS_AGENT_ID is not configured' });
+  }
+  try {
+    const record = await createNewSession();
+    res.json({ sessionId: record.session_id, messages: [] });
+  } catch (err) {
+    console.error('[sessions] Error creating session:', err);
+    res.status(500).json({ error: 'Failed to create session' });
+  }
+});
+
+// ── DELETE /api/sessions/:sessionId ──────────────────────────
+app.delete('/api/sessions/:sessionId', async (req, res) => {
+  const { sessionId } = req.params;
+  const data = await readSessionsFile();
+  data.sessions = data.sessions.filter((s) => s.session_id !== sessionId);
+  await writeSessionsFile(data);
+  res.json({ ok: true });
 });
 
 // ── POST /api/session/save ────────────────────────────────────

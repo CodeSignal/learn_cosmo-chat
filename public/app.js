@@ -97,60 +97,91 @@ const fileInput           = document.getElementById('fileInput');
 const attachmentPreview   = document.getElementById('attachmentPreview');
 const attachmentName      = document.getElementById('attachmentName');
 const removeAttachmentBtn = document.getElementById('removeAttachmentBtn');
+const newChatBtn          = document.getElementById('newChatBtn');
+const sessionList         = document.getElementById('sessionList');
 
 // ── State ─────────────────────────────────────────────────────
 let chat = null;
+let chatUnsubscribe = null;
 let sessionId = null;
 let pendingFiles = [];
 let uploadedFileRefs = [];
 let isUploading = false;
 let lastStatus = null;
-// Messages loaded from disk on startup; combined with live chat.messages for display/save
 let restoredMessages = [];
+let allSessionsMeta = []; // [{session_id, title, updated_at}]
+
+// ── Session wiring ────────────────────────────────────────────
+function buildChat(sid) {
+  if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
+
+  const transport = createHttpTransport({
+    request: (payload, options) =>
+      fetch('/api/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: sid, ...payload }),
+        signal: options?.signal,
+      }),
+  });
+
+  const requestUploadUrls = async (files) => {
+    const r = await fetch('/api/upload-urls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: sid, files }),
+    });
+    return r.json();
+  };
+
+  chat = new OctavusChat({ transport, requestUploadUrls });
+  chatUnsubscribe = chat.subscribe(() => {
+    const { messages, status } = chat;
+    renderMessages(messages, status);
+    if (lastStatus === 'streaming' && status !== 'streaming') {
+      saveSession(messages);
+    }
+    lastStatus = status;
+  });
+}
+
+// Switch to an existing session (by id).
+async function switchSession(sid) {
+  clearAttachment();
+  promptInput.value = '';
+  lastStatus = null;
+
+  const res = await fetch(`/api/session?id=${sid}`);
+  if (!res.ok) return;
+  const data = await res.json();
+
+  sessionId = data.sessionId;
+  restoredMessages = data.messages ?? [];
+
+  buildChat(sessionId);
+  renderMessages([], 'idle');
+  renderSidebar();
+}
 
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   try {
-    // GET /api/session resumes the most recent persisted session, or creates a new one
-    const res = await fetch('/api/session');
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
+    const [sessionRes, listRes] = await Promise.all([
+      fetch('/api/session'),
+      fetch('/api/sessions'),
+    ]);
+    if (!sessionRes.ok) throw new Error(await sessionRes.text());
+
+    const data = await sessionRes.json();
     sessionId = data.sessionId;
     restoredMessages = data.messages ?? [];
 
-    // Show historical messages immediately before any new activity
+    const listData = await listRes.json();
+    allSessionsMeta = listData.sessions ?? [];
+
+    buildChat(sessionId);
     renderMessages([], 'idle');
-
-    const transport = createHttpTransport({
-      request: (payload, options) =>
-        fetch('/api/trigger', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, ...payload }),
-          signal: options?.signal,
-        }),
-    });
-
-    const requestUploadUrls = async (files) => {
-      const r = await fetch('/api/upload-urls', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, files }),
-      });
-      return r.json();
-    };
-
-    chat = new OctavusChat({ transport, requestUploadUrls });
-    chat.subscribe(() => {
-      const { messages, status } = chat;
-      renderMessages(messages, status);
-
-      // Persist to disk whenever a streaming turn finishes
-      if (lastStatus === 'streaming' && status !== 'streaming') {
-        saveSession(messages);
-      }
-      lastStatus = status;
-    });
+    renderSidebar();
   } catch (err) {
     console.error('[ChatCPT] Failed to initialise session:', err);
   }
@@ -326,6 +357,84 @@ function updateSendBtn() {
   sendBtn.disabled = streaming || isUploading || (!hasText && !hasFile);
 }
 
+// ── Sidebar ───────────────────────────────────────────────────
+function renderSidebar() {
+  sessionList.innerHTML = '';
+
+  for (const s of allSessionsMeta) {
+    const item = document.createElement('div');
+    item.className = 'session-item' + (s.session_id === sessionId ? ' session-item--active' : '');
+    item.setAttribute('role', 'button');
+    item.setAttribute('tabindex', '0');
+    item.setAttribute('aria-label', s.title);
+
+    const title = document.createElement('span');
+    title.className = 'session-item__title body-small';
+    title.textContent = s.title;
+
+    const del = document.createElement('button');
+    del.className = 'button button-text button-xsmall session-item__delete';
+    del.setAttribute('aria-label', 'Delete conversation');
+    del.title = 'Delete';
+    del.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+    </svg>`;
+
+    del.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await deleteSession(s.session_id);
+    });
+
+    item.addEventListener('click', () => {
+      if (s.session_id !== sessionId) switchSession(s.session_id);
+    });
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') switchSession(s.session_id);
+    });
+
+    item.appendChild(title);
+    item.appendChild(del);
+    sessionList.appendChild(item);
+  }
+}
+
+async function deleteSession(sid) {
+  await fetch(`/api/sessions/${sid}`, { method: 'DELETE' });
+  allSessionsMeta = allSessionsMeta.filter((s) => s.session_id !== sid);
+
+  if (sid === sessionId) {
+    // Deleted the active session — switch to next or create new
+    if (allSessionsMeta.length > 0) {
+      await switchSession(allSessionsMeta[0].session_id);
+    } else {
+      await startNewChat();
+    }
+  } else {
+    renderSidebar();
+  }
+}
+
+newChatBtn.addEventListener('click', startNewChat);
+
+async function startNewChat() {
+  const res = await fetch('/api/sessions', { method: 'POST' });
+  if (!res.ok) return;
+  const data = await res.json();
+
+  sessionId = data.sessionId;
+  restoredMessages = [];
+  lastStatus = null;
+  clearAttachment();
+  promptInput.value = '';
+
+  // Prepend to the meta list so it appears at the top
+  allSessionsMeta.unshift({ session_id: sessionId, title: 'New conversation', updated_at: new Date().toISOString() });
+
+  buildChat(sessionId);
+  renderMessages([], 'idle');
+  renderSidebar();
+}
+
 // ── Session persistence ───────────────────────────────────────
 
 // Convert a stored plain-object message back into the shape renderMessages expects
@@ -362,7 +471,18 @@ function saveSession(liveMessages) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sessionId, messages: allMessages }),
-  }).catch((err) => console.warn('[ChatCPT] Session save failed:', err));
+  })
+    .then(() => {
+      // Refresh the sidebar title (first user message may now be available)
+      const firstUser = allMessages.find((m) => m.role === 'user');
+      const title = firstUser?.content
+        ? (firstUser.content.length > 45 ? firstUser.content.slice(0, 45) + '…' : firstUser.content)
+        : 'New conversation';
+      const meta = allSessionsMeta.find((s) => s.session_id === sessionId);
+      if (meta) { meta.title = title; meta.updated_at = new Date().toISOString(); }
+      renderSidebar();
+    })
+    .catch((err) => console.warn('[ChatCPT] Session save failed:', err));
 }
 
 // ── Boot ──────────────────────────────────────────────────────

@@ -30,77 +30,91 @@
 
   <div class="chat-app">
 
-    <!-- ── CHAT HISTORY ── -->
-    <main class="chat-history" id="chatHistory" role="log" aria-live="polite">
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar" id="sidebar">
 
-      <!-- Empty state: centered, shown when no messages -->
-      <div class="empty-state" id="emptyState">
-        <span class="icon icon-cosmo-black icon-xlarge"></span>
-        <h1 class="heading-small empty-state__heading">What's on your mind?</h1>
+      <div class="sidebar__header">
+        <span class="icon icon-cosmo-black icon-small"></span>
+        <span class="label-medium sidebar__title">ChatCPT</span>
       </div>
 
-    </main>
+      <button class="button button-secondary button-small sidebar__new-btn" id="newChatBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New chat
+      </button>
 
-    <!-- ── COMPOSER ── -->
-    <footer class="composer-wrap">
+      <nav class="sidebar__sessions" id="sessionList" aria-label="Conversations"></nav>
 
-      <!-- .box.emphasized gives the always-visible neutral border -->
-      <div class="box emphasized non-interactive composer" id="composer">
+    </aside>
 
-        <!-- Attachment chip row (hidden until a file is attached) -->
-        <div class="composer__attachment" id="attachmentPreview" hidden>
-          <span class="tag outline">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-            <span id="attachmentName"></span>
-          </span>
-          <button class="button button-text button-xsmall composer__remove-btn"
-                  id="removeAttachmentBtn"
-                  aria-label="Remove attachment">✕</button>
+    <!-- ── MAIN CHAT AREA ── -->
+    <div class="chat-main">
+
+      <!-- Chat history -->
+      <main class="chat-history" id="chatHistory" role="log" aria-live="polite">
+        <div class="empty-state" id="emptyState">
+          <span class="icon icon-cosmo-black icon-xlarge"></span>
+          <h1 class="heading-small empty-state__heading">What's on your mind?</h1>
         </div>
+      </main>
 
-        <!-- Textarea: .input class provides border/bg/typography; overrides strip the fixed height -->
-        <textarea
-          class="input composer__textarea"
-          id="promptInput"
-          placeholder="Ask anything"
-          rows="1"
-          aria-label="Prompt input"
-        ></textarea>
+      <!-- Composer -->
+      <footer class="composer-wrap">
+        <div class="box emphasized non-interactive composer" id="composer">
 
-        <!-- Toolbar: attach + send -->
-        <div class="composer__toolbar">
-          <button class="button button-tertiary button-xsmall composer__attach-btn"
-                  id="uploadBtn"
-                  aria-label="Attach a file"
-                  title="Attach a file">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <line x1="12" y1="5" x2="12" y2="19"/>
-              <line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-          </button>
+          <div class="composer__attachment" id="attachmentPreview" hidden>
+            <span class="tag outline">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <span id="attachmentName"></span>
+            </span>
+            <button class="button button-text button-xsmall composer__remove-btn"
+                    id="removeAttachmentBtn"
+                    aria-label="Remove attachment">✕</button>
+          </div>
 
-          <!-- Send: button-primary, shaped into a circle via app.css -->
-          <button class="button button-primary composer__send-btn"
-                  id="sendBtn"
-                  aria-label="Send prompt"
-                  disabled>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-            </svg>
-          </button>
+          <textarea
+            class="input composer__textarea"
+            id="promptInput"
+            placeholder="Ask anything"
+            rows="1"
+            aria-label="Prompt input"
+          ></textarea>
+
+          <div class="composer__toolbar">
+            <button class="button button-tertiary button-xsmall composer__attach-btn"
+                    id="uploadBtn"
+                    aria-label="Attach a file"
+                    title="Attach a file">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
+
+            <button class="button button-primary composer__send-btn"
+                    id="sendBtn"
+                    aria-label="Send prompt"
+                    disabled>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+              </svg>
+            </button>
+          </div>
+
         </div>
+        <p class="body-xsmall composer__hint">Cosmo can make mistakes. Practice refining your prompts.</p>
+      </footer>
 
-      </div>
+    </div><!-- /.chat-main -->
 
-      <p class="body-xsmall composer__hint">Cosmo can make mistakes. Practice refining your prompts.</p>
-    </footer>
+  </div><!-- /.chat-app -->
 
-  </div>
-
-  <input type="file" id="fileInput" accept=".pdf,.txt,.doc,.docx" style="display:none" aria-hidden="true" />
+  <input type="file" id="fileInput" accept=".pdf,.txt,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp" style="display:none" aria-hidden="true" />
 
   <script type="module" src="/app.bundle.js"></script>
 </body>
