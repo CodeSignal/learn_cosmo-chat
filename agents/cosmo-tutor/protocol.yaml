@@ -7,10 +7,18 @@ triggers:
         type: file[]
         optional: true
 
+skills:
+  crawl-urls:
+    display: description
+
 agent:
   model: openai/gpt-4o
   system: system
   temperature: 0.7
+  webSearch: true
+  agentic: true
+  skills:
+    - crawl-urls
 
 handlers:
   user-message:
