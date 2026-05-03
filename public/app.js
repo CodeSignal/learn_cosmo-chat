@@ -101,18 +101,25 @@ const removeAttachmentBtn = document.getElementById('removeAttachmentBtn');
 // ── State ─────────────────────────────────────────────────────
 let chat = null;
 let sessionId = null;
-// Holds File objects waiting to be uploaded-and-sent
 let pendingFiles = [];
-// Holds resolved FileReference objects after successful upload
 let uploadedFileRefs = [];
 let isUploading = false;
+let lastStatus = null;
+// Messages loaded from disk on startup; combined with live chat.messages for display/save
+let restoredMessages = [];
 
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   try {
-    const res = await fetch('/api/sessions', { method: 'POST' });
+    // GET /api/session resumes the most recent persisted session, or creates a new one
+    const res = await fetch('/api/session');
     if (!res.ok) throw new Error(await res.text());
-    ({ sessionId } = await res.json());
+    const data = await res.json();
+    sessionId = data.sessionId;
+    restoredMessages = data.messages ?? [];
+
+    // Show historical messages immediately before any new activity
+    renderMessages([], 'idle');
 
     const transport = createHttpTransport({
       request: (payload, options) =>
@@ -124,25 +131,36 @@ async function init() {
         }),
     });
 
-    // requestUploadUrls keeps the API key server-side
     const requestUploadUrls = async (files) => {
-      const res = await fetch('/api/upload-urls', {
+      const r = await fetch('/api/upload-urls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId, files }),
       });
-      return res.json();
+      return r.json();
     };
 
     chat = new OctavusChat({ transport, requestUploadUrls });
-    chat.subscribe(() => renderMessages(chat.messages, chat.status));
+    chat.subscribe(() => {
+      const { messages, status } = chat;
+      renderMessages(messages, status);
+
+      // Persist to disk whenever a streaming turn finishes
+      if (lastStatus === 'streaming' && status !== 'streaming') {
+        saveSession(messages);
+      }
+      lastStatus = status;
+    });
   } catch (err) {
     console.error('[ChatCPT] Failed to initialise session:', err);
   }
 }
 
 // ── Render messages ───────────────────────────────────────────
-function renderMessages(messages, status) {
+// `liveMessages` comes from OctavusChat; `restoredMessages` are pre-loaded from disk.
+// We display restored first, then live so the conversation reads continuously.
+function renderMessages(liveMessages, status) {
+  const messages = [...restoredMessages.map(storedToDisplayMsg), ...liveMessages];
   if (emptyState) emptyState.hidden = messages.length > 0;
 
   let messagesEl = chatHistory.querySelector('.messages');
@@ -306,6 +324,45 @@ function updateSendBtn() {
   const hasText = promptInput.value.trim().length > 0;
   const hasFile = uploadedFileRefs.length > 0;
   sendBtn.disabled = streaming || isUploading || (!hasText && !hasFile);
+}
+
+// ── Session persistence ───────────────────────────────────────
+
+// Convert a stored plain-object message back into the shape renderMessages expects
+// (mirrors the OctavusChat message structure just enough for rendering).
+function storedToDisplayMsg(m) {
+  return {
+    role: m.role,
+    status: 'done',
+    parts: [
+      ...(m.content ? [{ type: 'text', text: m.content }] : []),
+      ...(m.files ?? []).map((f) => ({ type: 'file', ...f })),
+    ],
+  };
+}
+
+// Serialise OctavusChat messages into the storage format, prepend historical
+// messages (already in storage format), and write the whole lot to disk.
+function saveSession(liveMessages) {
+  const liveSerialized = liveMessages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({
+      role: m.role,
+      content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
+      files: m.parts.filter((p) => p.type === 'file').map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
+      timestamp: new Date().toISOString(),
+    }));
+
+  const allMessages = [...restoredMessages, ...liveSerialized];
+
+  // Update in-memory restored set so subsequent saves don't lose new messages
+  restoredMessages = allMessages;
+
+  fetch('/api/session/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId, messages: allMessages }),
+  }).catch((err) => console.warn('[ChatCPT] Session save failed:', err));
 }
 
 // ── Boot ──────────────────────────────────────────────────────
