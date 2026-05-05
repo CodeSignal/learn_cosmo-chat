@@ -17,6 +17,7 @@ agent:
   temperature: 0.7
   webSearch: true
   agentic: true
+  imageModel: openai/gpt-image-1
   skills:
     - crawl-urls
 

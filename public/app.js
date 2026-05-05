@@ -85,6 +85,14 @@ renderer.code = function ({ text, lang }) {
   `;
 };
 
+// Octavus returns generated images both as a markdown reference in the text
+// AND as a file part. Rendering both causes duplicates. Apply the constrained
+// CSS class here so markdown-embedded images obey the same size limits, and
+// skip the separate file-parts pass for assistant messages.
+renderer.image = function ({ href, text }) {
+  return `<img class="message__file-image" src="${href}" alt="${text}" />`;
+};
+
 marked.use({ breaks: true, gfm: true, renderer });
 
 // ── DOM references ────────────────────────────────────────────
@@ -110,6 +118,8 @@ let isUploading = false;
 let lastStatus = null;
 let restoredMessages = [];
 let allSessionsMeta = []; // [{session_id, title, updated_at}]
+let streamingStartTime = null;
+let loadingIntervalId = null;
 
 // ── Session wiring ────────────────────────────────────────────
 function buildChat(sid) {
@@ -137,6 +147,26 @@ function buildChat(sid) {
   chat = new OctavusChat({ transport, requestUploadUrls });
   chatUnsubscribe = chat.subscribe(() => {
     const { messages, status } = chat;
+
+    // Track when streaming starts so the loading indicator knows elapsed time.
+    // Drive periodic re-renders while streaming so the message text updates
+    // even when no tokens arrive (e.g. during image generation).
+    if (status === 'streaming' && lastStatus !== 'streaming') {
+      streamingStartTime = Date.now();
+      if (loadingIntervalId) clearInterval(loadingIntervalId);
+      loadingIntervalId = setInterval(() => {
+        if (chat?.status === 'streaming') {
+          renderMessages(chat.messages, 'streaming');
+        } else {
+          clearInterval(loadingIntervalId);
+          loadingIntervalId = null;
+        }
+      }, 1000);
+    } else if (status !== 'streaming') {
+      streamingStartTime = null;
+      if (loadingIntervalId) { clearInterval(loadingIntervalId); loadingIntervalId = null; }
+    }
+
     renderMessages(messages, status);
     if (lastStatus === 'streaming' && status !== 'streaming') {
       saveSession(messages);
@@ -187,6 +217,74 @@ async function init() {
   }
 }
 
+// ── Loading state ─────────────────────────────────────────────
+const THINKING_STAGES = [
+  { after:  0, label: 'Thinking…' },
+  { after:  5, label: 'Working on it…' },
+  { after: 15, label: 'Still working…' },
+  { after: 30, label: 'This might take a moment…' },
+];
+
+const IMAGE_STAGES = [
+  { after:  0, label: 'Creating image…' },
+  { after: 10, label: 'Polishing details…' },
+  { after: 25, label: 'Finishing up…' },
+  { after: 45, label: 'Almost there…' },
+];
+
+function renderLoadingState(parts = []) {
+  const elapsed = streamingStartTime ? (Date.now() - streamingStartTime) / 1000 : 0;
+
+  const activeTool = parts.find((p) => p.type === 'tool-call' && (p.status === 'pending' || p.status === 'running'));
+  const toolName = activeTool?.toolName ?? '';
+
+  if (toolName === 'octavus_generate_image') {
+    const stage = IMAGE_STAGES.filter((s) => elapsed >= s.after).pop();
+    const label = stage?.label ?? IMAGE_STAGES[0].label;
+    return `
+      <div class="image-placeholder" style="list-style:none">
+        <div class="image-placeholder__canvas">
+          <svg class="image-placeholder__icon" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </div>
+        <div class="image-placeholder__status" style="list-style:none">
+          <span class="loading-indicator__dots" aria-hidden="true" style="display:flex;gap:4px;list-style:none">
+            <span></span><span></span><span></span>
+          </span>
+          <span>${label}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  let stages, icon;
+  if (toolName === 'octavus_web_search') {
+    stages = [{ after: 0, label: 'Searching the web…' }];
+    icon = '🔍';
+  } else if (toolName.startsWith('octavus_skill')) {
+    stages = [{ after: 0, label: 'Running tool…' }, { after: 10, label: 'Still running…' }];
+    icon = '⚙️';
+  } else {
+    stages = THINKING_STAGES;
+    icon = null;
+  }
+
+  const stage = stages.filter((s) => elapsed >= s.after).pop();
+  const label = stage?.label ?? stages[0].label;
+
+  return `
+    <div class="loading-indicator">
+      <span class="loading-indicator__dots" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </span>
+      <span class="loading-indicator__label">${icon ? `${icon} ` : ''}${label}</span>
+    </div>
+  `;
+}
+
 // ── Render messages ───────────────────────────────────────────
 // `liveMessages` comes from OctavusChat; `restoredMessages` are pre-loaded from disk.
 // We display restored first, then live so the conversation reads continuously.
@@ -209,8 +307,12 @@ function renderMessages(liveMessages, status) {
     if (msg.role === 'assistant') {
       const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
       const streaming = msg.status === 'streaming';
+      const hasText = text.trim().length > 0;
 
       const renderedHtml = marked.parse(text);
+      const bodyContent = (streaming && !hasText)
+        ? renderLoadingState(msg.parts)
+        : `${renderedHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}`;
 
       row.className = 'message message--ai';
       row.innerHTML = `
@@ -218,7 +320,7 @@ function renderMessages(liveMessages, status) {
           <span class="icon icon-cosmo-black icon-small"></span>
         </div>
         <div class="message__body body-medium markdown">
-          ${renderedHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}
+          ${bodyContent}
         </div>
       `;
     } else if (msg.role === 'user') {
