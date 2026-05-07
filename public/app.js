@@ -366,6 +366,21 @@ function renderFilePart(part) {
 }
 
 // ── Send ──────────────────────────────────────────────────────
+
+// Matches phrasing that indicates the user wants to edit/transform an uploaded image
+// rather than just analyze or describe it.
+const IMAGE_EDIT_INTENT = /\b(edit|modify|change|transform|convert|turn\s+(?:it\s+)?into|make\s+(?:it\s+)?(?:look|into)|apply|remove|add\s+(?:a\s+)?(?:background|effect|filter|style)|draw|sketch|paint|stylize|render|filter|generate\s+(?:a\s+)?(?:new\s+)?(?:version|image)\s+(?:of|from)|based\s+on|create\s+(?:a\s+)?(?:new\s+)?(?:version|image)\s+(?:of|from)|alter|adjust|enhance|redraw|reimagine|recreate|redesign|without|with\s+(?:a\s+)?(?:beard|glasses|hat|smile|different))\b/i;
+
+function chooseTrigger(text, filesToSend) {
+  const hasImageFiles = filesToSend.some(
+    (f) => f.mediaType && f.mediaType.startsWith('image/'),
+  );
+  if (hasImageFiles && IMAGE_EDIT_INTENT.test(text)) {
+    return 'image-edit';
+  }
+  return 'user-message';
+}
+
 async function sendMessage() {
   if (!chat || sendBtn.disabled) return;
 
@@ -377,9 +392,11 @@ async function sendMessage() {
   clearAttachment();
   updateSendBtn();
 
+  const trigger = chooseTrigger(text, filesToSend);
+
   try {
     await chat.send(
-      'user-message',
+      trigger,
       {
         USER_MESSAGE: text,
         ...(filesToSend.length > 0 && { FILES: filesToSend }),

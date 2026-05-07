@@ -7,6 +7,13 @@ triggers:
         type: file[]
         optional: true
 
+  image-edit:
+    input:
+      USER_MESSAGE:
+        type: string
+      FILES:
+        type: file[]
+
 skills:
   crawl-urls:
     display: description
@@ -30,6 +37,25 @@ handlers:
       input: [USER_MESSAGE]
       files: [FILES]
       display: hidden
+
+    Respond:
+      block: next-message
+
+  image-edit:
+    Add user message:
+      block: add-message
+      role: user
+      prompt: user-message
+      input: [USER_MESSAGE]
+      files: [FILES]
+      display: hidden
+
+    Edit image:
+      block: generate-image
+      imageModel: openai/gpt-image-1
+      prompt: USER_MESSAGE
+      referenceImages: [FILES]
+      description: Editing your image…
 
     Respond:
       block: next-message
