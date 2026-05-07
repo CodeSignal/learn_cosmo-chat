@@ -77,6 +77,30 @@ npm start
 
 The app is available at **http://localhost:3000**.
 
+## Configuration
+
+Runtime behaviour can be tuned via `chat-config.json` in the project root. Copy the example file to get started:
+
+```bash
+cp chat-config.example.json chat-config.json
+```
+
+### Supported options
+
+| Key | Type | Description |
+|---|---|---|
+| `initialPrompt` | `string` | Text pre-populated in the composer on every page load. Supports multiple lines (`\n`). Leave empty (`""`) to start with a blank input. |
+
+**Example `chat-config.json`:**
+
+```json
+{
+  "initialPrompt": "Write a prompt that asks Cosmo to explain what a large language model is,\nusing simple analogies a 10-year-old could understand."
+}
+```
+
+> `chat-config.json` is committed to source control so you can version your configuration alongside the project. `chat-config.example.json` serves as a reference template.
+
 ## Project Structure
 
 ```
@@ -95,6 +119,8 @@ chat-cpt/
 │   ├── app.bundle.js         # Generated — do not edit directly
 │   └── app.css
 ├── server.js                 # Express server + orchestration proxy
+├── chat-config.json          # Runtime configuration (see Configuration section)
+├── chat-config.example.json  # Reference template for chat-config.json
 ├── chat-sessions.json        # Auto-generated session storage (gitignored)
 ├── .env                      # Secret credentials (gitignored)
 └── package.json

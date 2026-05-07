@@ -3,3 +3,4 @@ node_modules
 public/app.bundle.js
 public/hljs-*.css
 chat-sessions.json
+chat-config.json

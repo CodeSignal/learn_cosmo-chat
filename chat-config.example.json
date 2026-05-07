@@ -1,0 +1,3 @@
+{
+  "initialPrompt": "Write a prompt that asks Cosmo to explain what a large language model is,\nusing simple analogies that a 10-year-old could understand.\n\nThen, iterate on the prompt until the explanation is both accurate and engaging."
+}

@@ -7,6 +7,7 @@ import { OctavusClient, toSSEStream } from '@octavus/server-sdk';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SESSIONS_FILE = path.join(__dirname, 'chat-sessions.json');
+const CONFIG_FILE   = path.join(__dirname, 'chat-config.json');
 const app = express();
 const PORT = 3000;
 
@@ -22,6 +23,16 @@ const AGENT_ID = process.env.OCTAVUS_AGENT_ID;
 app.use(express.json());
 app.use('/design-system', express.static(path.join(__dirname, 'design-system')));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ── Config ────────────────────────────────────────────────────
+app.get('/api/config', async (_req, res) => {
+  try {
+    const raw = await fs.readFile(CONFIG_FILE, 'utf8');
+    res.json(JSON.parse(raw));
+  } catch {
+    res.json({});
+  }
+});
 
 // ── Session file helpers ──────────────────────────────────────
 async function readSessionsFile() {

@@ -120,6 +120,7 @@ let restoredMessages = [];
 let allSessionsMeta = []; // [{session_id, title, updated_at}]
 let streamingStartTime = null;
 let loadingIntervalId = null;
+let chatConfig = {};
 
 // ── Session wiring ────────────────────────────────────────────
 function buildChat(sid) {
@@ -196,9 +197,10 @@ async function switchSession(sid) {
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   try {
-    const [sessionRes, listRes] = await Promise.all([
+    const [sessionRes, listRes, configRes] = await Promise.all([
       fetch('/api/session'),
       fetch('/api/sessions'),
+      fetch('/api/config'),
     ]);
     if (!sessionRes.ok) throw new Error(await sessionRes.text());
 
@@ -208,6 +210,9 @@ async function init() {
 
     const listData = await listRes.json();
     allSessionsMeta = listData.sessions ?? [];
+
+    chatConfig = configRes.ok ? await configRes.json() : {};
+    applyInitialPrompt();
 
     buildChat(sessionId);
     renderMessages([], 'idle');
@@ -535,6 +540,13 @@ async function deleteSession(sid) {
 
 newChatBtn.addEventListener('click', startNewChat);
 
+function applyInitialPrompt() {
+  if (chatConfig.initialPrompt) {
+    promptInput.value = chatConfig.initialPrompt;
+    promptInput.dispatchEvent(new Event('input'));
+  }
+}
+
 async function startNewChat() {
   const res = await fetch('/api/sessions', { method: 'POST' });
   if (!res.ok) return;
@@ -544,7 +556,7 @@ async function startNewChat() {
   restoredMessages = [];
   lastStatus = null;
   clearAttachment();
-  promptInput.value = '';
+  applyInitialPrompt();
 
   // Prepend to the meta list so it appears at the top
   allSessionsMeta.unshift({ session_id: sessionId, title: 'New conversation', updated_at: new Date().toISOString() });
