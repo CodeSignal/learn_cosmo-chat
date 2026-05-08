@@ -1,0 +1,23 @@
+# Supported models for Octavus agents
+# Format: provider/model-id
+# Source: https://octavus.ai/docs/protocol/agent-config#models
+
+# Anthropic
+anthropic/claude-opus-4-7
+anthropic/claude-opus-4-6
+anthropic/claude-sonnet-4-6
+anthropic/claude-sonnet-4-5
+anthropic/claude-haiku-4-5
+
+# Google
+google/gemini-3-pro-preview
+google/gemini-3-flash-preview
+google/gemini-2.5-flash
+
+# OpenAI
+openai/gpt-5
+openai/gpt-4o
+openai/o4-mini
+openai/o3
+openai/o3-mini
+openai/o1

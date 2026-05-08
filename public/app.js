@@ -103,17 +103,16 @@ const emptyState          = document.getElementById('emptyState');
 const uploadBtn           = document.getElementById('uploadBtn');
 const fileInput           = document.getElementById('fileInput');
 const attachmentPreview   = document.getElementById('attachmentPreview');
-const attachmentName      = document.getElementById('attachmentName');
-const removeAttachmentBtn = document.getElementById('removeAttachmentBtn');
 const newChatBtn          = document.getElementById('newChatBtn');
 const sessionList         = document.getElementById('sessionList');
+const modelSelect         = document.getElementById('modelSelect');
 
 // ── State ─────────────────────────────────────────────────────
 let chat = null;
 let chatUnsubscribe = null;
 let sessionId = null;
-let pendingFiles = [];
-let uploadedFileRefs = [];
+// Each entry: { file: File, ref: FileRef|null, status: 'uploading'|'ready'|'error' }
+let fileItems = [];
 let isUploading = false;
 let lastStatus = null;
 let restoredMessages = [];
@@ -121,6 +120,8 @@ let allSessionsMeta = []; // [{session_id, title, updated_at}]
 let streamingStartTime = null;
 let loadingIntervalId = null;
 let chatConfig = {};
+let availableModels = [];
+let selectedModel = '';
 
 // ── Session wiring ────────────────────────────────────────────
 function buildChat(sid) {
@@ -194,13 +195,54 @@ async function switchSession(sid) {
   renderSidebar();
 }
 
+// ── Model selector ────────────────────────────────────────────
+const PROVIDER_LABELS = { anthropic: 'Anthropic', google: 'Google', openai: 'OpenAI' };
+
+function renderModelSelector() {
+  const modelStatic = document.getElementById('modelStatic');
+  if (availableModels.length === 1) {
+    modelSelect.style.display = 'none';
+    modelStatic.removeAttribute('hidden');
+    modelStatic.style.display = '';
+    modelStatic.textContent = availableModels[0].split('/')[1];
+    return;
+  }
+  modelSelect.style.display = '';
+  modelStatic.setAttribute('hidden', '');
+  modelSelect.innerHTML = '';
+  const byProvider = {};
+  for (const m of availableModels) {
+    const [provider] = m.split('/');
+    if (!byProvider[provider]) byProvider[provider] = [];
+    byProvider[provider].push(m);
+  }
+  for (const [provider, models] of Object.entries(byProvider)) {
+    const group = document.createElement('optgroup');
+    group.label = PROVIDER_LABELS[provider] ?? provider;
+    for (const m of models) {
+      const opt = document.createElement('option');
+      opt.value = m;
+      opt.textContent = m.split('/')[1];
+      if (m === selectedModel) opt.selected = true;
+      group.appendChild(opt);
+    }
+    modelSelect.appendChild(group);
+  }
+}
+
+modelSelect.addEventListener('change', () => {
+  selectedModel = modelSelect.value;
+  startNewChat();
+});
+
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   try {
-    const [sessionRes, listRes, configRes] = await Promise.all([
+    const [sessionRes, listRes, configRes, modelsRes] = await Promise.all([
       fetch('/api/session'),
       fetch('/api/sessions'),
       fetch('/api/config'),
+      fetch('/api/models'),
     ]);
     if (!sessionRes.ok) throw new Error(await sessionRes.text());
 
@@ -213,6 +255,11 @@ async function init() {
 
     chatConfig = configRes.ok ? await configRes.json() : {};
     applyInitialPrompt();
+
+    const modelsData = modelsRes.ok ? await modelsRes.json() : { models: [] };
+    availableModels = modelsData.models;
+    selectedModel = chatConfig.model || availableModels[0] || '';
+    renderModelSelector();
 
     buildChat(sessionId);
     renderMessages([], 'idle');
@@ -386,10 +433,11 @@ async function sendMessage() {
   if (!chat || sendBtn.disabled) return;
 
   const text = promptInput.value.trim();
-  if (!text && uploadedFileRefs.length === 0) return;
+  const readyRefs = fileItems.filter((i) => i.status === 'ready').map((i) => i.ref);
+  if (!text && readyRefs.length === 0) return;
 
   promptInput.value = '';
-  const filesToSend = [...uploadedFileRefs];
+  const filesToSend = readyRefs;
   clearAttachment();
   updateSendBtn();
 
@@ -416,47 +464,72 @@ async function sendMessage() {
 uploadBtn.addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', async () => {
-  const file = fileInput.files[0];
-  if (!file || !chat) return;
+  const files = Array.from(fileInput.files);
+  if (!files.length || !chat) return;
 
-  // Reset so selecting the same file again fires 'change' next time
+  // Reset so re-selecting the same file(s) fires 'change' again
   fileInput.value = '';
 
-  pendingFiles = [file];
+  const newItems = files.map((f) => ({ file: f, ref: null, status: 'uploading' }));
+  fileItems = [...fileItems, ...newItems];
   isUploading = true;
-  attachmentName.textContent = file.name;
-  attachmentPreview.hidden = false;
-  attachmentPreview.classList.add('uploading');
+  renderAttachmentPreview();
   updateSendBtn();
 
   try {
-    // Pass the raw File; the SDK uploads it via requestUploadUrls and returns FileReferences
-    const refs = await chat.uploadFiles([file]);
-    uploadedFileRefs = refs;
-    attachmentPreview.classList.remove('uploading');
-    attachmentPreview.classList.add('ready');
+    const refs = await chat.uploadFiles(files);
+    refs.forEach((ref, i) => {
+      newItems[i].ref = ref;
+      newItems[i].status = 'ready';
+    });
   } catch (err) {
     console.error('[ChatCPT] Upload error:', err);
-    attachmentPreview.classList.remove('uploading');
-    attachmentPreview.classList.add('error');
-    attachmentName.textContent = `Upload failed: ${file.name}`;
+    newItems.forEach((item) => { item.status = 'error'; });
   } finally {
     isUploading = false;
+    renderAttachmentPreview();
     updateSendBtn();
   }
 });
 
-removeAttachmentBtn.addEventListener('click', () => {
-  fileInput.value = '';
-  clearAttachment();
-  updateSendBtn();
-});
+function renderAttachmentPreview() {
+  const hasItems = fileItems.length > 0;
+  attachmentPreview.hidden = !hasItems;
+  attachmentPreview.innerHTML = '';
+
+  fileItems.forEach((item, idx) => {
+    const isImage = item.file.type?.startsWith('image/');
+    const tag = document.createElement('span');
+    tag.className = `tag outline composer__file-tag composer__file-tag--${item.status}`;
+
+    const icon = isImage
+      ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`
+      : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+
+    const label = item.status === 'uploading' ? `↑ ${item.file.name}` :
+                  item.status === 'error'     ? `✕ ${item.file.name}` :
+                  item.file.name;
+
+    tag.innerHTML = `${icon}<span>${label}</span>`;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'button button-text button-xsmall composer__remove-btn';
+    removeBtn.setAttribute('aria-label', `Remove ${item.file.name}`);
+    removeBtn.textContent = '✕';
+    removeBtn.addEventListener('click', () => {
+      fileItems.splice(idx, 1);
+      renderAttachmentPreview();
+      updateSendBtn();
+    });
+
+    tag.appendChild(removeBtn);
+    attachmentPreview.appendChild(tag);
+  });
+}
 
 function clearAttachment() {
-  pendingFiles = [];
-  uploadedFileRefs = [];
-  attachmentPreview.hidden = true;
-  attachmentPreview.classList.remove('uploading', 'ready', 'error');
+  fileItems = [];
+  renderAttachmentPreview();
 }
 
 // ── Input wiring ──────────────────────────────────────────────
@@ -474,7 +547,7 @@ sendBtn.addEventListener('click', sendMessage);
 function updateSendBtn() {
   const streaming = chat?.status === 'streaming';
   const hasText = promptInput.value.trim().length > 0;
-  const hasFile = uploadedFileRefs.length > 0;
+  const hasFile = fileItems.some((i) => i.status === 'ready');
   sendBtn.disabled = streaming || isUploading || (!hasText && !hasFile);
 }
 
@@ -545,7 +618,11 @@ function applyInitialPrompt() {
 }
 
 async function startNewChat() {
-  const res = await fetch('/api/sessions', { method: 'POST' });
+  const res = await fetch('/api/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: selectedModel }),
+  });
   if (!res.ok) return;
   const data = await res.json();
 

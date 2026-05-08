@@ -47,6 +47,12 @@
 
       <nav class="sidebar__sessions" id="sessionList" aria-label="Conversations"></nav>
 
+      <div class="sidebar__model">
+        <label class="body-xsmall sidebar__model-label" for="modelSelect">Model</label>
+        <select class="input sidebar__model-select" id="modelSelect" aria-label="Select model"></select>
+        <span class="body-xsmall sidebar__model-static" id="modelStatic" hidden></span>
+      </div>
+
     </aside>
 
     <!-- ── MAIN CHAT AREA ── -->
@@ -64,18 +70,7 @@
       <footer class="composer-wrap">
         <div class="box emphasized non-interactive composer" id="composer">
 
-          <div class="composer__attachment" id="attachmentPreview" hidden>
-            <span class="tag outline">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-              </svg>
-              <span id="attachmentName"></span>
-            </span>
-            <button class="button button-text button-xsmall composer__remove-btn"
-                    id="removeAttachmentBtn"
-                    aria-label="Remove attachment">✕</button>
-          </div>
+          <div class="composer__attachment" id="attachmentPreview" hidden></div>
 
           <textarea
             class="input composer__textarea"
@@ -114,7 +109,7 @@
 
   </div><!-- /.chat-app -->
 
-  <input type="file" id="fileInput" accept=".pdf,.txt,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp" style="display:none" aria-hidden="true" />
+  <input type="file" id="fileInput" accept=".pdf,.txt,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp" multiple style="display:none" aria-hidden="true" />
 
   <script type="module" src="/app.bundle.js"></script>
 </body>

@@ -8,6 +8,7 @@ import { OctavusClient, toSSEStream } from '@octavus/server-sdk';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SESSIONS_FILE = path.join(__dirname, 'chat-sessions.json');
 const CONFIG_FILE   = path.join(__dirname, 'chat-config.json');
+const MODELS_FILE   = path.join(__dirname, 'current-models.txt');
 const app = express();
 const PORT = 3000;
 
@@ -38,6 +39,26 @@ app.get('/api/config', async (_req, res) => {
   res.json(await readConfig());
 });
 
+// ── Models ─────────────────────────────────────────────────────
+app.get('/api/models', async (_req, res) => {
+  try {
+    const [raw, config] = await Promise.all([
+      fs.readFile(MODELS_FILE, 'utf8'),
+      readConfig(),
+    ]);
+    let models = raw.split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'));
+    if (Array.isArray(config.allowedModels) && config.allowedModels.length > 0) {
+      const allowed = new Set(config.allowedModels);
+      models = models.filter((m) => allowed.has(m));
+    }
+    res.json({ models });
+  } catch {
+    res.json({ models: [] });
+  }
+});
+
 // ── Session file helpers ──────────────────────────────────────
 async function readSessionsFile() {
   try {
@@ -58,12 +79,13 @@ function deriveTitle(messages) {
   return first.content.length > 45 ? first.content.slice(0, 45) + '…' : first.content;
 }
 
-async function createNewSession() {
+async function createNewSession(options = {}) {
   const config = await readConfig();
   const input = {};
-  if (config.systemPromptExtra) {
-    input.EXTRA_INSTRUCTIONS = config.systemPromptExtra;
-  }
+  const model = options.model || config.model;
+  if (model) input.MODEL = model;
+  if (config.systemPromptExtra) input.EXTRA_INSTRUCTIONS = config.systemPromptExtra;
+  console.log('[session] Creating with input:', JSON.stringify(input));
   const sessionId = await octavus.agentSessions.create(AGENT_ID, input);
   const record = {
     session_id: sessionId,
@@ -134,7 +156,7 @@ app.post('/api/sessions', async (req, res) => {
     return res.status(503).json({ error: 'OCTAVUS_AGENT_ID is not configured' });
   }
   try {
-    const record = await createNewSession();
+    const record = await createNewSession({ model: req.body.model });
     res.json({ sessionId: record.session_id, messages: [] });
   } catch (err) {
     console.error('[sessions] Error creating session:', err);

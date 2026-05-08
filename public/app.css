@@ -73,6 +73,31 @@ html, body {
   margin: 0 calc(-1 * var(--UI-Spacing-spacing-xxs));
 }
 
+.sidebar__model {
+  padding-top: var(--UI-Spacing-spacing-xs);
+  border-top: 1px solid var(--Colors-Stroke-Default);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar__model-label {
+  color: var(--Colors-Text-Body-Secondary);
+}
+
+.sidebar__model-select {
+  width: 100%;
+  font-size: 0.75rem;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.sidebar__model-static {
+  color: var(--Colors-Text-Body-Primary);
+  font-size: 0.75rem;
+  padding: 4px 2px;
+}
+
 /* ── Session list items ── */
 .session-item {
   display: flex;

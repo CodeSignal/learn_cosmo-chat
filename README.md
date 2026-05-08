@@ -90,6 +90,7 @@ cp chat-config.example.json chat-config.json
 | Key | Type | Description |
 |---|---|---|
 | `initialPrompt` | `string` | Text pre-populated in the composer on every page load and when creating a new chat. Supports multiple lines (`\n`). Leave empty (`""`) to start with a blank input. |
+| `allowedModels` | `string[]` | Whitelist of model IDs available in the picker. When set to a non-empty array, only those models are shown. When omitted or `[]`, all models from `current-models.txt` are available. |
 | `systemPromptExtra` | `string` | Additional instructions appended to Cosmo's system prompt at session creation. Use this to tailor the persona or add domain-specific context without touching `agents/cosmo-tutor/prompts/system.md`. Supports multiple lines (`\n`). Leave empty (`""`) for no extra instructions. |
 
 **Example `chat-config.json`:**

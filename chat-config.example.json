@@ -1,4 +1,10 @@
 {
   "initialPrompt": "Write a prompt that asks Cosmo to explain what a large language model is,\nusing simple analogies that a 10-year-old could understand.\n\nThen, iterate on the prompt until the explanation is both accurate and engaging.",
+  "model": "anthropic/claude-opus-4-7",
+  "allowedModels": [
+    "anthropic/claude-opus-4-7",
+    "anthropic/claude-sonnet-4-6",
+    "openai/gpt-5"
+  ],
   "systemPromptExtra": "You are assisting students in a Python programming course. Focus all examples, analogies, and exercises on Python. When discussing prompting techniques, always relate them back to coding tasks."
 }

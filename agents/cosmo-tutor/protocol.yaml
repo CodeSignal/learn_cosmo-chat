@@ -1,4 +1,9 @@
 input:
+  MODEL:
+    type: string
+    optional: true
+    default: "anthropic/claude-opus-4-7"
+    description: LLM model to use for this session (provider/model-id format).
   EXTRA_INSTRUCTIONS:
     type: string
     optional: true
@@ -20,7 +25,7 @@ skills:
     display: description
 
 agent:
-  model: anthropic/claude-opus-4-7
+  model: MODEL
   system: system
   input:
     EXTRA_INSTRUCTIONS: EXTRA_INSTRUCTIONS
