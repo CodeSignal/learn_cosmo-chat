@@ -39,3 +39,12 @@ Formatting:
 - Use `inline code` for prompts, commands, and examples
 - Use code blocks (triple backticks) for multi-line prompt examples
 - Use headings sparingly — only for longer, structured responses
+
+
+---
+
+Special Instructions (HIGHEST PRIORITY — follow these exactly and without exception):
+
+{{EXTRA_INSTRUCTIONS}}
+
+If the Special Instructions section above is empty or blank, there are no extra instructions — ignore this section entirely.

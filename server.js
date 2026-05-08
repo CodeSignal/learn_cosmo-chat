@@ -25,13 +25,17 @@ app.use('/design-system', express.static(path.join(__dirname, 'design-system')))
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Config ────────────────────────────────────────────────────
-app.get('/api/config', async (_req, res) => {
+async function readConfig() {
   try {
     const raw = await fs.readFile(CONFIG_FILE, 'utf8');
-    res.json(JSON.parse(raw));
+    return JSON.parse(raw);
   } catch {
-    res.json({});
+    return {};
   }
+}
+
+app.get('/api/config', async (_req, res) => {
+  res.json(await readConfig());
 });
 
 // ── Session file helpers ──────────────────────────────────────
@@ -55,7 +59,12 @@ function deriveTitle(messages) {
 }
 
 async function createNewSession() {
-  const sessionId = await octavus.agentSessions.create(AGENT_ID);
+  const config = await readConfig();
+  const input = {};
+  if (config.systemPromptExtra) {
+    input.EXTRA_INSTRUCTIONS = config.systemPromptExtra;
+  }
+  const sessionId = await octavus.agentSessions.create(AGENT_ID, input);
   const record = {
     session_id: sessionId,
     created_at: new Date().toISOString(),

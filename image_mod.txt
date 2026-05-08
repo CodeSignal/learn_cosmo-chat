@@ -1,0 +1,58 @@
+diff --git a/agents/cosmo-tutor/prompts/user-message.md b/agents/cosmo-tutor/prompts/user-message.md
+index a45f87e..77fe6d1 100644
+--- a/agents/cosmo-tutor/prompts/user-message.md
++++ b/agents/cosmo-tutor/prompts/user-message.md
+@@ -1 +1,7 @@
+ {{USER_MESSAGE}}
++
++---
++
++## Attached files if any
++
++{{FILES}}
+diff --git a/agents/cosmo-tutor/protocol.yaml b/agents/cosmo-tutor/protocol.yaml
+index fa6af9b..5c47d4e 100644
+--- a/agents/cosmo-tutor/protocol.yaml
++++ b/agents/cosmo-tutor/protocol.yaml
+@@ -12,7 +12,7 @@ skills:
+     display: description
+ 
+ agent:
+-  model: openai/gpt-4o
++  model: anthropic/claude-opus-4-7
+   system: system
+   temperature: 0.7
+   webSearch: true
+@@ -27,8 +27,9 @@ handlers:
+       block: add-message
+       role: user
+       prompt: user-message
+-      input: [USER_MESSAGE]
++      input: [USER_MESSAGE, FILES]
+       files: [FILES]
++      uiContent: USER_MESSAGE
+       display: hidden
+ 
+     Respond:
+diff --git a/public/app.js b/public/app.js
+index d88bd9e..4477907 100644
+--- a/public/app.js
++++ b/public/app.js
+@@ -306,13 +306,15 @@ function renderMessages(liveMessages, status) {
+ 
+     if (msg.role === 'assistant') {
+       const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
++      const fileParts = msg.parts.filter((p) => p.type === 'file');
+       const streaming = msg.status === 'streaming';
+       const hasText = text.trim().length > 0;
+ 
+       const renderedHtml = marked.parse(text);
+-      const bodyContent = (streaming && !hasText)
++      const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
++      const bodyContent = (streaming && !hasText && fileParts.length === 0)
+         ? renderLoadingState(msg.parts)
+-        : `${renderedHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}`;
++        : `${renderedHtml}${filesHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}`;
+ 
+       row.className = 'message message--ai';
+       row.innerHTML = `

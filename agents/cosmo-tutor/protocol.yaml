@@ -1,3 +1,10 @@
+input:
+  EXTRA_INSTRUCTIONS:
+    type: string
+    optional: true
+    default: ""
+    description: Additional instructions appended to the system prompt at session creation.
+
 triggers:
   user-message:
     input:
@@ -21,6 +28,8 @@ skills:
 agent:
   model: openai/gpt-4o
   system: system
+  input:
+    EXTRA_INSTRUCTIONS: EXTRA_INSTRUCTIONS
   temperature: 0.7
   webSearch: true
   agentic: true

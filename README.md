@@ -89,13 +89,15 @@ cp chat-config.example.json chat-config.json
 
 | Key | Type | Description |
 |---|---|---|
-| `initialPrompt` | `string` | Text pre-populated in the composer on every page load. Supports multiple lines (`\n`). Leave empty (`""`) to start with a blank input. |
+| `initialPrompt` | `string` | Text pre-populated in the composer on every page load and when creating a new chat. Supports multiple lines (`\n`). Leave empty (`""`) to start with a blank input. |
+| `systemPromptExtra` | `string` | Additional instructions appended to Cosmo's system prompt at session creation. Use this to tailor the persona or add domain-specific context without touching `agents/cosmo-tutor/prompts/system.md`. Supports multiple lines (`\n`). Leave empty (`""`) for no extra instructions. |
 
 **Example `chat-config.json`:**
 
 ```json
 {
-  "initialPrompt": "Write a prompt that asks Cosmo to explain what a large language model is,\nusing simple analogies a 10-year-old could understand."
+  "initialPrompt": "Write a prompt that asks Cosmo to explain what a large language model is,\nusing simple analogies a 10-year-old could understand.",
+  "systemPromptExtra": "You are assisting students in a Python programming course. Focus all examples and exercises on Python."
 }
 ```
 
