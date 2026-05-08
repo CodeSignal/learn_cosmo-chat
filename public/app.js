@@ -419,6 +419,9 @@ fileInput.addEventListener('change', async () => {
   const file = fileInput.files[0];
   if (!file || !chat) return;
 
+  // Reset so selecting the same file again fires 'change' next time
+  fileInput.value = '';
+
   pendingFiles = [file];
   isUploading = true;
   attachmentName.textContent = file.name;
