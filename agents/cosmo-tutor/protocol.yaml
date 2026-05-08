@@ -14,19 +14,13 @@ triggers:
         type: file[]
         optional: true
 
-  image-edit:
-    input:
-      USER_MESSAGE:
-        type: string
-      FILES:
-        type: file[]
 
 skills:
   crawl-urls:
     display: description
 
 agent:
-  model: openai/gpt-4o
+  model: anthropic/claude-opus-4-7
   system: system
   input:
     EXTRA_INSTRUCTIONS: EXTRA_INSTRUCTIONS
@@ -43,28 +37,11 @@ handlers:
       block: add-message
       role: user
       prompt: user-message
-      input: [USER_MESSAGE]
+      input: [USER_MESSAGE, FILES]
       files: [FILES]
+      uiContent: USER_MESSAGE
       display: hidden
 
     Respond:
       block: next-message
 
-  image-edit:
-    Add user message:
-      block: add-message
-      role: user
-      prompt: user-message
-      input: [USER_MESSAGE]
-      files: [FILES]
-      display: hidden
-
-    Edit image:
-      block: generate-image
-      imageModel: openai/gpt-image-1
-      prompt: USER_MESSAGE
-      referenceImages: [FILES]
-      description: Editing your image…
-
-    Respond:
-      block: next-message

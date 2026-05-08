@@ -311,13 +311,24 @@ function renderMessages(liveMessages, status) {
 
     if (msg.role === 'assistant') {
       const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
+      const fileParts = msg.parts.filter((p) => p.type === 'file');
       const streaming = msg.status === 'streaming';
       const hasText = text.trim().length > 0;
-
       const renderedHtml = marked.parse(text);
-      const bodyContent = (streaming && !hasText)
-        ? renderLoadingState(msg.parts)
-        : `${renderedHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}`;
+      const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
+
+      let bodyContent;
+      if (streaming && !hasText && fileParts.length === 0) {
+        // Nothing at all yet — show loading indicator on its own
+        bodyContent = renderLoadingState(msg.parts);
+      } else if (streaming && fileParts.length === 0) {
+        // Text is in, but still waiting for output — show text then loading indicator
+        // renderLoadingState picks "Thinking…" normally, "Creating image…" shimmer
+        // when octavus_generate_image tool call is active
+        bodyContent = `${renderedHtml}${renderLoadingState(msg.parts)}<span class="cursor" aria-hidden="true"></span>`;
+      } else {
+        bodyContent = `${renderedHtml}${filesHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}`;
+      }
 
       row.className = 'message message--ai';
       row.innerHTML = `
@@ -371,21 +382,6 @@ function renderFilePart(part) {
 }
 
 // ── Send ──────────────────────────────────────────────────────
-
-// Matches phrasing that indicates the user wants to edit/transform an uploaded image
-// rather than just analyze or describe it.
-const IMAGE_EDIT_INTENT = /\b(edit|modify|change|transform|convert|turn\s+(?:it\s+)?into|make\s+(?:it\s+)?(?:look|into)|apply|remove|add\s+(?:a\s+)?(?:background|effect|filter|style)|draw|sketch|paint|stylize|render|filter|generate\s+(?:a\s+)?(?:new\s+)?(?:version|image)\s+(?:of|from)|based\s+on|create\s+(?:a\s+)?(?:new\s+)?(?:version|image)\s+(?:of|from)|alter|adjust|enhance|redraw|reimagine|recreate|redesign|without|with\s+(?:a\s+)?(?:beard|glasses|hat|smile|different))\b/i;
-
-function chooseTrigger(text, filesToSend) {
-  const hasImageFiles = filesToSend.some(
-    (f) => f.mediaType && f.mediaType.startsWith('image/'),
-  );
-  if (hasImageFiles && IMAGE_EDIT_INTENT.test(text)) {
-    return 'image-edit';
-  }
-  return 'user-message';
-}
-
 async function sendMessage() {
   if (!chat || sendBtn.disabled) return;
 
@@ -397,11 +393,9 @@ async function sendMessage() {
   clearAttachment();
   updateSendBtn();
 
-  const trigger = chooseTrigger(text, filesToSend);
-
   try {
     await chat.send(
-      trigger,
+      'user-message',
       {
         USER_MESSAGE: text,
         ...(filesToSend.length > 0 && { FILES: filesToSend }),
