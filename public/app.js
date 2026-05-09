@@ -667,10 +667,10 @@ function saveSession(liveMessages) {
       timestamp: new Date().toISOString(),
     }));
 
-  const allMessages = [...restoredMessages, ...liveSerialized];
-
-  // Update in-memory restored set so subsequent saves don't lose new messages
-  restoredMessages = allMessages;
+  // Octavus returns the full session history in chat.messages, so liveSerialized
+  // already contains every message. Only fall back to restoredMessages if no
+  // live messages exist yet (e.g. the session was just loaded but nothing sent).
+  const allMessages = liveSerialized.length > 0 ? liveSerialized : restoredMessages;
 
   fetch('/api/session/save', {
     method: 'POST',
