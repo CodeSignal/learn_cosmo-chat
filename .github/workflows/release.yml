@@ -35,7 +35,6 @@ jobs:
           tar -czf /tmp/dist.tar.gz \
             --exclude='.git' \
             --exclude='.github' \
-            --exclude='node_modules' \
             --exclude='.env' \
             --exclude='chat-sessions.json' \
             --exclude='public/app.js' \
