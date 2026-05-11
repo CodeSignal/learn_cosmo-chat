@@ -6,6 +6,16 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* Shimmer highlight adapts between light and dark modes */
+:root {
+  --shimmer-highlight: rgba(255, 255, 255, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --shimmer-highlight: rgba(255, 255, 255, 0.08);
+  }
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -70,7 +80,7 @@ html, body {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--UI-Spacing-spacing-min);
   margin: 0 calc(-1 * var(--UI-Spacing-spacing-xxs));
 }
 
@@ -79,7 +89,7 @@ html, body {
   border-top: 1px solid var(--Colors-Stroke-Default);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--UI-Spacing-spacing-xxs);
 }
 
 .sidebar__model-label {
@@ -88,9 +98,19 @@ html, body {
 
 
 .sidebar__model-static {
-  color: var(--Colors-Text-Body-Primary);
-  font-size: 0.75rem;
-  padding: 4px 2px;
+  color: var(--Colors-Text-Body-Default);
+  padding: var(--UI-Spacing-spacing-xxs) var(--UI-Spacing-spacing-min);
+}
+
+.sidebar__settings-btn {
+  width: 100%;
+  justify-content: flex-start;
+  gap: var(--UI-Spacing-spacing-xxs);
+  color: var(--Colors-Text-Body-Secondary);
+}
+
+.sidebar__settings-btn:hover {
+  color: var(--Colors-Text-Body-Default);
 }
 
 /* ── Session list items ── */
@@ -118,7 +138,6 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.8rem;
   color: var(--Colors-Text-Body-Default);
   line-height: 1.4;
 }
@@ -195,7 +214,7 @@ html, body {
 
 .loading-indicator__dots {
   display: flex;
-  gap: 4px;
+  gap: var(--UI-Spacing-spacing-xxs);
   align-items: center;
 }
 
@@ -215,9 +234,7 @@ html, body {
   40%            { transform: scale(1);    opacity: 1; }
 }
 
-.loading-indicator__label {
-  font-size: 0.875rem;
-}
+/* .loading-indicator__label typography handled by body-xsmall class applied in JS */
 
 /* Image generation placeholder */
 .image-placeholder {
@@ -247,9 +264,9 @@ html, body {
   inset: 0;
   background: linear-gradient(
     90deg,
-    transparent      0%,
-    rgba(255,255,255,0.18) 50%,
-    transparent      100%
+    transparent              0%,
+    var(--shimmer-highlight) 50%,
+    transparent              100%
   );
   background-size: 200% 100%;
   animation: image-shimmer 1.6s ease-in-out infinite;
@@ -271,13 +288,13 @@ html, body {
   align-items: center;
   gap: var(--UI-Spacing-spacing-xs);
   color: var(--Colors-Text-Body-Secondary);
-  font-size: 0.875rem;
   list-style: none; /* prevent markdown context from adding bullets */
+  /* typography handled by body-xsmall class applied in JS */
 }
 
 .image-placeholder__status .loading-indicator__dots {
   display: flex;
-  gap: 4px;
+  gap: var(--UI-Spacing-spacing-xxs);
   align-items: center;
   list-style: none;
 }
@@ -381,8 +398,8 @@ html, body {
   display: flex;
   align-items: center;
   padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
-  background-color: var(--Colors-Base-Neutral-1150);
-  border-bottom: 1px solid var(--Colors-Base-Neutral-1100);
+  background-color: var(--Colors-Base-Neutral-1100);
+  border-bottom: 1px solid var(--Colors-Base-Neutral-1050);
 }
 
 .code-block__lang {
@@ -551,6 +568,33 @@ html, body {
   text-align: center;
   color: var(--Colors-Text-Body-Secondary);
   display: block;
+}
+
+/* ============================================================
+   SETTINGS MODAL
+   ============================================================ */
+.settings-content {
+  padding: var(--UI-Spacing-spacing-xs) 0;
+}
+
+.settings-section__title {
+  display: block;
+  margin: 0 0 var(--UI-Spacing-spacing-s);
+  color: var(--Colors-Text-Body-Secondary);
+}
+
+.settings-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--UI-Spacing-spacing-xxs);
+}
+
+.settings-row__desc {
+  color: var(--Colors-Text-Body-Secondary);
+}
+
+.settings-slider-container {
+  margin-top: var(--UI-Spacing-spacing-s);
 }
 
 /* ============================================================

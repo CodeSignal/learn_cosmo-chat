@@ -5,6 +5,8 @@
 
 import { OctavusChat, createHttpTransport } from '@octavus/client-sdk';
 import Dropdown from '../design-system/components/dropdown/dropdown.js';
+import Modal from '../design-system/components/modal/modal.js';
+import NumericSlider from '../design-system/components/numeric-slider/numeric-slider.js';
 import { marked } from 'marked';
 import hljs from 'highlight.js/lib/core';
 import python from 'highlight.js/lib/languages/python';
@@ -107,6 +109,7 @@ const attachmentPreview   = document.getElementById('attachmentPreview');
 const newChatBtn          = document.getElementById('newChatBtn');
 const sessionList         = document.getElementById('sessionList');
 const modelSelect         = document.getElementById('modelSelect');
+const settingsBtn         = document.getElementById('settingsBtn');
 
 // ── State ─────────────────────────────────────────────────────
 let chat = null;
@@ -123,6 +126,9 @@ let loadingIntervalId = null;
 let chatConfig = {};
 let availableModels = [];
 let selectedModel = '';
+let selectedTemperature = 0.7;
+let settingsModal = null;
+let temperatureSliderInstance = null;
 
 // ── Session wiring ────────────────────────────────────────────
 function buildChat(sid) {
@@ -235,6 +241,56 @@ function renderModelSelector() {
   });
 }
 
+// ── Settings modal ────────────────────────────────────────────
+function openSettings() {
+  if (!settingsModal) {
+    const content = document.createElement('div');
+    content.className = 'settings-content';
+    content.innerHTML = `
+      <section class="settings-section">
+        <h3 class="label-small settings-section__title">Generation</h3>
+        <div class="settings-row">
+          <label class="body-small settings-row__label">Temperature</label>
+          <p class="body-xsmall settings-row__desc">Controls randomness. Lower = more focused, higher = more creative.</p>
+          <div class="settings-slider-container" id="temperatureSliderEl"></div>
+        </div>
+      </section>
+    `;
+
+    settingsModal = new Modal({
+      size: 'small',
+      title: 'Settings',
+      content,
+      closeOnOverlayClick: true,
+      closeOnEscape: true,
+      onOpen: () => {
+        // Reinit slider each open so it measures the now-visible DOM
+        if (temperatureSliderInstance) temperatureSliderInstance.destroy();
+        temperatureSliderInstance = new NumericSlider(
+          settingsModal.content.querySelector('#temperatureSliderEl'),
+          {
+            type: 'single',
+            min: 0,
+            max: 1,
+            step: 0.05,
+            value: selectedTemperature,
+            showInputs: true,
+            continuousUpdates: true,
+            onChange: (value) => { selectedTemperature = value; },
+          }
+        );
+      },
+      footerButtons: [
+        { label: 'Close', type: 'secondary', onClick: () => settingsModal.close() },
+        { label: 'Apply & New Chat', type: 'primary', onClick: () => { settingsModal.close(); startNewChat(); } },
+      ],
+    });
+  }
+  settingsModal.open();
+}
+
+settingsBtn.addEventListener('click', openSettings);
+
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   try {
@@ -255,6 +311,7 @@ async function init() {
 
     chatConfig = configRes.ok ? await configRes.json() : {};
     applyInitialPrompt();
+    if (chatConfig.temperature !== undefined) selectedTemperature = chatConfig.temperature;
 
     const modelsData = modelsRes.ok ? await modelsRes.json() : { models: [] };
     availableModels = modelsData.models;
@@ -302,8 +359,8 @@ function renderLoadingState(parts = []) {
             <polyline points="21 15 16 10 5 21"/>
           </svg>
         </div>
-        <div class="image-placeholder__status" style="list-style:none">
-          <span class="loading-indicator__dots" aria-hidden="true" style="display:flex;gap:4px;list-style:none">
+        <div class="image-placeholder__status body-xsmall" style="list-style:none">
+          <span class="loading-indicator__dots" aria-hidden="true" style="display:flex;list-style:none">
             <span></span><span></span><span></span>
           </span>
           <span>${label}</span>
@@ -332,7 +389,7 @@ function renderLoadingState(parts = []) {
       <span class="loading-indicator__dots" aria-hidden="true">
         <span></span><span></span><span></span>
       </span>
-      <span class="loading-indicator__label">${icon ? `${icon} ` : ''}${label}</span>
+      <span class="loading-indicator__label body-xsmall">${icon ? `${icon} ` : ''}${label}</span>
     </div>
   `;
 }
@@ -621,7 +678,7 @@ async function startNewChat() {
   const res = await fetch('/api/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: selectedModel }),
+    body: JSON.stringify({ model: selectedModel, temperature: selectedTemperature }),
   });
   if (!res.ok) return;
   const data = await res.json();
