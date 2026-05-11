@@ -1,0 +1,292 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import fs from 'fs/promises';
+import {
+  deriveTitle,
+  readJsonFile,
+  writeJsonFile,
+  buildSessionInput,
+  buildSessionRecord,
+  filterModels,
+} from '../lib/helpers.js';
+
+vi.mock('fs/promises');
+
+// ── deriveTitle ───────────────────────────────────────────────
+
+describe('deriveTitle', () => {
+  it('returns the first user message content as-is when <= 45 chars', () => {
+    const messages = [{ role: 'user', content: 'Hello world' }];
+    expect(deriveTitle(messages)).toBe('Hello world');
+  });
+
+  it('truncates at 45 characters with ellipsis when content is longer', () => {
+    const long = 'A'.repeat(60);
+    const messages = [{ role: 'user', content: long }];
+    const result = deriveTitle(messages);
+    expect(result).toBe('A'.repeat(45) + '…');
+    expect(result.length).toBe(46);
+  });
+
+  it('returns content exactly 45 chars without truncation', () => {
+    const exact = 'B'.repeat(45);
+    const messages = [{ role: 'user', content: exact }];
+    expect(deriveTitle(messages)).toBe(exact);
+  });
+
+  it('skips non-user messages and uses the first user message', () => {
+    const messages = [
+      { role: 'assistant', content: 'I am Cosmo' },
+      { role: 'user', content: 'Actual question' },
+    ];
+    expect(deriveTitle(messages)).toBe('Actual question');
+  });
+
+  it('returns "New conversation" when messages array is empty', () => {
+    expect(deriveTitle([])).toBe('New conversation');
+  });
+
+  it('returns "New conversation" when messages is null', () => {
+    expect(deriveTitle(null)).toBe('New conversation');
+  });
+
+  it('returns "New conversation" when messages is undefined', () => {
+    expect(deriveTitle(undefined)).toBe('New conversation');
+  });
+
+  it('returns "New conversation" when no user message exists', () => {
+    const messages = [{ role: 'assistant', content: 'Hello' }];
+    expect(deriveTitle(messages)).toBe('New conversation');
+  });
+
+  it('returns "New conversation" when user message has no content', () => {
+    const messages = [{ role: 'user' }];
+    expect(deriveTitle(messages)).toBe('New conversation');
+  });
+
+  it('returns "New conversation" when user message content is empty string', () => {
+    const messages = [{ role: 'user', content: '' }];
+    expect(deriveTitle(messages)).toBe('New conversation');
+  });
+});
+
+// ── readJsonFile ──────────────────────────────────────────────
+
+describe('readJsonFile', () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it('parses valid JSON from a file', async () => {
+    fs.readFile.mockResolvedValue('{"key": "value"}');
+    const result = await readJsonFile('/fake/path.json');
+    expect(result).toEqual({ key: 'value' });
+    expect(fs.readFile).toHaveBeenCalledWith('/fake/path.json', 'utf8');
+  });
+
+  it('returns default fallback {} when file does not exist', async () => {
+    fs.readFile.mockRejectedValue(new Error('ENOENT'));
+    const result = await readJsonFile('/missing.json');
+    expect(result).toEqual({});
+  });
+
+  it('returns custom fallback when file does not exist', async () => {
+    fs.readFile.mockRejectedValue(new Error('ENOENT'));
+    const result = await readJsonFile('/missing.json', { sessions: [] });
+    expect(result).toEqual({ sessions: [] });
+  });
+
+  it('returns fallback when file contains invalid JSON', async () => {
+    fs.readFile.mockResolvedValue('not json {{{');
+    const result = await readJsonFile('/bad.json', []);
+    expect(result).toEqual([]);
+  });
+
+  it('handles arrays in JSON', async () => {
+    fs.readFile.mockResolvedValue('[1, 2, 3]');
+    const result = await readJsonFile('/array.json');
+    expect(result).toEqual([1, 2, 3]);
+  });
+});
+
+// ── writeJsonFile ─────────────────────────────────────────────
+
+describe('writeJsonFile', () => {
+  beforeEach(() => vi.resetAllMocks());
+
+  it('writes pretty-printed JSON to the specified path', async () => {
+    fs.writeFile.mockResolvedValue(undefined);
+    await writeJsonFile('/out.json', { a: 1 });
+    expect(fs.writeFile).toHaveBeenCalledWith('/out.json', JSON.stringify({ a: 1 }, null, 2));
+  });
+
+  it('propagates write errors', async () => {
+    fs.writeFile.mockRejectedValue(new Error('EACCES'));
+    await expect(writeJsonFile('/readonly.json', {})).rejects.toThrow('EACCES');
+  });
+});
+
+// ── buildSessionInput ─────────────────────────────────────────
+
+describe('buildSessionInput', () => {
+  it('uses model from options over config', () => {
+    const input = buildSessionInput(
+      { model: 'openai/gpt-4o' },
+      { model: 'anthropic/claude-3' },
+    );
+    expect(input.MODEL).toBe('openai/gpt-4o');
+  });
+
+  it('falls back to config model when options.model is absent', () => {
+    const input = buildSessionInput({}, { model: 'anthropic/claude-3' });
+    expect(input.MODEL).toBe('anthropic/claude-3');
+  });
+
+  it('omits MODEL when neither options nor config provide one', () => {
+    const input = buildSessionInput({}, {});
+    expect(input).not.toHaveProperty('MODEL');
+  });
+
+  it('includes EXTRA_INSTRUCTIONS from config.systemPromptExtra', () => {
+    const input = buildSessionInput({}, { systemPromptExtra: 'Be brief' });
+    expect(input.EXTRA_INSTRUCTIONS).toBe('Be brief');
+  });
+
+  it('omits EXTRA_INSTRUCTIONS when systemPromptExtra is empty', () => {
+    const input = buildSessionInput({}, { systemPromptExtra: '' });
+    expect(input).not.toHaveProperty('EXTRA_INSTRUCTIONS');
+  });
+
+  it('defaults thinking to "off"', () => {
+    const input = buildSessionInput({}, {});
+    expect(input.THINKING).toBe('off');
+  });
+
+  it('uses thinking from options over config', () => {
+    const input = buildSessionInput({ thinking: 'high' }, { thinking: 'low' });
+    expect(input.THINKING).toBe('high');
+  });
+
+  it('falls back to config thinking', () => {
+    const input = buildSessionInput({}, { thinking: 'medium' });
+    expect(input.THINKING).toBe('medium');
+  });
+
+  it('includes TEMPERATURE when thinking is off', () => {
+    const input = buildSessionInput({ temperature: 0.5 }, {});
+    expect(input.TEMPERATURE).toBe(0.5);
+  });
+
+  it('falls back to config temperature when thinking is off', () => {
+    const input = buildSessionInput({}, { temperature: 1.2 });
+    expect(input.TEMPERATURE).toBe(1.2);
+  });
+
+  it('excludes TEMPERATURE when thinking is active', () => {
+    const input = buildSessionInput(
+      { thinking: 'high', temperature: 0.5 },
+      { temperature: 0.7 },
+    );
+    expect(input).not.toHaveProperty('TEMPERATURE');
+  });
+
+  it('omits TEMPERATURE when neither options nor config provide one', () => {
+    const input = buildSessionInput({}, {});
+    expect(input).not.toHaveProperty('TEMPERATURE');
+  });
+
+  it('handles temperature of 0 correctly (falsy but valid)', () => {
+    const input = buildSessionInput({ temperature: 0 }, {});
+    expect(input.TEMPERATURE).toBe(0);
+  });
+});
+
+// ── buildSessionRecord ────────────────────────────────────────
+
+describe('buildSessionRecord', () => {
+  let dateSpy;
+
+  beforeEach(() => {
+    dateSpy = vi.spyOn(Date.prototype, 'toISOString').mockReturnValue('2026-01-01T00:00:00.000Z');
+  });
+
+  afterEach(() => {
+    dateSpy.mockRestore();
+  });
+
+  it('creates a record with the given session ID', () => {
+    const record = buildSessionRecord('sess-123');
+    expect(record.session_id).toBe('sess-123');
+  });
+
+  it('initializes with empty messages array', () => {
+    const record = buildSessionRecord('sess-123');
+    expect(record.messages).toEqual([]);
+  });
+
+  it('sets selected_submission to null', () => {
+    const record = buildSessionRecord('sess-123');
+    expect(record.selected_submission).toBeNull();
+  });
+
+  it('populates created_at and updated_at with ISO timestamps', () => {
+    const record = buildSessionRecord('sess-123');
+    expect(record.created_at).toBe('2026-01-01T00:00:00.000Z');
+    expect(record.updated_at).toBe('2026-01-01T00:00:00.000Z');
+  });
+});
+
+// ── filterModels ──────────────────────────────────────────────
+
+describe('filterModels', () => {
+  const rawText = [
+    '# Available models',
+    'openai/gpt-4o',
+    'anthropic/claude-3',
+    '',
+    '# Legacy',
+    'openai/gpt-3.5-turbo',
+  ].join('\n');
+
+  it('parses models from text, skipping comments and blank lines', () => {
+    const models = filterModels(rawText);
+    expect(models).toEqual([
+      'openai/gpt-4o',
+      'anthropic/claude-3',
+      'openai/gpt-3.5-turbo',
+    ]);
+  });
+
+  it('filters to allowed models when allowedModels is provided', () => {
+    const models = filterModels(rawText, ['openai/gpt-4o']);
+    expect(models).toEqual(['openai/gpt-4o']);
+  });
+
+  it('returns all models when allowedModels is empty array', () => {
+    const models = filterModels(rawText, []);
+    expect(models).toEqual([
+      'openai/gpt-4o',
+      'anthropic/claude-3',
+      'openai/gpt-3.5-turbo',
+    ]);
+  });
+
+  it('returns all models when allowedModels is undefined', () => {
+    const models = filterModels(rawText, undefined);
+    expect(models).toEqual([
+      'openai/gpt-4o',
+      'anthropic/claude-3',
+      'openai/gpt-3.5-turbo',
+    ]);
+  });
+
+  it('returns empty array from empty text', () => {
+    expect(filterModels('')).toEqual([]);
+  });
+
+  it('returns empty when no models match the allow list', () => {
+    expect(filterModels(rawText, ['nonexistent/model'])).toEqual([]);
+  });
+
+  it('trims whitespace from model names', () => {
+    const models = filterModels('  openai/gpt-4o  \n  anthropic/claude-3  ');
+    expect(models).toEqual(['openai/gpt-4o', 'anthropic/claude-3']);
+  });
+});

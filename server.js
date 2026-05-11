@@ -4,6 +4,14 @@ import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { OctavusClient, toSSEStream } from '@octavus/server-sdk';
+import {
+  deriveTitle,
+  readJsonFile,
+  writeJsonFile,
+  buildSessionInput,
+  buildSessionRecord,
+  filterModels,
+} from './lib/helpers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SESSIONS_FILE = path.join(__dirname, 'chat-sessions.json');
@@ -26,14 +34,7 @@ app.use('/design-system', express.static(path.join(__dirname, 'design-system')))
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Config ────────────────────────────────────────────────────
-async function readConfig() {
-  try {
-    const raw = await fs.readFile(CONFIG_FILE, 'utf8');
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
+const readConfig = () => readJsonFile(CONFIG_FILE);
 
 app.get('/api/config', async (_req, res) => {
   res.json(await readConfig());
@@ -46,61 +47,22 @@ app.get('/api/models', async (_req, res) => {
       fs.readFile(MODELS_FILE, 'utf8'),
       readConfig(),
     ]);
-    let models = raw.split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l && !l.startsWith('#'));
-    if (Array.isArray(config.allowedModels) && config.allowedModels.length > 0) {
-      const allowed = new Set(config.allowedModels);
-      models = models.filter((m) => allowed.has(m));
-    }
-    res.json({ models });
+    res.json({ models: filterModels(raw, config.allowedModels) });
   } catch {
     res.json({ models: [] });
   }
 });
 
 // ── Session file helpers ──────────────────────────────────────
-async function readSessionsFile() {
-  try {
-    const raw = await fs.readFile(SESSIONS_FILE, 'utf8');
-    return JSON.parse(raw);
-  } catch {
-    return { sessions: [] };
-  }
-}
-
-async function writeSessionsFile(data) {
-  await fs.writeFile(SESSIONS_FILE, JSON.stringify(data, null, 2));
-}
-
-function deriveTitle(messages) {
-  const first = messages?.find((m) => m.role === 'user');
-  if (!first?.content) return 'New conversation';
-  return first.content.length > 45 ? first.content.slice(0, 45) + '…' : first.content;
-}
+const readSessionsFile = () => readJsonFile(SESSIONS_FILE, { sessions: [] });
+const writeSessionsFile = (data) => writeJsonFile(SESSIONS_FILE, data);
 
 async function createNewSession(options = {}) {
   const config = await readConfig();
-  const input = {};
-  const model = options.model || config.model;
-  if (model) input.MODEL = model;
-  if (config.systemPromptExtra) input.EXTRA_INSTRUCTIONS = config.systemPromptExtra;
-  const thinking = options.thinking ?? config.thinking ?? 'off';
-  input.THINKING = thinking;
-  // Only send temperature when thinking is off (they are mutually exclusive)
-  if (thinking === 'off') {
-    const temperature = options.temperature ?? config.temperature;
-    if (temperature !== undefined) input.TEMPERATURE = temperature;
-  }
+  const input = buildSessionInput(options, config);
   console.log('[session] Creating with input:', JSON.stringify(input));
   const sessionId = await octavus.agentSessions.create(AGENT_ID, input);
-  const record = {
-    session_id: sessionId,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    messages: [],
-    selected_submission: null,
-  };
+  const record = buildSessionRecord(sessionId);
   const data = await readSessionsFile();
   data.sessions.push(record);
   await writeSessionsFile(data);
@@ -267,9 +229,13 @@ app.post('/api/trigger', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`ChatCPT running at http://localhost:${PORT}`);
-  if (!AGENT_ID) {
-    console.warn('⚠  OCTAVUS_AGENT_ID is not set — chat will not work until it is configured.');
-  }
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`ChatCPT running at http://localhost:${PORT}`);
+    if (!AGENT_ID) {
+      console.warn('⚠  OCTAVUS_AGENT_ID is not set — chat will not work until it is configured.');
+    }
+  });
+}
+
+export { app };
