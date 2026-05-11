@@ -587,13 +587,33 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: var(--UI-Spacing-spacing-xxs);
+  margin-bottom: var(--UI-Spacing-spacing-m);
+}
+
+.settings-row--disabled {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .settings-row__desc {
   color: var(--Colors-Text-Body-Secondary);
 }
 
+.settings-row__label-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--UI-Spacing-spacing-xs);
+}
+
+.settings-row__value {
+  color: var(--Colors-Text-Body-Secondary);
+}
+
 .settings-slider-container {
+  margin-top: var(--UI-Spacing-spacing-s);
+}
+
+.settings-dropdown-container {
   margin-top: var(--UI-Spacing-spacing-s);
 }
 

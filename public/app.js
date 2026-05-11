@@ -127,7 +127,9 @@ let chatConfig = {};
 let availableModels = [];
 let selectedModel = '';
 let selectedTemperature = 0.7;
+let selectedThinking = 'off';
 let settingsModal = null;
+let thinkingDropdownInstance = null;
 let temperatureSliderInstance = null;
 
 // ── Session wiring ────────────────────────────────────────────
@@ -242,6 +244,14 @@ function renderModelSelector() {
 }
 
 // ── Settings modal ────────────────────────────────────────────
+const THINKING_OPTIONS = [
+  { value: 'off',    label: 'Off' },
+  { value: 'low',    label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high',   label: 'High' },
+  { value: 'max',    label: 'Max' },
+];
+
 function openSettings() {
   if (!settingsModal) {
     const content = document.createElement('div');
@@ -249,36 +259,67 @@ function openSettings() {
     content.innerHTML = `
       <section class="settings-section">
         <h3 class="label-small settings-section__title">Generation</h3>
-        <div class="settings-row">
-          <label class="body-small settings-row__label">Temperature</label>
-          <p class="body-xsmall settings-row__desc">Controls randomness. Lower = more focused, higher = more creative.</p>
+
+        <div class="settings-row" id="temperatureRow">
+          <div class="settings-row__label-line">
+            <label class="body-small settings-row__label">Temperature</label>
+            <span class="body-small settings-row__value" id="temperatureValue"></span>
+          </div>
+          <p class="body-xsmall settings-row__desc">Controls randomness (0–2). Lower = more focused, higher = more creative. Disabled when Thinking is on.</p>
           <div class="settings-slider-container" id="temperatureSliderEl"></div>
+        </div>
+
+        <div class="settings-row">
+          <label class="body-small settings-row__label">Thinking</label>
+          <p class="body-xsmall settings-row__desc">Extended reasoning depth. When enabled, temperature is ignored by the model.</p>
+          <div class="settings-dropdown-container" id="thinkingDropdownEl"></div>
         </div>
       </section>
     `;
 
     settingsModal = new Modal({
-      size: 'small',
+      size: 'medium',
       title: 'Settings',
       content,
       closeOnOverlayClick: true,
       closeOnEscape: true,
       onOpen: () => {
-        // Reinit slider each open so it measures the now-visible DOM
+        const sliderEl    = settingsModal.content.querySelector('#temperatureSliderEl');
+        const dropdownEl  = settingsModal.content.querySelector('#thinkingDropdownEl');
+        const tempRow     = settingsModal.content.querySelector('#temperatureRow');
+
+        // Thinking dropdown
+        if (thinkingDropdownInstance) thinkingDropdownInstance.destroy();
+        thinkingDropdownInstance = new Dropdown(dropdownEl, {
+          items: THINKING_OPTIONS,
+          selectedValue: selectedThinking,
+          width: '100%',
+          onSelect: (value) => {
+            selectedThinking = value;
+            // Dim temperature row when thinking is active
+            tempRow.classList.toggle('settings-row--disabled', value !== 'off');
+          },
+        });
+
+        // Temperature slider — reinit each open so it measures the visible DOM
+        const tempValueEl = settingsModal.content.querySelector('#temperatureValue');
+        const updateTempLabel = (v) => { if (tempValueEl) tempValueEl.textContent = Number(v).toFixed(2); };
+        updateTempLabel(selectedTemperature);
+
         if (temperatureSliderInstance) temperatureSliderInstance.destroy();
-        temperatureSliderInstance = new NumericSlider(
-          settingsModal.content.querySelector('#temperatureSliderEl'),
-          {
-            type: 'single',
-            min: 0,
-            max: 1,
-            step: 0.05,
-            value: selectedTemperature,
-            showInputs: true,
-            continuousUpdates: true,
-            onChange: (value) => { selectedTemperature = value; },
-          }
-        );
+        temperatureSliderInstance = new NumericSlider(sliderEl, {
+          type: 'single',
+          min: 0,
+          max: 2,
+          step: 0.05,
+          value: selectedTemperature,
+          showInputs: false,
+          continuousUpdates: true,
+          onChange: (value) => { selectedTemperature = value; updateTempLabel(value); },
+        });
+
+        // Reflect current thinking state on open
+        tempRow.classList.toggle('settings-row--disabled', selectedThinking !== 'off');
       },
       footerButtons: [
         { label: 'Close', type: 'secondary', onClick: () => settingsModal.close() },
@@ -312,6 +353,7 @@ async function init() {
     chatConfig = configRes.ok ? await configRes.json() : {};
     applyInitialPrompt();
     if (chatConfig.temperature !== undefined) selectedTemperature = chatConfig.temperature;
+    if (chatConfig.thinking   !== undefined) selectedThinking    = chatConfig.thinking;
 
     const modelsData = modelsRes.ok ? await modelsRes.json() : { models: [] };
     availableModels = modelsData.models;
@@ -678,7 +720,7 @@ async function startNewChat() {
   const res = await fetch('/api/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: selectedModel, temperature: selectedTemperature }),
+    body: JSON.stringify({ model: selectedModel, temperature: selectedTemperature, thinking: selectedThinking }),
   });
   if (!res.ok) return;
   const data = await res.json();

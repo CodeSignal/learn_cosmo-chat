@@ -85,6 +85,13 @@ async function createNewSession(options = {}) {
   const model = options.model || config.model;
   if (model) input.MODEL = model;
   if (config.systemPromptExtra) input.EXTRA_INSTRUCTIONS = config.systemPromptExtra;
+  const thinking = options.thinking ?? config.thinking ?? 'off';
+  input.THINKING = thinking;
+  // Only send temperature when thinking is off (they are mutually exclusive)
+  if (thinking === 'off') {
+    const temperature = options.temperature ?? config.temperature;
+    if (temperature !== undefined) input.TEMPERATURE = temperature;
+  }
   console.log('[session] Creating with input:', JSON.stringify(input));
   const sessionId = await octavus.agentSessions.create(AGENT_ID, input);
   const record = {
@@ -156,7 +163,11 @@ app.post('/api/sessions', async (req, res) => {
     return res.status(503).json({ error: 'OCTAVUS_AGENT_ID is not configured' });
   }
   try {
-    const record = await createNewSession({ model: req.body.model });
+    const record = await createNewSession({
+      model: req.body.model,
+      temperature: req.body.temperature,
+      thinking: req.body.thinking,
+    });
     res.json({ sessionId: record.session_id, messages: [] });
   } catch (err) {
     console.error('[sessions] Error creating session:', err);
