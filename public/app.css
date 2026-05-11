@@ -43,7 +43,8 @@ html, body {
   padding: var(--UI-Spacing-spacing-ms);
   background-color: var(--Colors-Backgrounds-Main-Medium);
   border-right: 1px solid var(--Colors-Stroke-Default);
-  overflow: hidden;
+  /* overflow: visible lets the Dropdown menu panel escape the sidebar bounds */
+  overflow: visible;
 }
 
 .sidebar__header {
@@ -85,12 +86,6 @@ html, body {
   color: var(--Colors-Text-Body-Secondary);
 }
 
-.sidebar__model-select {
-  width: 100%;
-  font-size: 0.75rem;
-  padding: 4px 6px;
-  cursor: pointer;
-}
 
 .sidebar__model-static {
   color: var(--Colors-Text-Body-Primary);

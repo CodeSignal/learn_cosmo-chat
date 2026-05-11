@@ -4,6 +4,7 @@
  */
 
 import { OctavusChat, createHttpTransport } from '@octavus/client-sdk';
+import Dropdown from '../design-system/components/dropdown/dropdown.js';
 import { marked } from 'marked';
 import hljs from 'highlight.js/lib/core';
 import python from 'highlight.js/lib/languages/python';
@@ -196,10 +197,11 @@ async function switchSession(sid) {
 }
 
 // ── Model selector ────────────────────────────────────────────
-const PROVIDER_LABELS = { anthropic: 'Anthropic', google: 'Google', openai: 'OpenAI' };
+let modelDropdownInstance = null;
 
 function renderModelSelector() {
   const modelStatic = document.getElementById('modelStatic');
+
   if (availableModels.length === 1) {
     modelSelect.style.display = 'none';
     modelStatic.removeAttribute('hidden');
@@ -207,33 +209,31 @@ function renderModelSelector() {
     modelStatic.textContent = availableModels[0].split('/')[1];
     return;
   }
-  modelSelect.style.display = '';
-  modelStatic.setAttribute('hidden', '');
-  modelSelect.innerHTML = '';
-  const byProvider = {};
-  for (const m of availableModels) {
-    const [provider] = m.split('/');
-    if (!byProvider[provider]) byProvider[provider] = [];
-    byProvider[provider].push(m);
-  }
-  for (const [provider, models] of Object.entries(byProvider)) {
-    const group = document.createElement('optgroup');
-    group.label = PROVIDER_LABELS[provider] ?? provider;
-    for (const m of models) {
-      const opt = document.createElement('option');
-      opt.value = m;
-      opt.textContent = m.split('/')[1];
-      if (m === selectedModel) opt.selected = true;
-      group.appendChild(opt);
-    }
-    modelSelect.appendChild(group);
-  }
-}
 
-modelSelect.addEventListener('change', () => {
-  selectedModel = modelSelect.value;
-  startNewChat();
-});
+  modelStatic.setAttribute('hidden', '');
+  modelSelect.style.display = '';
+
+  // Tear down existing instance before rebuilding
+  if (modelDropdownInstance) {
+    modelDropdownInstance.destroy();
+    modelDropdownInstance = null;
+  }
+
+  const items = availableModels.map((m) => ({
+    value: m,
+    label: m.split('/')[1],
+  }));
+
+  modelDropdownInstance = new Dropdown(modelSelect, {
+    items,
+    selectedValue: selectedModel || undefined,
+    width: '100%',
+    onSelect: (value) => {
+      selectedModel = value;
+      startNewChat();
+    },
+  });
+}
 
 // ── Init ──────────────────────────────────────────────────────
 async function init() {

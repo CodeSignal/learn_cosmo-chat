@@ -20,6 +20,7 @@
   <link rel="stylesheet" href="/design-system/components/icons/icons.css" />
   <link rel="stylesheet" href="/design-system/components/input/input.css" />
   <link rel="stylesheet" href="/design-system/components/tags/tags.css" />
+  <link rel="stylesheet" href="/design-system/components/dropdown/dropdown.css" />
 
   <!-- highlight.js: always-dark theme for code blocks -->
   <link rel="stylesheet" href="/hljs-github-dark.css" />
@@ -48,8 +49,8 @@
       <nav class="sidebar__sessions" id="sessionList" aria-label="Conversations"></nav>
 
       <div class="sidebar__model">
-        <label class="body-xsmall sidebar__model-label" for="modelSelect">Model</label>
-        <select class="input sidebar__model-select" id="modelSelect" aria-label="Select model"></select>
+        <label class="body-xsmall sidebar__model-label">Model</label>
+        <div id="modelSelect"></div>
         <span class="body-xsmall sidebar__model-static" id="modelStatic" hidden></span>
       </div>
 
