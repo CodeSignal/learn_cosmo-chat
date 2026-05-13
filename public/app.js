@@ -127,6 +127,32 @@ function stripHeadingLeadDecorationsFromHtml(html) {
   return wrap.innerHTML;
 }
 
+/** Remove emoji / pictographs from prose; leaves &lt;pre&gt; code blocks untouched. */
+const EMOJI_CHAR_RE = /\p{Extended_Pictographic}/gu;
+
+function stripEmojisFromHtml(html) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  const walker = document.createTreeWalker(wrap, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      let el = node.parentElement;
+      while (el) {
+        if (el.tagName === 'PRE') return NodeFilter.FILTER_REJECT;
+        el = el.parentElement;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const nodes = [];
+  let n;
+  while ((n = walker.nextNode())) nodes.push(n);
+  for (const node of nodes) {
+    const cleaned = node.textContent.replace(EMOJI_CHAR_RE, '').replace(/\uFE0F/g, '');
+    if (cleaned !== node.textContent) node.textContent = cleaned;
+  }
+  return wrap.innerHTML;
+}
+
 // ── DOM references ────────────────────────────────────────────
 const promptInput         = document.getElementById('promptInput');
 const sendBtn             = document.getElementById('sendBtn');
@@ -494,20 +520,17 @@ function getStreamingStatus(parts = []) {
   }
 
   let stages;
-  let icon = null;
   if (toolName === 'octavus_web_search') {
     stages = [{ after: 0, label: 'Searching the web…' }];
-    icon = '🔍';
   } else if (toolName.startsWith('octavus_skill')) {
     stages = [{ after: 0, label: 'Running tool…' }, { after: 10, label: 'Still running…' }];
-    icon = '⚙️';
   } else {
     stages = THINKING_STAGES;
   }
 
   const stage = stages.filter((s) => elapsed >= s.after).pop();
   const label = stage?.label ?? stages[0].label;
-  return { label, icon, isImage: false };
+  return { label, icon: null, isImage: false };
 }
 
 // ── Render messages ───────────────────────────────────────────
@@ -533,7 +556,9 @@ function renderMessages(liveMessages, status) {
       const fileParts = msg.parts.filter((p) => p.type === 'file');
       const streaming = msg.status === 'streaming';
       const hasText = text.trim().length > 0;
-      const renderedHtml = stripHeadingLeadDecorationsFromHtml(marked.parse(text));
+      const renderedHtml = stripEmojisFromHtml(
+        stripHeadingLeadDecorationsFromHtml(marked.parse(text)),
+      );
       const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
 
       const isImageGen = isImageGenerationLoading(msg.parts);
@@ -707,8 +732,8 @@ function renderAttachmentPreview() {
       ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`
       : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
 
-    const label = item.status === 'uploading' ? `↑ ${item.file.name}` :
-                  item.status === 'error'     ? `✕ ${item.file.name}` :
+    const label = item.status === 'uploading' ? `${item.file.name} (uploading)` :
+                  item.status === 'error'     ? `${item.file.name} (failed)` :
                   item.file.name;
 
     tag.innerHTML = `${icon}<span>${label}</span>`;
@@ -716,7 +741,7 @@ function renderAttachmentPreview() {
     const removeBtn = document.createElement('button');
     removeBtn.className = 'button button-text button-xsmall composer__remove-btn';
     removeBtn.setAttribute('aria-label', `Remove ${item.file.name}`);
-    removeBtn.textContent = '✕';
+    removeBtn.textContent = '\u00D7';
     removeBtn.addEventListener('click', () => {
       fileItems.splice(idx, 1);
       renderAttachmentPreview();

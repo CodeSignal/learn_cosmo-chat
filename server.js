@@ -233,7 +233,7 @@ if (process.env.NODE_ENV !== 'test') {
   const server = app.listen(PORT, () => {
     console.log(`ChatCPT running at http://localhost:${PORT}`);
     if (!AGENT_ID) {
-      console.warn('⚠  OCTAVUS_AGENT_ID is not set — chat will not work until it is configured.');
+      console.warn('[WARN] OCTAVUS_AGENT_ID is not set — chat will not work until it is configured.');
     }
   });
   server.on('error', (err) => {

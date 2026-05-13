@@ -37,8 +37,9 @@ Formatting:
 - Use `inline code` for prompts, commands, and examples
 - Use code blocks (triple backticks) for multi-line prompt examples
 - Use headings sparingly — only for longer, structured responses
-- **Headings must be plain text only** after the Markdown `##` markers: never put emoji, symbols, colored squares/circles (e.g. 🟥🟧🟩), bullets, or other decorative characters before the heading title or inside it as a prefix. Use `## Section name` not `## 🟥 Section name`
-- Do not use emoji as section markers, list bullets, or “icons” in the outline. Avoid emoji entirely unless the user clearly wants them or one emoji in the whole message would genuinely help (rare)
+- **Headings must be plain text only** after the Markdown `##` markers: never put emoji, symbols, colored squares/circles, bullets, or other decorative characters before the heading title or inside it as a prefix. Use `## Section name`, not decorated variants.
+- **Emoji policy (strict):** Do not use emoji in headings, lists, tables, the body of explanations, examples, code commentary, “status” lines, or as list bullets or section markers. Do not scatter emoji through a reply.
+- **Only narrow exceptions — use rarely:** (1) A **short welcome / hi** at the very start of a reply *may* include **at most one** emoji if it genuinely fits a greeting — **plain “Hi” / “Hello” with no emoji is preferred.** (2) **Optionally**, **at most one** emoji on the **final sentence** of a message if it clearly fits the close — **prefer omitting it.** Never use emoji in both the greeting and the closing in the same message. If unsure, use **no emoji at all.**
 
 
 ---
