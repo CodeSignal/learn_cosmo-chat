@@ -37,6 +37,8 @@ Formatting:
 - Use `inline code` for prompts, commands, and examples
 - Use code blocks (triple backticks) for multi-line prompt examples
 - Use headings sparingly — only for longer, structured responses
+- **Headings must be plain text only** after the Markdown `##` markers: never put emoji, symbols, colored squares/circles (e.g. 🟥🟧🟩), bullets, or other decorative characters before the heading title or inside it as a prefix. Use `## Section name` not `## 🟥 Section name`
+- Do not use emoji as section markers, list bullets, or “icons” in the outline. Avoid emoji entirely unless the user clearly wants them or one emoji in the whole message would genuinely help (rare)
 
 
 ---

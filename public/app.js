@@ -7,7 +7,7 @@ import { OctavusChat, createHttpTransport } from '@octavus/client-sdk';
 import Dropdown from '../design-system/components/dropdown/dropdown.js';
 import Modal from '../design-system/components/modal/modal.js';
 import NumericSlider from '../design-system/components/numeric-slider/numeric-slider.js';
-import { marked } from 'marked';
+import { marked, Renderer } from 'marked';
 import hljs from 'highlight.js/lib/core';
 import python from 'highlight.js/lib/languages/python';
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -81,7 +81,7 @@ renderer.code = function ({ text, lang }) {
   return `
     <div class="code-block">
       <div class="code-block__header">
-        <span class="code-block__lang label-medium">${label}</span>
+        <span class="code-block__lang">${label}</span>
       </div>
       <pre class="code-block__pre"><code class="hljs language-${language}">${highlighted}</code></pre>
     </div>
@@ -96,14 +96,44 @@ renderer.image = function ({ href, text }) {
   return `<img class="message__file-image" src="${href}" alt="${text}" />`;
 };
 
+renderer.table = function (token) {
+  const inner = Renderer.prototype.table.call(this, token);
+  return `<div class="message__table-scroll">${inner}</div>`;
+};
+
 marked.use({ breaks: true, gfm: true, renderer });
+
+/** Strip leading emoji / pictographic decorations models often put before heading text (e.g. colored squares). */
+const HEADING_LEAD_PICTO = /^((?:\p{Extended_Pictographic}|\uFE0F|\u200D)+[\s\uFE0F\u200D]*)+/u;
+
+function stripLeadingDecorationsFromFirstTextNode(el) {
+  for (const node of el.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const t = node.textContent.replace(HEADING_LEAD_PICTO, '');
+      if (t !== node.textContent) node.textContent = t;
+      return;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      stripLeadingDecorationsFromFirstTextNode(node);
+      return;
+    }
+  }
+}
+
+function stripHeadingLeadDecorationsFromHtml(html) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(stripLeadingDecorationsFromFirstTextNode);
+  return wrap.innerHTML;
+}
 
 // ── DOM references ────────────────────────────────────────────
 const promptInput         = document.getElementById('promptInput');
 const sendBtn             = document.getElementById('sendBtn');
 const chatHistory         = document.getElementById('chatHistory');
 const emptyState          = document.getElementById('emptyState');
-const uploadBtn           = document.getElementById('uploadBtn');
+const uploadImageBtn      = document.getElementById('uploadImageBtn');
+const uploadFileBtn       = document.getElementById('uploadFileBtn');
 const fileInput           = document.getElementById('fileInput');
 const attachmentPreview   = document.getElementById('attachmentPreview');
 const newChatBtn          = document.getElementById('newChatBtn');
@@ -330,25 +360,51 @@ function openSettings() {
   settingsModal.open();
 }
 
-settingsBtn.addEventListener('click', openSettings);
+if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+
+function showBootError(message) {
+  const el = document.getElementById('bootError');
+  if (!el) return;
+  el.textContent = message;
+  el.hidden = false;
+}
 
 // ── Init ──────────────────────────────────────────────────────
 async function init() {
   try {
-    const [sessionRes, listRes, configRes, modelsRes] = await Promise.all([
-      fetch('/api/session'),
-      fetch('/api/sessions'),
-      fetch('/api/config'),
-      fetch('/api/models'),
-    ]);
-    if (!sessionRes.ok) throw new Error(await sessionRes.text());
+    const sessionRes = await fetch('/api/session');
+
+    if (!sessionRes.ok) {
+      if (sessionRes.status === 503) {
+        showBootError(
+          'Chat cannot start: the server is missing Octavus configuration. Create a .env in the project root with OCTAVUS_API_URL, OCTAVUS_API_KEY, and OCTAVUS_AGENT_ID, then stop the dev server completely and run npm run dev again (environment variables load only at startup).',
+        );
+      } else {
+        const raw = await sessionRes.text();
+        showBootError(`Could not start session (HTTP ${sessionRes.status}). ${raw || ''}`.trim());
+      }
+      throw new Error('session init failed');
+    }
 
     const data = await sessionRes.json();
     sessionId = data.sessionId;
     restoredMessages = data.messages ?? [];
 
+    const [listRes, configRes, modelsRes] = await Promise.all([
+      fetch('/api/sessions'),
+      fetch('/api/config'),
+      fetch('/api/models'),
+    ]);
+
     const listData = await listRes.json();
     allSessionsMeta = listData.sessions ?? [];
+    if (!allSessionsMeta.some((s) => s.session_id === sessionId)) {
+      allSessionsMeta.unshift({
+        session_id: sessionId,
+        title: 'New conversation',
+        updated_at: new Date().toISOString(),
+      });
+    }
 
     chatConfig = configRes.ok ? await configRes.json() : {};
     applyInitialPrompt();
@@ -365,6 +421,12 @@ async function init() {
     renderSidebar();
   } catch (err) {
     console.error('[ChatCPT] Failed to initialise session:', err);
+    const el = document.getElementById('bootError');
+    if (el && el.hidden) {
+      showBootError(
+        'Could not start the app. Make sure npm run dev is running and check the browser console for details.',
+      );
+    }
   }
 }
 
@@ -383,17 +445,29 @@ const IMAGE_STAGES = [
   { after: 45, label: 'Almost there…' },
 ];
 
-function renderLoadingState(parts = []) {
-  const elapsed = streamingStartTime ? (Date.now() - streamingStartTime) / 1000 : 0;
+const THINKING_BORDER_DURATION_SEC = 1.5;
 
-  const activeTool = parts.find((p) => p.type === 'tool-call' && (p.status === 'pending' || p.status === 'running'));
-  const toolName = activeTool?.toolName ?? '';
+function activeToolNameFromParts(parts = []) {
+  const active = parts.find((p) => p.type === 'tool-call' && (p.status === 'pending' || p.status === 'running'));
+  return active?.toolName ?? '';
+}
 
-  if (toolName === 'octavus_generate_image') {
-    const stage = IMAGE_STAGES.filter((s) => elapsed >= s.after).pop();
-    const label = stage?.label ?? IMAGE_STAGES[0].label;
-    return `
-      <div class="image-placeholder" style="list-style:none">
+function isImageGenerationLoading(parts) {
+  return activeToolNameFromParts(parts) === 'octavus_generate_image';
+}
+
+/** Keeps conic border phase continuous across renderMessages() DOM rebuilds (matches animation duration in app.css). */
+function thinkingBorderAnimationDelayAttr() {
+  if (!streamingStartTime) return '';
+  const sec = (Date.now() - streamingStartTime) / 1000;
+  const wrapped = ((sec % THINKING_BORDER_DURATION_SEC) + THINKING_BORDER_DURATION_SEC) % THINKING_BORDER_DURATION_SEC;
+  return ` style="animation-delay: -${wrapped.toFixed(3)}s"`;
+}
+
+/** Image-generation canvas + shimmer only (status text lives in .message__ai-trailing). */
+function renderImagePlaceholderBody() {
+  return `
+      <div class="image-placeholder image-placeholder--body" style="list-style:none">
         <div class="image-placeholder__canvas">
           <svg class="image-placeholder__icon" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -401,17 +475,26 @@ function renderLoadingState(parts = []) {
             <polyline points="21 15 16 10 5 21"/>
           </svg>
         </div>
-        <div class="image-placeholder__status body-xsmall" style="list-style:none">
-          <span class="loading-indicator__dots" aria-hidden="true" style="display:flex;list-style:none">
-            <span></span><span></span><span></span>
-          </span>
-          <span>${label}</span>
-        </div>
       </div>
     `;
+}
+
+/**
+ * Label shown next to the avatar while streaming (no three-dot animation).
+ * @returns {{ label: string, icon: string | null, isImage: boolean }}
+ */
+function getStreamingStatus(parts = []) {
+  const elapsed = streamingStartTime ? (Date.now() - streamingStartTime) / 1000 : 0;
+  const toolName = activeToolNameFromParts(parts);
+
+  if (toolName === 'octavus_generate_image') {
+    const stage = IMAGE_STAGES.filter((s) => elapsed >= s.after).pop();
+    const label = stage?.label ?? IMAGE_STAGES[0].label;
+    return { label, icon: null, isImage: true };
   }
 
-  let stages, icon;
+  let stages;
+  let icon = null;
   if (toolName === 'octavus_web_search') {
     stages = [{ after: 0, label: 'Searching the web…' }];
     icon = '🔍';
@@ -420,20 +503,11 @@ function renderLoadingState(parts = []) {
     icon = '⚙️';
   } else {
     stages = THINKING_STAGES;
-    icon = null;
   }
 
   const stage = stages.filter((s) => elapsed >= s.after).pop();
   const label = stage?.label ?? stages[0].label;
-
-  return `
-    <div class="loading-indicator">
-      <span class="loading-indicator__dots" aria-hidden="true">
-        <span></span><span></span><span></span>
-      </span>
-      <span class="loading-indicator__label body-xsmall">${icon ? `${icon} ` : ''}${label}</span>
-    </div>
-  `;
+  return { label, icon, isImage: false };
 }
 
 // ── Render messages ───────────────────────────────────────────
@@ -441,7 +515,6 @@ function renderLoadingState(parts = []) {
 // We display restored first, then live so the conversation reads continuously.
 function renderMessages(liveMessages, status) {
   const messages = [...restoredMessages.map(storedToDisplayMsg), ...liveMessages];
-  if (emptyState) emptyState.hidden = messages.length > 0;
 
   let messagesEl = chatHistory.querySelector('.messages');
   if (!messagesEl) {
@@ -460,29 +533,43 @@ function renderMessages(liveMessages, status) {
       const fileParts = msg.parts.filter((p) => p.type === 'file');
       const streaming = msg.status === 'streaming';
       const hasText = text.trim().length > 0;
-      const renderedHtml = marked.parse(text);
+      const renderedHtml = stripHeadingLeadDecorationsFromHtml(marked.parse(text));
       const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
 
+      const isImageGen = isImageGenerationLoading(msg.parts);
+
       let bodyContent;
-      if (streaming && !hasText && fileParts.length === 0) {
-        // Nothing at all yet — show loading indicator on its own
-        bodyContent = renderLoadingState(msg.parts);
+      if (streaming && !hasText && fileParts.length === 0 && isImageGen) {
+        bodyContent = renderImagePlaceholderBody();
+      } else if (streaming && !hasText && fileParts.length === 0 && !isImageGen) {
+        bodyContent = '';
       } else if (streaming && fileParts.length === 0) {
-        // Text is in, but still waiting for output — show text then loading indicator
-        // renderLoadingState picks "Thinking…" normally, "Creating image…" shimmer
-        // when octavus_generate_image tool call is active
-        bodyContent = `${renderedHtml}${renderLoadingState(msg.parts)}<span class="cursor" aria-hidden="true"></span>`;
+        bodyContent = `${renderedHtml}<span class="cursor" aria-hidden="true"></span>`;
       } else {
         bodyContent = `${renderedHtml}${filesHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}`;
       }
 
-      row.className = 'message message--ai';
+      const streamingStatus = streaming && fileParts.length === 0 ? getStreamingStatus(msg.parts) : null;
+      const statusHtml = streamingStatus
+        ? `<div class="message__ai-status body-xsmall" aria-live="polite">${streamingStatus.icon ? `${streamingStatus.icon} ` : ''}${streamingStatus.label}</div>`
+        : '';
+
+      const showThinkingRing = streaming;
+      const avatarOpen = showThinkingRing
+        ? `<div class="message__avatar message__avatar--thinking"${thinkingBorderAnimationDelayAttr()}>`
+        : '<div class="message__avatar">';
+      const avatarClose = '</div>';
+
+      row.className = streaming ? 'message message--ai message--ai--streaming' : 'message message--ai';
       row.innerHTML = `
-        <div class="message__avatar">
-          <span class="icon icon-cosmo-black icon-small"></span>
-        </div>
         <div class="message__body body-medium markdown">
           ${bodyContent}
+        </div>
+        <div class="message__ai-trailing">
+          ${avatarOpen}
+            <span class="cosmo-avatar small" role="img" aria-label="Cosmo"></span>
+          ${avatarClose}
+          ${statusHtml}
         </div>
       `;
     } else if (msg.role === 'user') {
@@ -495,7 +582,7 @@ function renderMessages(liveMessages, status) {
       row.innerHTML = `
         <div class="message__user-content">
           ${filesHtml}
-          ${text ? `<div class="box non-interactive message__bubble body-medium">${text}</div>` : ''}
+          ${text ? `<div class="message__bubble body-medium">${text}</div>` : ''}
         </div>
       `;
     } else {
@@ -503,6 +590,10 @@ function renderMessages(liveMessages, status) {
     }
 
     messagesEl.appendChild(row);
+  }
+
+  if (emptyState) {
+    emptyState.hidden = messagesEl.childElementCount > 0;
   }
 
   chatHistory.scrollTop = chatHistory.scrollHeight;
@@ -560,7 +651,18 @@ async function sendMessage() {
 }
 
 // ── File handling ─────────────────────────────────────────────
-uploadBtn.addEventListener('click', () => fileInput.click());
+const ACCEPT_IMAGE_TYPES =
+  'image/png,image/jpeg,image/jpg,image/gif,image/webp';
+const ACCEPT_FILE_TYPES =
+  '.pdf,.txt,.doc,.docx,.png,.jpg,.jpeg,.gif,.webp,application/pdf,text/plain';
+
+function openFilePicker(accept) {
+  fileInput.accept = accept;
+  fileInput.click();
+}
+
+uploadImageBtn.addEventListener('click', () => openFilePicker(ACCEPT_IMAGE_TYPES));
+uploadFileBtn.addEventListener('click', () => openFilePicker(ACCEPT_FILE_TYPES));
 
 fileInput.addEventListener('change', async () => {
   const files = Array.from(fileInput.files);
@@ -662,11 +764,12 @@ function renderSidebar() {
     item.setAttribute('aria-label', s.title);
 
     const title = document.createElement('span');
-    title.className = 'session-item__title body-small';
+    title.className = 'session-item__title';
     title.textContent = s.title;
 
     const del = document.createElement('button');
-    del.className = 'button button-text button-xsmall session-item__delete';
+    del.type = 'button';
+    del.className = 'session-item__delete';
     del.setAttribute('aria-label', 'Delete conversation');
     del.title = 'Delete';
     del.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
@@ -689,6 +792,7 @@ function renderSidebar() {
     item.appendChild(del);
     sessionList.appendChild(item);
   }
+
 }
 
 async function deleteSession(sid) {
@@ -707,7 +811,7 @@ async function deleteSession(sid) {
   }
 }
 
-newChatBtn.addEventListener('click', startNewChat);
+if (newChatBtn) newChatBtn.addEventListener('click', startNewChat);
 
 function applyInitialPrompt() {
   if (chatConfig.initialPrompt) {

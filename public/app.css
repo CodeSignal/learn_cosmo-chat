@@ -10,9 +10,55 @@
 :root {
   --shimmer-highlight: rgba(255, 255, 255, 0.18);
 }
+
 @media (prefers-color-scheme: dark) {
   :root {
     --shimmer-highlight: rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* Animated conic border (used on Cosmo avatar while streaming / thinking) */
+@property --thinking-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes thinking-border-spin {
+  to {
+    --thinking-angle: 360deg;
+  }
+}
+
+/**
+ * Reusable “spinning arc” border. Pair with an element that has explicit width/height.
+ * Message avatars use .message__avatar.message__avatar--thinking instead.
+ */
+.thinking-border {
+  background-color: transparent;
+  background-image:
+    linear-gradient(transparent, transparent),
+    conic-gradient(
+      from var(--thinking-angle),
+      transparent 0%,
+      transparent 66%,
+      var(--Colors-Base-Primary-400) 72%,
+      var(--Colors-Base-Primary-700) 76%,
+      transparent 82%,
+      transparent 100%
+    );
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  border: 1.5px solid transparent;
+  border-radius: var(--UI-Radius-radius-s);
+  padding: 2px;
+  animation: thinking-border-spin 1.5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking-border,
+  .message__avatar.message__avatar--thinking {
+    animation: none;
   }
 }
 
@@ -20,15 +66,42 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background-color: var(--Colors-Backgrounds-Main-Default);
+  background-color: var(--Colors-Backgrounds-Main-Top);
   color: var(--Colors-Text-Body-Default);
+  font-family: var(--body-family);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  height: auto;
+}
+
+/* Shown when /api/session fails (e.g. Octavus env missing) */
+.boot-error {
+  flex-shrink: 0;
+  margin: 0;
+  padding: var(--UI-Spacing-spacing-ms) var(--UI-Spacing-spacing-ml);
+  background-color: var(--Colors-Alert-Error-Lighter);
+  color: var(--Colors-Alert-Error-Dark);
+  border-bottom: 1px solid var(--Colors-Alert-Error-Medium);
+}
+
+.boot-error[hidden] {
+  display: none !important;
 }
 
 /* ── App shell ── */
 .chat-app {
   display: flex;
   flex-direction: row;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
+  height: auto;
   overflow: hidden;
 }
 
@@ -41,18 +114,45 @@ html, body {
   overflow: hidden;
 }
 
+/* Cosmo character avatar (PNG); size variants keep 1:1 box — image scales with contain */
+.cosmo-avatar {
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: middle;
+  background-image: url(/Images/cosmo-icon.png);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 24px;
+  height: 24px;
+}
+
+.cosmo-avatar.large {
+  width: 48px;
+  height: 48px;
+}
+
+.cosmo-avatar.medium {
+  width: 24px;
+  height: 24px;
+}
+
+.cosmo-avatar.small {
+  width: 18px;
+  height: 18px;
+}
+
 /* ============================================================
    SIDEBAR
    ============================================================ */
 .sidebar {
-  width: 240px;
+  width: 280px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--UI-Spacing-spacing-xs);
+  gap: var(--UI-Spacing-spacing-s);
   padding: var(--UI-Spacing-spacing-ms);
-  background-color: var(--Colors-Backgrounds-Main-Medium);
-  border-right: 1px solid var(--Colors-Stroke-Default);
+  border-right: 1px solid var(--Colors-Stroke-Light);
   /* overflow: visible lets the Dropdown menu panel escape the sidebar bounds */
   overflow: visible;
 }
@@ -60,19 +160,95 @@ html, body {
 .sidebar__header {
   display: flex;
   align-items: center;
-  gap: var(--UI-Spacing-spacing-xs);
+  width: 100%;
+  box-sizing: border-box;
   padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-xxs);
 }
 
+.sidebar__header-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--UI-Spacing-spacing-xs);
+  min-width: 0;
+}
+
 .sidebar__title {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--Colors-Text-Body-Default);
 }
 
-.sidebar__new-btn {
-  width: 100%;
-  justify-content: center;
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
   gap: var(--UI-Spacing-spacing-xxs);
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--UI-Spacing-spacing-l) 0;
+}
+
+.sidebar__nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--UI-Spacing-spacing-xs);
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--UI-Spacing-spacing-xxs) var(--UI-Spacing-spacing-xxs);
+  border: none;
+  border-radius: var(--UI-Radius-radius-s);
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--body-family);
+  font-size: var(--Fonts-Body-Default-xs);
+  font-style: normal;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.13px;
+  color: var(--Colors-Text-Body-Lighter);
+  text-align: left;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sidebar__nav-item:focus-visible {
+  outline: 2px solid var(--Colors-Primary-Default);
+  outline-offset: 2px;
+}
+
+.sidebar__nav-item:hover,
+.sidebar__nav-item:focus-visible {
+  color: var(--Colors-Text-Body-Strong);
+}
+
+.sidebar__nav-item .sidebar__nav-ico.icon {
+  color: var(--Colors-Text-Body-Lighter);
+}
+
+.sidebar__nav-item:hover .sidebar__nav-ico.icon,
+.sidebar__nav-item:focus-visible .sidebar__nav-ico.icon {
+  color: var(--Colors-Primary-Default);
+}
+
+.sidebar__nav-ico--svg {
+  flex-shrink: 0;
+  display: block;
+  color: var(--Colors-Text-Body-Lighter);
+}
+
+.sidebar__nav-item:hover .sidebar__nav-ico--svg,
+.sidebar__nav-item:focus-visible .sidebar__nav-ico--svg {
+  color: var(--Colors-Primary-Default);
+}
+
+.sidebar__history-heading {
+  margin: 0 0 var(--UI-Spacing-spacing-xs);
+  padding: 0 var(--UI-Spacing-spacing-xxs);
+  font-family: var(--body-family);
+  font-size: var(--Fonts-Body-Default-xxs);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.13px;
+  color: var(--Colors-Text-Body-Strong);
+  -webkit-font-smoothing: antialiased;
 }
 
 .sidebar__sessions {
@@ -82,11 +258,11 @@ html, body {
   flex-direction: column;
   gap: var(--UI-Spacing-spacing-min);
   margin: 0 calc(-1 * var(--UI-Spacing-spacing-xxs));
+  min-height: 0;
 }
 
 .sidebar__model {
   padding-top: var(--UI-Spacing-spacing-xs);
-  border-top: 1px solid var(--Colors-Stroke-Default);
   display: flex;
   flex-direction: column;
   gap: var(--UI-Spacing-spacing-xxs);
@@ -102,15 +278,10 @@ html, body {
   padding: var(--UI-Spacing-spacing-xxs) var(--UI-Spacing-spacing-min);
 }
 
-.sidebar__settings-btn {
-  width: 100%;
-  justify-content: flex-start;
-  gap: var(--UI-Spacing-spacing-xxs);
-  color: var(--Colors-Text-Body-Secondary);
-}
-
-.sidebar__settings-btn:hover {
-  color: var(--Colors-Text-Body-Default);
+/* Model selector: open panel above toggle so it isn’t clipped at the bottom of the viewport */
+.sidebar__model .dropdown-menu {
+  top: auto;
+  bottom: calc(100% + 4px);
 }
 
 /* ── Session list items ── */
@@ -118,19 +289,30 @@ html, body {
   display: flex;
   align-items: center;
   gap: var(--UI-Spacing-spacing-xxs);
-  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-xxs);
-  border-radius: var(--UI-Radius-radius-m);
+  min-height: var(--UI-Input-sm);
+  padding: 0 var(--UI-Spacing-spacing-mxs);
+  border-radius: var(--UI-Radius-radius-s);
   cursor: pointer;
   user-select: none;
   position: relative;
+  font-weight: 400;
+  font-family: var(--body-family);
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
 }
 
-.session-item:hover {
-  background-color: var(--Colors-Backgrounds-Main-High);
+.session-item:hover:not(.session-item--active) {
+  background-color: var(--Colors-Base-Neutral-20);
 }
 
 .session-item--active {
-  background-color: var(--Colors-Backgrounds-Main-High);
+  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-mxs);
+  font-weight: 500;
+  background-color: var(--Colors-Base-Primary-20);
+}
+
+.session-item--active:hover {
+  background-color: var(--Colors-Base-Primary-20);
 }
 
 .session-item__title {
@@ -138,28 +320,49 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--Colors-Text-Body-Default);
+  font-family: var(--body-family);
+  font-size: var(--Fonts-Body-Default-sm);
   line-height: 1.4;
+  font-weight: 400;
+  color: var(--Colors-Text-Body-Medium);
+}
+
+.session-item--active .session-item__title {
+  font-weight: 500;
+  color: var(--Colors-Text-Body-Strong);
 }
 
 .session-item__delete {
   flex-shrink: 0;
   opacity: 0;
+  pointer-events: none;
   min-width: unset !important;
   width: 22px;
   height: 22px;
   padding: 0 !important;
-  color: var(--Colors-Text-Body-Secondary);
-  transition: opacity 0.15s;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--Colors-Icon-Default);
+  border-radius: var(--UI-Radius-radius-xs);
+  transition: opacity 0.15s ease, color 0.15s ease;
 }
 
-.session-item:hover .session-item__delete,
-.session-item--active .session-item__delete {
+.session-item:hover .session-item__delete {
   opacity: 1;
+  pointer-events: auto;
+}
+
+.session-item__delete:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  outline: 2px solid var(--Colors-Primary-Default);
+  outline-offset: 2px;
 }
 
 .session-item__delete:hover {
-  color: var(--Colors-Alert-Error-Default) !important;
+  color: var(--Colors-Icon-Strong);
 }
 
 /* ============================================================
@@ -171,6 +374,12 @@ html, body {
   display: flex;
   flex-direction: column;
   scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+}
+
+.chat-history::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 /* Empty state: icon + heading, vertically + horizontally centered */
@@ -182,6 +391,11 @@ html, body {
   justify-content: center;
   gap: var(--UI-Spacing-spacing-ms);
   user-select: none;
+}
+
+/* Author `display: flex` wins over the default [hidden] rule; force hide when toggled in JS */
+.empty-state[hidden] {
+  display: none !important;
 }
 
 .empty-state__heading {
@@ -203,38 +417,6 @@ html, body {
   0%, 100% { opacity: 0.6; }
   50%       { opacity: 1; }
 }
-
-/* Loading indicator (shown while streaming with no text yet) */
-.loading-indicator {
-  display: flex;
-  align-items: center;
-  gap: var(--UI-Spacing-spacing-xs);
-  color: var(--Colors-Text-Body-Secondary);
-}
-
-.loading-indicator__dots {
-  display: flex;
-  gap: var(--UI-Spacing-spacing-xxs);
-  align-items: center;
-}
-
-.loading-indicator__dots span {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background-color: currentColor;
-  animation: loading-bounce 1.4s ease-in-out infinite;
-}
-
-.loading-indicator__dots span:nth-child(2) { animation-delay: 0.2s; }
-.loading-indicator__dots span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes loading-bounce {
-  0%, 80%, 100% { transform: scale(0.55); opacity: 0.35; }
-  40%            { transform: scale(1);    opacity: 1; }
-}
-
-/* .loading-indicator__label typography handled by body-xsmall class applied in JS */
 
 /* Image generation placeholder */
 .image-placeholder {
@@ -283,22 +465,6 @@ html, body {
   100% { background-position: -200% 0; }
 }
 
-.image-placeholder__status {
-  display: flex;
-  align-items: center;
-  gap: var(--UI-Spacing-spacing-xs);
-  color: var(--Colors-Text-Body-Secondary);
-  list-style: none; /* prevent markdown context from adding bullets */
-  /* typography handled by body-xsmall class applied in JS */
-}
-
-.image-placeholder__status .loading-indicator__dots {
-  display: flex;
-  gap: var(--UI-Spacing-spacing-xxs);
-  align-items: center;
-  list-style: none;
-}
-
 /* Streaming cursor */
 .cursor {
   display: inline-block;
@@ -325,34 +491,90 @@ html, body {
 /* Individual message row */
 .message {
   display: flex;
-  gap: var(--UI-Spacing-spacing-ms);
+  gap: var(--UI-Spacing-spacing-mxs);
   max-width: 760px;
   width: 100%;
   margin: 0 auto;
 }
 
-/* AI: avatar + prose text */
+/* AI: prose first, then avatar + status row (Claude-style trailing avatar) */
 .message--ai {
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--UI-Spacing-spacing-xs);
+  max-width: 720px;
+  overflow: visible;
+}
+
+.message--ai--streaming {
+  color: var(--Colors-Text-Body-Ligher);
+}
+
+.message__ai-trailing {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--UI-Spacing-spacing-xs);
+  flex-shrink: 0;
+}
+
+.message__ai-status {
+  color: var(--Colors-Text-Body-Secondary);
+  min-width: 0;
 }
 
 .message__avatar {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--UI-Radius-radius-s);
   /* Use a box for the avatar background to get the right semantic colour */
-  background-color: var(--Colors-Backgrounds-Main-Medium);
+  background-color: var(--Colors-Backgrounds-Main-Light);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 2px;
+}
+
+.message--ai .message__avatar {
+  margin-top: 0;
+}
+
+/* Streaming / thinking: 1.5px animated arc + 2px inset before Cosmo (see @property --thinking-angle) */
+.message__avatar.message__avatar--thinking {
+  background-color: transparent;
+  background-image:
+    linear-gradient(transparent, transparent),
+    conic-gradient(
+      from var(--thinking-angle),
+      transparent 0%,
+      transparent 66%,
+      var(--Colors-Base-Primary-400) 72%,
+      var(--Colors-Base-Primary-700) 76%,
+      transparent 82%,
+      transparent 100%
+    );
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  border: 1.5px solid transparent;
+  border-radius: var(--UI-Radius-radius-s);
+  padding: 2px;
+  animation: thinking-border-spin 1.5s linear infinite;
+}
+
+.message__avatar.message__avatar--thinking .cosmo-avatar.small {
+  box-shadow: 0 0 0 1.5px #fff;
+  border-radius: 3px;
 }
 
 .message__body {
-  flex: 1;
+  flex: 0 1 auto;
+  width: 100%;
+  min-width: 0;
   line-height: 1.65;
   color: var(--Colors-Text-Body-Default);
+  display: flex;
+  flex-direction: column;
+  gap: var(--UI-Spacing-spacing-xs);
 }
 
 .message__body p { margin: 0 0 var(--UI-Spacing-spacing-xs); }
@@ -370,7 +592,8 @@ html, body {
 .message__body.markdown h3 {
   margin: var(--UI-Spacing-spacing-ms) 0 var(--UI-Spacing-spacing-xs);
   font-family: var(--heading-family, inherit);
-  font-weight: 600;
+  font-weight: 500;
+  margin-top: 0 !important;
 }
 .message__body.markdown h1 { font-size: 1.2em; }
 .message__body.markdown h2 { font-size: 1.1em; }
@@ -390,22 +613,20 @@ html, body {
   margin: var(--UI-Spacing-spacing-ms) 0;
   border-radius: var(--UI-Radius-radius-m);
   overflow: hidden;
-  border: 1px solid var(--Colors-Base-Neutral-1100);
-  background-color: var(--Colors-Base-Neutral-1200);
+  background-color: var(--Colors-Base-Neutral-50);
 }
 
 .code-block__header {
   display: flex;
   align-items: center;
   padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
-  background-color: var(--Colors-Base-Neutral-1100);
-  border-bottom: 1px solid var(--Colors-Base-Neutral-1050);
+  background-color: var(--Colors-Base-Neutral-150);
 }
 
 .code-block__lang {
-  color: var(--Colors-Base-Neutral-500);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: var(--Colors-Text-Body-Lighter);
+  font-size: var(--Fonts-Body-Default-xxs);
+  text-transform: capitalize;
 }
 
 .code-block__pre {
@@ -420,7 +641,11 @@ html, body {
   line-height: 1.6;
   padding: var(--UI-Spacing-spacing-ms);
   background: transparent;
-  color: var(--Colors-Base-Neutral-200);
+  color: var(--Colors-Text-Body-Medium);
+}
+
+@media (prefers-color-scheme: dark) {
+  
 }
 
 .message__body.markdown blockquote {
@@ -428,6 +653,7 @@ html, body {
   margin: var(--UI-Spacing-spacing-xs) 0;
   padding-left: var(--UI-Spacing-spacing-ms);
   color: var(--Colors-Text-Body-Secondary);
+  font-size: var(--Fonts-Body-Default-lg);
 }
 
 .message__body.markdown strong { font-weight: 600; }
@@ -444,9 +670,56 @@ html, body {
   margin: var(--UI-Spacing-spacing-ms) 0;
 }
 
+/* Tables: stay within the message column; thead stays one line; tbody wraps (see renderer.table wrapper) */
+.message__body.markdown .message__table-scroll {
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: var(--UI-Spacing-spacing-xs) 0;
+}
+
+.message__body.markdown .message__table-scroll table {
+  width: 100%;
+  table-layout: auto;
+  border-collapse: collapse;
+  border: 1px solid var(--Colors-Stroke-Light);
+  border-radius: var(--UI-Radius-radius-m);
+  overflow: hidden;
+}
+
+.message__body.markdown .message__table-scroll table thead th {
+  font-weight: 600;
+  text-align: left;
+  font-size: var(--Fonts-Body-Default-sm);
+  border-bottom: 2px solid var(--Colors-Stroke-Light);
+  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-mxs);
+  white-space: nowrap;
+  vertical-align: bottom;
+  text-align: left;
+}
+
+.message__body.markdown .message__table-scroll table tbody td {
+  text-align: left;
+  font-size: var(--Fonts-Body-Default-sm);
+  border-bottom: 1px solid var(--Colors-Stroke-Light);
+  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-mxs);
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.message__body.markdown .message__table-scroll table tbody tr:last-child td {
+  border-bottom: none;
+}
+
 /* User: bubble aligned to the right */
 .message--user {
   justify-content: flex-end;
+  max-width: 720px;
 }
 
 .message__user-content {
@@ -476,33 +749,58 @@ html, body {
    We only override the background colour and alignment so it reads
    as a distinct user turn rather than the default white box. */
 .message__bubble {
-  max-width: 70%;
   background-color: var(--Colors-Backgrounds-Main-Medium) !important;
   justify-content: flex-start;
   text-align: left;
   line-height: 1.6;
-  border-radius: var(--UI-Radius-radius-l) !important;
+  border-radius: var(--UI-Radius-radius-m) !important;
+  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-s);
 }
 
 /* ============================================================
    COMPOSER
    ============================================================ */
 .composer-wrap {
+  display: flex;
+  flex-direction: column;
   flex-shrink: 0;
-  padding: var(--UI-Spacing-spacing-ms) var(--UI-Spacing-spacing-ml) var(--UI-Spacing-spacing-m);
+  align-items: center;
+  justify-content: center;
+  padding: var(--UI-Spacing-spacing-ms);
 }
 
-/* .box.emphasized gives the always-visible neutral border.
-   We extend it into a column-flex container for the textarea + toolbar. */
-.composer {
-  max-width: 760px;
-  margin: 0 auto;
-  flex-direction: column !important;
-  align-items: stretch !important;
-  justify-content: flex-start !important;
-  padding: var(--UI-Spacing-spacing-ms) !important;
-  gap: var(--UI-Spacing-spacing-xs) !important;
+.chatbox {
+  width: 100%;
+  max-width: 720px;
+  border-radius: var(--UI-Radius-radius-ml);
+  padding: var(--UI-Spacing-spacing-xxs);
+  background-color: #F8F9FC;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   cursor: default;
+  box-sizing: border-box;
+  /* Outward “border” ring (does not shrink inner layout); animates on focus-within */
+  box-shadow: 0 0 0 0 transparent;
+  transition: box-shadow 0.2s ease;
+}
+
+.chatbox:focus-within {
+  box-shadow: 0 0 0 1.5px var(--Colors-Stroke-Background);
+}
+
+@media (prefers-color-scheme: dark) {
+  .chatbox {
+    background-color: #151D33;
+  }
+}
+
+/* Attachment + textarea stack */
+.composer__input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--UI-Spacing-spacing-xxs);
+  min-width: 0;
 }
 
 /* Attachment chip row */
@@ -521,12 +819,13 @@ html, body {
   padding: 0 var(--UI-Spacing-spacing-xxs);
 }
 
-/* Textarea: .input supplies border, background, typography.
-   We strip the fixed height and border so it blends into the box. */
+/* Textarea: .input supplies typography; border removed so it sits inside .chatbox */
 .composer__textarea {
   height: auto !important;
   min-height: 26px;
   max-height: 200px;
+  width: 100%;
+  box-sizing: border-box;
   border: none !important;
   box-shadow: none !important;
   background: transparent !important;
@@ -534,39 +833,119 @@ html, body {
   outline: none;
   overflow-y: auto;
   field-sizing: content;
-  padding: 0 !important;
   border-radius: 0 !important;
+  padding: var(--UI-Spacing-spacing-ms) var(--UI-Spacing-spacing-ms) !important;
 }
 
-/* Toolbar: upload on the left, send on the right */
-.composer__toolbar {
+.composer__textarea::placeholder {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.chatbox:focus-within .composer__textarea::placeholder {
+  opacity: 0.6;
+}
+
+/* Beat DS `textarea.input { resize: vertical }` so no drag handle */
+textarea.input.composer__textarea {
+  resize: none;
+  font-size: var(--Fonts-Body-Default-sm);
+  font-weight: 400;
+  color: var(--Colors-Text-Body-Medium);
+}
+
+.composer__toolbar,
+.composer_toolarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0 12px 0 16px;
 }
 
-/* Upload button: inherit .button.button-tertiary.button-xsmall */
-.composer__attach-btn {
-  min-width: unset;
-  width: 32px;
+.composer__attach-icons {
+  display: flex;
+  align-items: center;
+  gap: var(--UI-Spacing-spacing-ms);
+}
+
+.composer__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  margin: 0;
   padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--UI-Radius-radius-s);
+  color: var(--Colors-Icon-Default);
+  cursor: pointer;
 }
 
-/* Send button: inherit .button.button-primary, reshaped into a circle */
+.composer__icon-btn:hover {
+  color: var(--Colors-Icon-Medium);
+}
+
+.composer__icon-btn:focus-visible {
+  outline: 2px solid var(--Colors-Primary-Default);
+  outline-offset: 2px;
+}
+
 .composer__send-btn {
-  min-width: unset;
-  width: 32px;
-  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  margin: 0;
   padding: 0;
-  border-radius: 50% !important;
+  border: none;
+  background: transparent;
+  border-radius: var(--UI-Radius-radius-s);
+  cursor: not-allowed;
+}
+
+.composer__send-btn:not(:disabled) {
+  cursor: pointer;
+}
+
+.composer__send-btn:focus-visible:not(:disabled) {
+  outline: 2px solid var(--Colors-Primary-Default);
+  outline-offset: 2px;
+}
+
+/* Icons: fixed height, width follows viewBox aspect ratio */
+.composer__toolbar-svg {
+  display: block;
+  flex-shrink: 0;
+  width: auto;
+  height: 18px;
+}
+
+/* Send: vector from /Images/SendIcon.svg via <use>, color from currentColor */
+.composer__send-svg {
+  color: var(--Colors-Icon-Default);
+}
+
+.composer__send-btn:not(:disabled) .composer__send-svg {
+  color: var(--Colors-Primary-Default);
+}
+
+.composer__send-btn:disabled .composer__send-svg {
+  opacity: 0.42;
 }
 
 /* Hint below composer */
 .composer__hint {
-  max-width: 760px;
-  margin: var(--UI-Spacing-spacing-xs) auto 0;
+  max-width: 720px;
+  margin: var(--UI-Spacing-spacing-m) auto var(--UI-Spacing-spacing-xs);
   text-align: center;
-  color: var(--Colors-Text-Body-Secondary);
+  color: var(--Colors-Text-Body-Lighter);
+  opacity: 0.8;
   display: block;
 }
 

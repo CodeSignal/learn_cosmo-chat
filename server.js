@@ -18,7 +18,7 @@ const SESSIONS_FILE = path.join(__dirname, 'chat-sessions.json');
 const CONFIG_FILE   = path.join(__dirname, 'chat-config.json');
 const MODELS_FILE   = path.join(__dirname, 'current-models.txt');
 const app = express();
-const PORT = 3000;
+const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
 
 // ── Octavus client ────────────────────────────────────────────
 const octavus = new OctavusClient({
@@ -230,11 +230,21 @@ app.post('/api/trigger', async (req, res) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`ChatCPT running at http://localhost:${PORT}`);
     if (!AGENT_ID) {
       console.warn('⚠  OCTAVUS_AGENT_ID is not set — chat will not work until it is configured.');
     }
+  });
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(
+        `Port ${PORT} is already in use. Stop the other dev server (or any app on that port), or run with a different port, e.g. PORT=3001 npm run dev`,
+      );
+    } else {
+      console.error(err);
+    }
+    process.exit(1);
   });
 }
 

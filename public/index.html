@@ -31,38 +31,43 @@
 </head>
 <body>
 
+  <div class="boot-error body-small" id="bootError" role="alert" hidden></div>
+
   <div class="chat-app">
 
     <!-- ── SIDEBAR ── -->
     <aside class="sidebar" id="sidebar">
 
       <div class="sidebar__header">
-        <span class="icon icon-cosmo-black icon-small"></span>
-        <span class="label-medium sidebar__title">ChatCPT</span>
+        <div class="sidebar__header-brand">
+          <span class="cosmo-avatar medium" aria-hidden="true"></span>
+          <span class="body-xxsmall sidebar__title">ChatCPT</span>
+        </div>
       </div>
 
-      <button class="button button-secondary button-small sidebar__new-btn" id="newChatBtn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        New chat
-      </button>
+      <nav class="sidebar__nav" aria-label="Workspace">
+        <button type="button" class="sidebar__nav-item" id="newChatBtn">
+          <svg class="sidebar__nav-ico sidebar__nav-ico--svg" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true">
+            <use href="/Images/message-plus-square.svg#message-plus-square" xlink:href="/Images/message-plus-square.svg#message-plus-square"/>
+          </svg>
+          <span class="sidebar__nav-label">New chat</span>
+        </button>
+        <button type="button" class="sidebar__nav-item" id="settingsBtn" aria-label="Open settings">
+          <svg class="sidebar__nav-ico sidebar__nav-ico--svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          <span class="sidebar__nav-label">Settings</span>
+        </button>
+      </nav>
 
+      <h2 class="sidebar__history-heading">History</h2>
       <nav class="sidebar__sessions" id="sessionList" aria-label="Conversations"></nav>
 
       <div class="sidebar__model">
-        <label class="body-xsmall sidebar__model-label">Model</label>
         <div id="modelSelect"></div>
         <span class="body-xsmall sidebar__model-static" id="modelStatic" hidden></span>
       </div>
-
-      <button class="button button-tertiary button-xsmall sidebar__settings-btn" id="settingsBtn" aria-label="Open settings">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-        Settings
-      </button>
 
     </aside>
 
@@ -72,48 +77,48 @@
       <!-- Chat history -->
       <main class="chat-history" id="chatHistory" role="log" aria-live="polite">
         <div class="empty-state" id="emptyState">
-          <span class="icon icon-cosmo-black icon-xlarge"></span>
+          <span class="cosmo-avatar large" aria-hidden="true"></span>
           <h1 class="heading-small empty-state__heading">What's on your mind?</h1>
         </div>
       </main>
 
       <!-- Composer -->
       <footer class="composer-wrap">
-        <div class="box emphasized non-interactive composer" id="composer">
+        <div class="chatbox" id="composer">
 
-          <div class="composer__attachment" id="attachmentPreview" hidden></div>
+          <div class="composer__input-wrap composer_input-wrap">
+            <div class="composer__attachment composer_attachment" id="attachmentPreview" hidden></div>
+            <textarea
+              class="input composer__textarea composer_textarea"
+              id="promptInput"
+              placeholder="Ask me anything..."
+              rows="1"
+              aria-label="Prompt input"
+            ></textarea>
+          </div>
 
-          <textarea
-            class="input composer__textarea"
-            id="promptInput"
-            placeholder="Ask anything"
-            rows="1"
-            aria-label="Prompt input"
-          ></textarea>
-
-          <div class="composer__toolbar">
-            <button class="button button-tertiary button-xsmall composer__attach-btn"
-                    id="uploadBtn"
-                    aria-label="Attach a file"
-                    title="Attach a file">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <line x1="12" y1="5" x2="12" y2="19"/>
-                <line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-            </button>
-
-            <button class="button button-primary composer__send-btn"
-                    id="sendBtn"
-                    aria-label="Send prompt"
-                    disabled>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          <div class="composer__toolbar composer_toolarea" role="toolbar" aria-label="Composer actions">
+            <div class="composer__attach-icons">
+              <button type="button" class="composer__icon-btn" id="uploadImageBtn" aria-label="Attach an image" title="Attach an image">
+                <svg class="composer__toolbar-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true">
+                  <use href="/Images/AttachmentImage.svg#attachment-image" xlink:href="/Images/AttachmentImage.svg#attachment-image"/>
+                </svg>
+              </button>
+              <button type="button" class="composer__icon-btn" id="uploadFileBtn" aria-label="Attach a file" title="Attach a file">
+                <svg class="composer__toolbar-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true">
+                  <use href="/Images/AttachmentFile.svg#attachment-file" xlink:href="/Images/AttachmentFile.svg#attachment-file"/>
+                </svg>
+              </button>
+            </div>
+            <button type="button" class="composer__send-btn" id="sendBtn" aria-label="Send prompt" disabled>
+              <svg class="composer__toolbar-svg composer__send-svg" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true">
+                <use href="/Images/SendIcon.svg#send-icon" xlink:href="/Images/SendIcon.svg#send-icon"/>
               </svg>
             </button>
           </div>
 
         </div>
-        <p class="body-xsmall composer__hint">Cosmo can make mistakes. Practice refining your prompts.</p>
+        <p class="body-xxsmall composer__hint">Cosmo can make mistakes. Practice refining your prompts.</p>
       </footer>
 
     </div><!-- /.chat-main -->
