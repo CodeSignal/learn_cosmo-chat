@@ -167,6 +167,13 @@ const sessionList         = document.getElementById('sessionList');
 const modelSelect         = document.getElementById('modelSelect');
 const settingsBtn         = document.getElementById('settingsBtn');
 
+/** True when the viewport is near the bottom of the chat log (follow new tokens without snapping when scrolled up). */
+function isChatNearBottom(thPx = 120) {
+  if (!chatHistory) return true;
+  const { scrollHeight, scrollTop, clientHeight } = chatHistory;
+  return scrollHeight - scrollTop - clientHeight < thPx;
+}
+
 // ── State ─────────────────────────────────────────────────────
 let chat = null;
 let chatUnsubscribe = null;
@@ -537,6 +544,7 @@ function getStreamingStatus(parts = []) {
 // `liveMessages` comes from OctavusChat; `restoredMessages` are pre-loaded from disk.
 // We display restored first, then live so the conversation reads continuously.
 function renderMessages(liveMessages, status) {
+  const wasPinnedToBottom = isChatNearBottom();
   const messages = [...restoredMessages.map(storedToDisplayMsg), ...liveMessages];
 
   let messagesEl = chatHistory.querySelector('.messages');
@@ -621,7 +629,12 @@ function renderMessages(liveMessages, status) {
     emptyState.hidden = messagesEl.childElementCount > 0;
   }
 
-  chatHistory.scrollTop = chatHistory.scrollHeight;
+  if (wasPinnedToBottom) {
+    requestAnimationFrame(() => {
+      if (!chatHistory) return;
+      chatHistory.scrollTop = Math.max(0, chatHistory.scrollHeight - chatHistory.clientHeight);
+    });
+  }
 
   const streaming = status === 'streaming';
   promptInput.disabled = streaming;
@@ -645,7 +658,7 @@ function renderFilePart(part) {
 
 // ── Send ──────────────────────────────────────────────────────
 async function sendMessage() {
-  if (!chat || sendBtn.disabled) return;
+  if (!isComposerSendAllowed()) return;
 
   const text = promptInput.value.trim();
   const readyRefs = fileItems.filter((i) => i.status === 'ready').map((i) => i.ref);
@@ -696,7 +709,12 @@ fileInput.addEventListener('change', async () => {
   // Reset so re-selecting the same file(s) fires 'change' again
   fileInput.value = '';
 
-  const newItems = files.map((f) => ({ file: f, ref: null, status: 'uploading' }));
+  const newItems = files.map((f) => ({
+    file: f,
+    ref: null,
+    status: 'uploading',
+    previewUrl: f.type?.startsWith('image/') ? URL.createObjectURL(f) : null,
+  }));
   fileItems = [...fileItems, ...newItems];
   isUploading = true;
   renderAttachmentPreview();
@@ -723,37 +741,87 @@ function renderAttachmentPreview() {
   attachmentPreview.hidden = !hasItems;
   attachmentPreview.innerHTML = '';
 
-  fileItems.forEach((item, idx) => {
+  fileItems.forEach((item) => {
     const isImage = item.file.type?.startsWith('image/');
-    const tag = document.createElement('span');
-    tag.className = `tag outline composer__file-tag composer__file-tag--${item.status}`;
+    const wrap = document.createElement('div');
+    wrap.className = 'composer__thumb composer__thumb-plate';
+    if (item.status === 'uploading') wrap.classList.add('composer__thumb--uploading');
+    else if (item.status === 'error') wrap.classList.add('composer__thumb--error');
+    else wrap.classList.add('composer__thumb--ready');
+    wrap.setAttribute('aria-busy', item.status === 'uploading' ? 'true' : 'false');
 
-    const icon = isImage
-      ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`
-      : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+    const inner = document.createElement('div');
+    inner.className = 'composer__thumb-inner';
 
-    const label = item.status === 'uploading' ? `${item.file.name} (uploading)` :
-                  item.status === 'error'     ? `${item.file.name} (failed)` :
-                  item.file.name;
+    if (isImage && item.previewUrl) {
+      const img = document.createElement('img');
+      img.className = 'composer__thumb-img';
+      img.src = item.previewUrl;
+      img.alt = item.file.name || '';
+      inner.appendChild(img);
+    } else {
+      const ph = document.createElement('div');
+      ph.className = 'composer__thumb-file';
+      ph.setAttribute('aria-hidden', 'true');
+      ph.innerHTML = `
+        <svg class="composer__thumb-file-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <span class="composer__thumb-file-ext body-xsmall"></span>
+      `;
+      const ext = item.file.name?.includes('.')
+        ? item.file.name.split('.').pop().slice(0, 8).toUpperCase()
+        : 'FILE';
+      ph.querySelector('.composer__thumb-file-ext').textContent = ext;
+      inner.appendChild(ph);
+    }
 
-    tag.innerHTML = `${icon}<span>${label}</span>`;
+    if (item.status === 'uploading') {
+      const overlay = document.createElement('div');
+      overlay.className = 'composer__thumb-overlay';
+      overlay.setAttribute('aria-hidden', 'true');
+      const spinner = document.createElement('div');
+      spinner.className = 'composer__thumb-spinner';
+      spinner.setAttribute('aria-hidden', 'true');
+      inner.appendChild(overlay);
+      inner.appendChild(spinner);
+    }
+
+    if (item.status === 'error') {
+      const err = document.createElement('div');
+      err.className = 'composer__thumb-error';
+      err.textContent = 'Upload failed';
+      inner.appendChild(err);
+    }
 
     const removeBtn = document.createElement('button');
-    removeBtn.className = 'button button-text button-xsmall composer__remove-btn';
-    removeBtn.setAttribute('aria-label', `Remove ${item.file.name}`);
-    removeBtn.textContent = '\u00D7';
+    removeBtn.type = 'button';
+    removeBtn.className = 'composer__thumb-remove';
+    removeBtn.setAttribute('aria-label', `Remove ${item.file.name || 'attachment'}`);
+    removeBtn.innerHTML = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+        <path d="M18 6L6 18M6 6l12 12"/>
+      </svg>
+    `;
     removeBtn.addEventListener('click', () => {
-      fileItems.splice(idx, 1);
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      const i = fileItems.indexOf(item);
+      if (i >= 0) fileItems.splice(i, 1);
       renderAttachmentPreview();
       updateSendBtn();
     });
 
-    tag.appendChild(removeBtn);
-    attachmentPreview.appendChild(tag);
+    inner.appendChild(removeBtn);
+    wrap.appendChild(inner);
+    attachmentPreview.appendChild(wrap);
   });
 }
 
 function clearAttachment() {
+  fileItems.forEach((item) => {
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+  });
   fileItems = [];
   renderAttachmentPreview();
 }
@@ -761,20 +829,27 @@ function clearAttachment() {
 // ── Input wiring ──────────────────────────────────────────────
 promptInput.addEventListener('input', updateSendBtn);
 
+function isComposerSendAllowed() {
+  if (!chat || isUploading) return false;
+  if (chat.status === 'streaming') return false;
+  const hasText = promptInput.value.trim().length > 0;
+  const hasFile = fileItems.some((i) => i.status === 'ready');
+  return hasText || hasFile;
+}
+
 promptInput.addEventListener('keydown', (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !sendBtn.disabled) {
-    e.preventDefault();
-    sendMessage();
-  }
+  const isEnter = e.key === 'Enter' || e.key === 'NumpadEnter';
+  if (!isEnter || e.isComposing) return;
+  if (e.shiftKey) return; // Shift+Enter / Shift+Return → new line
+  if (!isComposerSendAllowed()) return;
+  e.preventDefault();
+  sendMessage();
 });
 
 sendBtn.addEventListener('click', sendMessage);
 
 function updateSendBtn() {
-  const streaming = chat?.status === 'streaming';
-  const hasText = promptInput.value.trim().length > 0;
-  const hasFile = fileItems.some((i) => i.status === 'ready');
-  sendBtn.disabled = streaming || isUploading || (!hasText && !hasFile);
+  sendBtn.disabled = !isComposerSendAllowed();
 }
 
 // ── Sidebar ───────────────────────────────────────────────────
