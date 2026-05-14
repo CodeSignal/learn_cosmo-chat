@@ -5,29 +5,49 @@
  * newest session first.
  *
  * Usage:
- *   node extract-conversations.js [--mode full|user-only] [--latest]
+ *   node extract-conversations.js [--mode full|user-only|report] [--latest] [--output <file>]
  *
  * Modes:
  *   full       (default) Print user messages and LLM responses.
  *   user-only  Print only the user messages.
+ *   report     Generate a markdown report file (oldest conversations first).
  *
  * Options:
  *   --latest   Only print the most recent conversation.
+ *   --output   Write report to a file instead of stdout.
  */
 
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { deriveTitle } from './lib/helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SESSIONS_FILE = join(__dirname, 'chat-sessions.json');
 
 // ── Parse args ────────────────────────────────────────────────
 const args = process.argv.slice(2);
+
+if (args.includes('--help') || args.includes('-h')) {
+  console.log(`Usage: node extract-conversations.js [options]
+
+Options:
+  --mode <mode>    Output mode (default: full)
+                     full       Print interleaved user/assistant conversation
+                     user-only  Print only the user messages
+                     report     Generate a markdown report (oldest first)
+  --latest         Only include the most recent conversation
+  --output <file>  Write report to a file instead of stdout
+  -h, --help       Show this help message`);
+  process.exit(0);
+}
+
 const modeIdx = args.indexOf('--mode');
-const VALID_MODES = ['full', 'user-only'];
+const VALID_MODES = ['full', 'user-only', 'report'];
 let mode = 'full';
 const latestOnly = args.includes('--latest');
+const outputIdx = args.indexOf('--output');
+const outputFile = (outputIdx !== -1 && args[outputIdx + 1]) ? args[outputIdx + 1] : null;
 
 if (modeIdx !== -1) {
   const provided = args[modeIdx + 1];
@@ -81,6 +101,75 @@ function printMessages(messages, label) {
       }
     });
   }
+}
+
+function cleanAssistantContent(content) {
+  return content.replace(/!\[([^\]]*)\]\([^)]+\)/g, '*(image: $1)*');
+}
+
+function generateReport(reportSessions, outFile) {
+  const lines = [];
+
+  lines.push('# Chat History Report');
+  lines.push('');
+  lines.push(`*Generated on ${formatDate(new Date().toISOString())}*  `);
+  lines.push(`*${reportSessions.length} conversation(s)*`);
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+
+  reportSessions.forEach((session, idx) => {
+    const title = deriveTitle(session.messages);
+    const dateStr = formatDate(session.updated_at || session.created_at);
+    const userMsgs = session.messages.filter((m) => m.role === 'user');
+    const assistantMsgs = session.messages.filter((m) => m.role === 'assistant');
+
+    lines.push(`## ${idx + 1}. ${title}`);
+    lines.push('');
+    lines.push(`**Date:** ${dateStr}  `);
+    lines.push(`**Messages:** ${userMsgs.length} from user, ${assistantMsgs.length} from assistant`);
+    lines.push('');
+
+    session.messages.forEach((m) => {
+      const isUser = m.role === 'user';
+      const content = m.content || '';
+      lines.push(`**${isUser ? 'User' : 'Assistant'}:**`);
+
+      if (isUser) {
+        const contentLines = content.split('\n').map((l) => `> ${l}`);
+        lines.push(...contentLines);
+        if (m.files?.length > 0) {
+          lines.push('>');
+          m.files.forEach((f) => lines.push(`> 📎 *${f.filename}*`));
+        }
+      } else {
+        lines.push('');
+        lines.push(cleanAssistantContent(content));
+      }
+
+      lines.push('');
+    });
+
+    if (idx < reportSessions.length - 1) {
+      lines.push('---');
+      lines.push('');
+    }
+  });
+
+  const report = lines.join('\n');
+  if (outFile) {
+    writeFileSync(outFile, report);
+    console.error(`Report written to ${outFile}`);
+  } else {
+    console.log(report);
+  }
+}
+
+// ── Report mode ──────────────────────────────────────────────
+if (mode === 'report') {
+  const reportSessions = [...toRender].reverse();
+  generateReport(reportSessions, outputFile);
+  process.exit(0);
 }
 
 // ── Render ────────────────────────────────────────────────────
