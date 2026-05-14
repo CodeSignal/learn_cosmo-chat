@@ -9,6 +9,11 @@
 /* Shimmer highlight adapts between light and dark modes */
 :root {
   --shimmer-highlight: rgba(255, 255, 255, 0.18);
+  /* Composer attachment 96×96 plate — override in dark mode, e.g. @media (prefers-color-scheme: dark) { :root { --composer-thumb-surface: #2a3347; } } */
+  --composer-thumb-surface: #e4e8f1;
+  /* Document placeholder: icon uses subdued icon tier (tune / swap token here) */
+  --composer-thumb-file-icon-color: var(--Colors-Icon-Default);
+  --composer-thumb-file-label-color: var(--Colors-Text-Body-Light);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -27,6 +32,29 @@
 @keyframes thinking-border-spin {
   to {
     --thinking-angle: 360deg;
+  }
+}
+
+@keyframes message-avatar-bg-breathe {
+  0%,
+  100% {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+/* Composer textarea: animatable angle for rotating conic focus rings */
+@property --cosmo-ai-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes cosmoAiRotate {
+  to {
+    --cosmo-ai-angle: 360deg;
   }
 }
 
@@ -138,8 +166,8 @@ body {
 }
 
 .cosmo-avatar.small {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
 }
 
 /* ============================================================
@@ -180,7 +208,7 @@ body {
 .sidebar__nav {
   display: flex;
   flex-direction: column;
-  gap: var(--UI-Spacing-spacing-xxs);
+  gap: var(--UI-Spacing-spacing-xs);
   width: 100%;
   box-sizing: border-box;
   padding: var(--UI-Spacing-spacing-l) 0;
@@ -402,22 +430,6 @@ body {
   margin: 0;
 }
 
-/* ── Attachment chip states ── */
-.composer__attachment.uploading .tag {
-  opacity: 0.6;
-  animation: pulse 1s ease-in-out infinite;
-}
-
-.composer__attachment.error .tag {
-  color: var(--Colors-Alert-Error-Default);
-  border-color: var(--Colors-Alert-Error-Default);
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.6; }
-  50%       { opacity: 1; }
-}
-
 /* Image generation placeholder */
 .image-placeholder {
   display: flex;
@@ -516,6 +528,7 @@ body {
   align-items: center;
   gap: var(--UI-Spacing-spacing-xs);
   flex-shrink: 0;
+  padding-top: var(--UI-Spacing-spacing-xs);
 }
 
 .message__ai-status {
@@ -524,15 +537,34 @@ body {
 }
 
 .message__avatar {
+  position: relative;
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
+  width: 27px;
+  height: 27px;
   border-radius: var(--UI-Radius-radius-s);
-  /* Use a box for the avatar background to get the right semantic colour */
-  background-color: var(--Colors-Backgrounds-Main-Light);
+  background-color: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: visible;
+}
+
+/* Idle / done: soft fill behind icon — transform on pseudo only so box + .cosmo-avatar.small stay fixed */
+.message__avatar:not(.message__avatar--thinking)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background-color: var(--Colors-Backgrounds-Main-Light);
+  pointer-events: none;
+  transform-origin: center center;
+  animation: message-avatar-bg-breathe 3.4s ease-in-out infinite;
+}
+
+.message__avatar .cosmo-avatar.small {
+  position: relative;
+  z-index: 1;
 }
 
 .message--ai .message__avatar {
@@ -566,6 +598,13 @@ body {
   border-radius: 3px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .message__avatar:not(.message__avatar--thinking)::before {
+    animation: none;
+    transform: none;
+  }
+}
+
 .message__body {
   flex: 0 1 auto;
   width: 100%;
@@ -595,9 +634,9 @@ body {
   font-weight: 500;
   margin-top: 0 !important;
 }
-.message__body.markdown h1 { font-size: 1.2em; }
-.message__body.markdown h2 { font-size: 1.1em; }
-.message__body.markdown h3 { font-size: 1em; }
+.message__body.markdown h1 { font-size: 1.4em; }
+.message__body.markdown h2 { font-size: 1.2em; }
+.message__body.markdown h3 { font-size: 1.1em; }
 
 /* Inline code */
 .message__body.markdown code {
@@ -656,7 +695,7 @@ body {
   font-size: var(--Fonts-Body-Default-lg);
 }
 
-.message__body.markdown strong { font-weight: 600; }
+.message__body.markdown strong { font-weight: 500; color: var(--Colors-Text-Body-Strong); }
 .message__body.markdown em { font-style: italic; }
 
 .message__body.markdown a {
@@ -770,29 +809,37 @@ body {
 }
 
 .chatbox {
+  position: relative;
+  z-index: 0;
   width: 100%;
   max-width: 720px;
   border-radius: var(--UI-Radius-radius-ml);
   padding: var(--UI-Spacing-spacing-xxs);
-  background-color: #F8F9FC;
+  background-color: var(--Colors-Base-Neutral-20);
+  transition: background-color 220ms cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
   align-items: stretch;
   cursor: default;
   box-sizing: border-box;
-  /* Outward “border” ring (does not shrink inner layout); animates on focus-within */
-  box-shadow: 0 0 0 0 transparent;
-  transition: box-shadow 0.2s ease;
-}
-
-.chatbox:focus-within {
-  box-shadow: 0 0 0 1.5px var(--Colors-Stroke-Background);
+  overflow: visible;
 }
 
 @media (prefers-color-scheme: dark) {
-  .chatbox {
-    background-color: #151D33;
+  :root {
+    background-color: #192139;
   }
+}
+
+.chatbox:focus-within {
+  background-color: var(--Colors-Backgrounds-Main-Top);
+}
+
+/* Keep composer chrome above the absolutely positioned ring layers */
+.chatbox > .composer__input-wrap,
+.chatbox > .composer__toolbar {
+  position: relative;
+  z-index: 1;
 }
 
 /* Attachment + textarea stack */
@@ -801,22 +848,262 @@ body {
   flex-direction: column;
   gap: var(--UI-Spacing-spacing-xxs);
   min-width: 0;
+  overflow: visible;
 }
 
-/* Attachment chip row */
+/* Rotating conic rings on .chatbox (glow behind, crisp ring in front); anchored to chatbox padding box */
+.chatbox .cosmo-ai-ring {
+  position: absolute;
+  inset: -1.5px;
+  border-radius: calc(var(--UI-Radius-radius-ml) + 1.5px);
+  padding: 1.5px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--cosmo-ai-angle),
+    #B2CDFF 0deg,
+    #3EC8FF 60deg,
+    #B2CDFF 120deg,
+    #8E9AEC 180deg,
+    #B2CDFF 240deg,
+    #5C94FF 300deg,
+    #B2CDFF 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: cosmoAiRotate 5s linear infinite;
+}
+
+.chatbox:focus-within .cosmo-ai-ring {
+  opacity: 1;
+}
+
+.chatbox .cosmo-ai-glow {
+  position: absolute;
+  inset: -4px;
+  border-radius: calc(var(--UI-Radius-radius-ml) + 4px);
+  padding: 4px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--cosmo-ai-angle),
+    rgba(178, 205, 255, 0.20) 0deg,
+    rgba(62, 200, 255, 0.20) 60deg,
+    rgba(178, 205, 255, 0.20) 120deg,
+    rgba(142, 154, 236, 0.20) 180deg,
+    rgba(178, 205, 255, 0.20) 240deg,
+    rgba(92, 148, 255, 0.20) 300deg,
+    rgba(178, 205, 255, 0.20) 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: cosmoAiRotate 5s linear infinite;
+}
+
+.chatbox:focus-within .cosmo-ai-glow {
+  opacity: 1;
+  transition-delay: 300ms;
+}
+
+.chatbox:not(:focus-within) .cosmo-ai-glow {
+  transition-delay: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chatbox .cosmo-ai-ring,
+  .chatbox .cosmo-ai-glow {
+    animation: none;
+  }
+}
+
+/* DS .input:focus ring would clash with conic rings */
+textarea.input.composer__textarea:focus,
+textarea.input.composer__textarea:focus-visible {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Attachment previews (96×96 thumbnails above the prompt) */
 .composer__attachment {
   display: flex;
-  align-items: center;
-  gap: var(--UI-Spacing-spacing-xxs);
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--UI-Spacing-spacing-xs);
+  padding-top: 12px;
+  padding-left: 12px;
+  box-sizing: border-box;
 }
 
 .composer__attachment[hidden] {
   display: none;
 }
 
-.composer__remove-btn {
-  min-width: unset;
+/* Grey plate — background uses var(--composer-thumb-surface) from :root for easy dark overrides */
+.composer__thumb-plate {
+  background-color: var(--composer-thumb-surface);
+}
+
+.composer__thumb {
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.composer__thumb-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.composer__thumb-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.composer__thumb-file {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--UI-Spacing-spacing-xxs);
+  background-color: var(--Colors-Backgrounds-Main-Light);
+  box-shadow: 0 0 0 2px var(--Colors-Backgrounds-Main-Top);
+}
+
+.composer__thumb-file-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: var(--composer-thumb-file-icon-color);
+}
+
+.composer__thumb-file-ext {
+  max-width: 100%;
   padding: 0 var(--UI-Spacing-spacing-xxs);
+  text-align: center;
+  color: var(--composer-thumb-file-label-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer__thumb-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.composer__thumb-spinner {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: composer-thumb-spin 0.75s linear infinite;
+}
+
+.composer__thumb-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 6px;
+  background-color: #fff;
+  color: var(--Colors-Text-Body-Medium);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.composer__thumb-remove svg {
+  display: block;
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+}
+
+.composer__thumb-remove:hover {
+  background-color: var(--Colors-Backgrounds-Main-Light);
+  color: var(--Colors-Text-Body-Strong);
+}
+
+.composer__thumb-remove:focus-visible {
+  outline: 2px solid var(--Colors-Primary-Default);
+  outline-offset: 2px;
+}
+
+.composer__thumb-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--UI-Spacing-spacing-xxs);
+  background-color: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: var(--Fonts-Body-Default-xxs);
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.25;
+  pointer-events: none;
+}
+
+.composer__thumb--error {
+  box-shadow: 0 0 0 2px var(--Colors-Alert-Error-Default);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer__thumb-spinner {
+    animation: none;
+    border-color: rgba(255, 255, 255, 0.55);
+    border-top-color: #fff;
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes composer-thumb-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
 }
 
 /* Textarea: .input supplies typography; border removed so it sits inside .chatbox */
@@ -942,7 +1229,7 @@ textarea.input.composer__textarea {
 /* Hint below composer */
 .composer__hint {
   max-width: 720px;
-  margin: var(--UI-Spacing-spacing-m) auto var(--UI-Spacing-spacing-xs);
+  margin: var(--UI-Spacing-spacing-s) auto var(--UI-Spacing-spacing-xs) auto;
   text-align: center;
   color: var(--Colors-Text-Body-Lighter);
   opacity: 0.8;
