@@ -27,6 +27,21 @@ const SESSIONS_FILE = join(__dirname, 'chat-sessions.json');
 
 // ── Parse args ────────────────────────────────────────────────
 const args = process.argv.slice(2);
+
+if (args.includes('--help') || args.includes('-h')) {
+  console.log(`Usage: node extract-conversations.js [options]
+
+Options:
+  --mode <mode>    Output mode (default: full)
+                     full       Print interleaved user/assistant conversation
+                     user-only  Print only the user messages
+                     report     Generate a markdown report file (oldest first)
+  --latest         Only include the most recent conversation
+  --output <file>  Output file path for report mode (default: chat-report.md)
+  -h, --help       Show this help message`);
+  process.exit(0);
+}
+
 const modeIdx = args.indexOf('--mode');
 const VALID_MODES = ['full', 'user-only', 'report'];
 let mode = 'full';
@@ -154,6 +169,9 @@ if (mode === 'report') {
 
 // ── Render ────────────────────────────────────────────────────
 toRender.forEach((session, idx) => {
+  const userMessages = session.messages.filter((m) => m.role === 'user');
+  const assistantMessages = session.messages.filter((m) => m.role === 'assistant');
+
   const label = latestOnly ? 'Latest Chat' : `Chat ${idx + 1}`;
   const dateStr = formatDate(session.updated_at || session.created_at);
 
@@ -161,22 +179,15 @@ toRender.forEach((session, idx) => {
   console.log();
 
   if (mode === 'user-only') {
-    const userMessages = session.messages.filter((m) => m.role === 'user');
     printMessages(userMessages, 'User sent these prompts');
   } else {
-    session.messages.forEach((m) => {
-      const role = m.role === 'user' ? 'User' : 'ASSISTANT';
-      console.log(`**${role}:**`);
-      const msgLines = m.content.split('\n');
-      msgLines.forEach((l) => console.log(`  ${l}`));
-      if (m.files && m.files.length > 0) {
-        console.log(`  [${m.files.length} file(s) attached]`);
-      }
-      console.log();
-    });
+    printMessages(userMessages, 'User sent these messages');
+    console.log();
+    printMessages(assistantMessages, 'LLM responded with these messages');
   }
 
   if (idx < toRender.length - 1) {
+    console.log();
     console.log('---');
     console.log();
   }
