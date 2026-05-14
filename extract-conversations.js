@@ -14,7 +14,7 @@
  *
  * Options:
  *   --latest   Only print the most recent conversation.
- *   --output   Output file path for report mode (default: chat-report.md).
+ *   --output   Write report to a file instead of stdout.
  */
 
 import { readFileSync, writeFileSync } from 'fs';
@@ -35,9 +35,9 @@ Options:
   --mode <mode>    Output mode (default: full)
                      full       Print interleaved user/assistant conversation
                      user-only  Print only the user messages
-                     report     Generate a markdown report file (oldest first)
+                     report     Generate a markdown report (oldest first)
   --latest         Only include the most recent conversation
-  --output <file>  Output file path for report mode (default: chat-report.md)
+  --output <file>  Write report to a file instead of stdout
   -h, --help       Show this help message`);
   process.exit(0);
 }
@@ -47,7 +47,7 @@ const VALID_MODES = ['full', 'user-only', 'report'];
 let mode = 'full';
 const latestOnly = args.includes('--latest');
 const outputIdx = args.indexOf('--output');
-const outputFile = (outputIdx !== -1 && args[outputIdx + 1]) ? args[outputIdx + 1] : 'chat-report.md';
+const outputFile = (outputIdx !== -1 && args[outputIdx + 1]) ? args[outputIdx + 1] : null;
 
 if (modeIdx !== -1) {
   const provided = args[modeIdx + 1];
@@ -156,8 +156,13 @@ function generateReport(reportSessions, outFile) {
     }
   });
 
-  writeFileSync(outFile, lines.join('\n'));
-  console.log(`Report written to ${outFile}`);
+  const report = lines.join('\n');
+  if (outFile) {
+    writeFileSync(outFile, report);
+    console.error(`Report written to ${outFile}`);
+  } else {
+    console.log(report);
+  }
 }
 
 // ── Report mode ──────────────────────────────────────────────
