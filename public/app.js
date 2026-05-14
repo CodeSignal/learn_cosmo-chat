@@ -167,6 +167,13 @@ const sessionList         = document.getElementById('sessionList');
 const modelSelect         = document.getElementById('modelSelect');
 const settingsBtn         = document.getElementById('settingsBtn');
 
+/** True when the viewport is near the bottom of the chat log (follow new tokens without snapping when scrolled up). */
+function isChatNearBottom(thPx = 120) {
+  if (!chatHistory) return true;
+  const { scrollHeight, scrollTop, clientHeight } = chatHistory;
+  return scrollHeight - scrollTop - clientHeight < thPx;
+}
+
 // ── State ─────────────────────────────────────────────────────
 let chat = null;
 let chatUnsubscribe = null;
@@ -537,6 +544,7 @@ function getStreamingStatus(parts = []) {
 // `liveMessages` comes from OctavusChat; `restoredMessages` are pre-loaded from disk.
 // We display restored first, then live so the conversation reads continuously.
 function renderMessages(liveMessages, status) {
+  const wasPinnedToBottom = isChatNearBottom();
   const messages = [...restoredMessages.map(storedToDisplayMsg), ...liveMessages];
 
   let messagesEl = chatHistory.querySelector('.messages');
@@ -621,7 +629,12 @@ function renderMessages(liveMessages, status) {
     emptyState.hidden = messagesEl.childElementCount > 0;
   }
 
-  chatHistory.scrollTop = chatHistory.scrollHeight;
+  if (wasPinnedToBottom) {
+    requestAnimationFrame(() => {
+      if (!chatHistory) return;
+      chatHistory.scrollTop = Math.max(0, chatHistory.scrollHeight - chatHistory.clientHeight);
+    });
+  }
 
   const streaming = status === 'streaming';
   promptInput.disabled = streaming;

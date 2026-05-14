@@ -63,7 +63,7 @@
  * Message avatars use .message__avatar.message__avatar--thinking instead.
  */
 .thinking-border {
-  background-color: transparent;
+  background-color: var(--Colors-Backgrounds-Main-Top);
   background-image:
     linear-gradient(transparent, transparent),
     conic-gradient(
@@ -183,6 +183,12 @@ body {
   border-right: 1px solid var(--Colors-Stroke-Light);
   /* overflow: visible lets the Dropdown menu panel escape the sidebar bounds */
   overflow: visible;
+}
+
+@media (prefers-color-scheme: dark) {
+  .sidebar {
+    border-right: 1px solid var(--Colors-Base-Neutral-1250);
+  }
 }
 
 .sidebar__header {
@@ -339,8 +345,24 @@ body {
   background-color: var(--Colors-Base-Primary-20);
 }
 
+
 .session-item--active:hover {
   background-color: var(--Colors-Base-Primary-20);
+}
+
+@media (prefers-color-scheme: dark){
+
+  .session-item:hover:not(.session-item--active) {
+    background-color: var(--Colors-Base-Neutral-1250);
+  }
+
+  .session-item--active {
+    background-color: var(--Colors-Base-Neutral-1250);
+  }
+
+  .session-item--active:hover {
+    background-color: var(--Colors-Base-Neutral-1250);
+  }
 }
 
 .session-item__title {
@@ -525,7 +547,7 @@ body {
 .message__ai-trailing {
   display: flex;
   flex-direction: row;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--UI-Spacing-spacing-xs);
   flex-shrink: 0;
   padding-top: var(--UI-Spacing-spacing-xs);
@@ -534,6 +556,9 @@ body {
 .message__ai-status {
   color: var(--Colors-Text-Body-Secondary);
   min-width: 0;
+  /* Reserve space so stage label changes don’t shift the avatar row */
+  min-height: 2.75em;
+  line-height: 1.35;
 }
 
 .message__avatar {
@@ -541,8 +566,12 @@ body {
   flex-shrink: 0;
   width: 27px;
   height: 27px;
+  box-sizing: border-box;
   border-radius: var(--UI-Radius-radius-s);
   background-color: transparent;
+  /* Same border + padding as .message__avatar--thinking so toggling ring doesn’t change layout */
+  border: 1.5px solid transparent;
+  padding: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -571,9 +600,9 @@ body {
   margin-top: 0;
 }
 
-/* Streaming / thinking: 1.5px animated arc + 2px inset before Cosmo (see @property --thinking-angle) */
+/* Streaming / thinking: conic arc in border band; inner fill matches surface (Main-Top) */
 .message__avatar.message__avatar--thinking {
-  background-color: transparent;
+  background-color: var(--Colors-Backgrounds-Main-Top);
   background-image:
     linear-gradient(transparent, transparent),
     conic-gradient(
@@ -587,14 +616,11 @@ body {
     );
   background-origin: padding-box, border-box;
   background-clip: padding-box, border-box;
-  border: 1.5px solid transparent;
-  border-radius: var(--UI-Radius-radius-s);
-  padding: 2px;
   animation: thinking-border-spin 1.5s linear infinite;
 }
 
 .message__avatar.message__avatar--thinking .cosmo-avatar.small {
-  box-shadow: 0 0 0 1.5px #fff;
+  box-shadow: 0 0 0 1.5px var(--Colors-Backgrounds-Main-Top);
   border-radius: 3px;
 }
 
@@ -659,12 +685,12 @@ body {
   display: flex;
   align-items: center;
   padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
-  background-color: var(--Colors-Base-Neutral-150);
 }
 
 .code-block__lang {
   color: var(--Colors-Text-Body-Lighter);
-  font-size: var(--Fonts-Body-Default-xxs);
+  font-size: 12px;
+  font-weight: 500;
   text-transform: capitalize;
 }
 
@@ -684,7 +710,9 @@ body {
 }
 
 @media (prefers-color-scheme: dark) {
-  
+  .code-block {
+    background-color: var(--Colors-Base-Neutral-1250);
+  }
 }
 
 .message__body.markdown blockquote {
@@ -707,6 +735,12 @@ body {
   border: none;
   border-top: 1px solid var(--Colors-Stroke-Default);
   margin: var(--UI-Spacing-spacing-ms) 0;
+}
+
+@media (prefers-color-scheme: dark){
+  .message__body.markdown hr {
+    border-top: 1px solid var(--Colors-Base-Neutral-1250);
+  }
 }
 
 /* Tables: stay within the message column; thead stays one line; tbody wraps (see renderer.table wrapper) */
@@ -793,7 +827,7 @@ body {
   text-align: left;
   line-height: 1.6;
   border-radius: var(--UI-Radius-radius-m) !important;
-  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-s);
+  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
 }
 
 /* ============================================================
@@ -825,14 +859,116 @@ body {
   overflow: visible;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    background-color: #192139;
+@media (prefers-color-scheme: light), (prefers-color-scheme: no-preference) {
+  .chatbox:focus-within {
+    background-color: var(--Colors-Backgrounds-Main-Top);
+  }
+
+  .chatbox:focus-within .composer__textarea::placeholder {
+    opacity: 0.6;
+  }
+
+  /* DS focus ring would clash with conic rings */
+  textarea.input.composer__textarea:focus,
+  textarea.input.composer__textarea:focus-visible {
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* Rotating conic rings on .chatbox (glow behind, crisp ring in front); light mode only */
+  .chatbox .cosmo-ai-ring {
+    position: absolute;
+    inset: -1.5px;
+    border-radius: calc(var(--UI-Radius-radius-ml) + 1.5px);
+    padding: 1.5px;
+    pointer-events: none;
+    background: conic-gradient(
+      from var(--cosmo-ai-angle),
+      #B2CDFF 0deg,
+      #3EC8FF 60deg,
+      #B2CDFF 120deg,
+      #8E9AEC 180deg,
+      #B2CDFF 240deg,
+      #5C94FF 300deg,
+      #B2CDFF 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1);
+    animation: cosmoAiRotate 5s linear infinite;
+  }
+
+  .chatbox:focus-within .cosmo-ai-ring {
+    opacity: 1;
+  }
+
+  .chatbox .cosmo-ai-glow {
+    position: absolute;
+    inset: -4px;
+    border-radius: calc(var(--UI-Radius-radius-ml) + 4px);
+    padding: 4px;
+    pointer-events: none;
+    background: conic-gradient(
+      from var(--cosmo-ai-angle),
+      rgba(178, 205, 255, 0.20) 0deg,
+      rgba(62, 200, 255, 0.20) 60deg,
+      rgba(178, 205, 255, 0.20) 120deg,
+      rgba(142, 154, 236, 0.20) 180deg,
+      rgba(178, 205, 255, 0.20) 240deg,
+      rgba(92, 148, 255, 0.20) 300deg,
+      rgba(178, 205, 255, 0.20) 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 240ms cubic-bezier(0.16, 1, 0.3, 1);
+    animation: cosmoAiRotate 5s linear infinite;
+  }
+
+  .chatbox:focus-within .cosmo-ai-glow {
+    opacity: 1;
+    transition-delay: 300ms;
+  }
+
+  .chatbox:not(:focus-within) .cosmo-ai-glow {
+    transition-delay: 0ms;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .chatbox .cosmo-ai-ring,
+    .chatbox .cosmo-ai-glow {
+      animation: none;
+    }
   }
 }
 
-.chatbox:focus-within {
-  background-color: var(--Colors-Backgrounds-Main-Top);
+@media (prefers-color-scheme: dark) {
+  .chatbox {
+    background-color: var(--Colors-Base-Neutral-1250);
+    transition: none;
+  }
+
+  .chatbox .cosmo-ai-ring,
+  .chatbox .cosmo-ai-glow {
+    display: none;
+  }
+
+  .chatbox:focus-within .composer__textarea::placeholder {
+    opacity: 1;
+  }
 }
 
 /* Keep composer chrome above the absolutely positioned ring layers */
@@ -849,92 +985,6 @@ body {
   gap: var(--UI-Spacing-spacing-xxs);
   min-width: 0;
   overflow: visible;
-}
-
-/* Rotating conic rings on .chatbox (glow behind, crisp ring in front); anchored to chatbox padding box */
-.chatbox .cosmo-ai-ring {
-  position: absolute;
-  inset: -1.5px;
-  border-radius: calc(var(--UI-Radius-radius-ml) + 1.5px);
-  padding: 1.5px;
-  pointer-events: none;
-  background: conic-gradient(
-    from var(--cosmo-ai-angle),
-    #B2CDFF 0deg,
-    #3EC8FF 60deg,
-    #B2CDFF 120deg,
-    #8E9AEC 180deg,
-    #B2CDFF 240deg,
-    #5C94FF 300deg,
-    #B2CDFF 360deg
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 200ms cubic-bezier(0.16, 1, 0.3, 1);
-  animation: cosmoAiRotate 5s linear infinite;
-}
-
-.chatbox:focus-within .cosmo-ai-ring {
-  opacity: 1;
-}
-
-.chatbox .cosmo-ai-glow {
-  position: absolute;
-  inset: -4px;
-  border-radius: calc(var(--UI-Radius-radius-ml) + 4px);
-  padding: 4px;
-  pointer-events: none;
-  background: conic-gradient(
-    from var(--cosmo-ai-angle),
-    rgba(178, 205, 255, 0.20) 0deg,
-    rgba(62, 200, 255, 0.20) 60deg,
-    rgba(178, 205, 255, 0.20) 120deg,
-    rgba(142, 154, 236, 0.20) 180deg,
-    rgba(178, 205, 255, 0.20) 240deg,
-    rgba(92, 148, 255, 0.20) 300deg,
-    rgba(178, 205, 255, 0.20) 360deg
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  transition: opacity 240ms cubic-bezier(0.16, 1, 0.3, 1);
-  animation: cosmoAiRotate 5s linear infinite;
-}
-
-.chatbox:focus-within .cosmo-ai-glow {
-  opacity: 1;
-  transition-delay: 300ms;
-}
-
-.chatbox:not(:focus-within) .cosmo-ai-glow {
-  transition-delay: 0ms;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .chatbox .cosmo-ai-ring,
-  .chatbox .cosmo-ai-glow {
-    animation: none;
-  }
-}
-
-/* DS .input:focus ring would clash with conic rings */
-textarea.input.composer__textarea:focus,
-textarea.input.composer__textarea:focus-visible {
-  border-color: transparent !important;
-  box-shadow: none !important;
 }
 
 /* Attachment previews (96×96 thumbnails above the prompt) */
@@ -1127,10 +1177,6 @@ textarea.input.composer__textarea:focus-visible {
 .composer__textarea::placeholder {
   opacity: 1;
   transition: opacity 0.2s ease;
-}
-
-.chatbox:focus-within .composer__textarea::placeholder {
-  opacity: 0.6;
 }
 
 /* Beat DS `textarea.input { resize: vertical }` so no drag handle */
