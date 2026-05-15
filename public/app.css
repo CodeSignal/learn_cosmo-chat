@@ -328,6 +328,12 @@ body {
 .sidebar__model .dropdown-menu {
   top: auto;
   bottom: calc(100% + 4px);
+  min-width: 400px;
+}
+
+.sidebar__model .dropdown-menu-item,
+.sidebar__model .dropdown-menu-item.selected {
+  width: 100%;
 }
 
 /* ── Session list items ── */

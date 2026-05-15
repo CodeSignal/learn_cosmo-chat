@@ -277,7 +277,7 @@ function renderModelSelector() {
     modelSelect.style.display = 'none';
     modelStatic.removeAttribute('hidden');
     modelStatic.style.display = '';
-    modelStatic.textContent = availableModels[0].split('/')[1];
+    modelStatic.textContent = availableModels[0].replace(/^openrouter\//, '');
     return;
   }
 
@@ -292,7 +292,7 @@ function renderModelSelector() {
 
   const items = availableModels.map((m) => ({
     value: m,
-    label: m.split('/')[1],
+    label: m.replace(/^openrouter\//, ''),
   }));
 
   modelDropdownInstance = new Dropdown(modelSelect, {
