@@ -289,4 +289,35 @@ describe('filterModels', () => {
     const models = filterModels('  openai/gpt-4o  \n  anthropic/claude-3  ');
     expect(models).toEqual(['openai/gpt-4o', 'anthropic/claude-3']);
   });
+
+  it('filters by allowedModelFamilies prefix', () => {
+    const models = filterModels(rawText, undefined, ['openai']);
+    expect(models).toEqual(['openai/gpt-4o', 'openai/gpt-3.5-turbo']);
+  });
+
+  it('supports multiple families in allowedModelFamilies', () => {
+    const models = filterModels(rawText, undefined, ['openai', 'anthropic']);
+    expect(models).toEqual(['openai/gpt-4o', 'anthropic/claude-3', 'openai/gpt-3.5-turbo']);
+  });
+
+  it('returns all models when allowedModelFamilies is empty array', () => {
+    const models = filterModels(rawText, undefined, []);
+    expect(models).toEqual(['openai/gpt-4o', 'anthropic/claude-3', 'openai/gpt-3.5-turbo']);
+  });
+
+  it('returns all models when allowedModelFamilies is undefined', () => {
+    const models = filterModels(rawText, undefined, undefined);
+    expect(models).toEqual(['openai/gpt-4o', 'anthropic/claude-3', 'openai/gpt-3.5-turbo']);
+  });
+
+  it('handles nested families like openrouter/deepseek', () => {
+    const raw = 'openrouter/deepseek/v4\nopenrouter/google/gemini\nopenai/gpt-5';
+    const models = filterModels(raw, undefined, ['openrouter/deepseek']);
+    expect(models).toEqual(['openrouter/deepseek/v4']);
+  });
+
+  it('applies both allowedModels and allowedModelFamilies together', () => {
+    const models = filterModels(rawText, ['openai/gpt-4o', 'anthropic/claude-3'], ['openai']);
+    expect(models).toEqual(['openai/gpt-4o']);
+  });
 });

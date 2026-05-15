@@ -47,7 +47,7 @@ app.get('/api/models', async (_req, res) => {
       fs.readFile(MODELS_FILE, 'utf8'),
       readConfig(),
     ]);
-    res.json({ models: filterModels(raw, config.allowedModels) });
+    res.json({ models: filterModels(raw, config.allowedModels, config.allowedModelFamilies) });
   } catch {
     res.json({ models: [] });
   }
