@@ -270,6 +270,11 @@ async function switchSession(sid) {
 // ── Model selector ────────────────────────────────────────────
 let modelDropdownInstance = null;
 
+function modelDisplayName(modelId) {
+  const names = chatConfig.modelDisplayNames || {};
+  return names[modelId] || modelId.replace(/^openrouter\//, '');
+}
+
 function renderModelSelector() {
   const modelStatic = document.getElementById('modelStatic');
 
@@ -277,7 +282,7 @@ function renderModelSelector() {
     modelSelect.style.display = 'none';
     modelStatic.removeAttribute('hidden');
     modelStatic.style.display = '';
-    modelStatic.textContent = availableModels[0].replace(/^openrouter\//, '');
+    modelStatic.textContent = modelDisplayName(availableModels[0]);
     return;
   }
 
@@ -292,7 +297,7 @@ function renderModelSelector() {
 
   const items = availableModels.map((m) => ({
     value: m,
-    label: m.replace(/^openrouter\//, ''),
+    label: modelDisplayName(m),
   }));
 
   modelDropdownInstance = new Dropdown(modelSelect, {
