@@ -166,6 +166,8 @@ const newChatBtn          = document.getElementById('newChatBtn');
 const sessionList         = document.getElementById('sessionList');
 const modelSelect         = document.getElementById('modelSelect');
 const settingsBtn         = document.getElementById('settingsBtn');
+const historyHeading      = document.getElementById('historyHeading');
+const sidebarSpacer       = document.getElementById('sidebarSpacer');
 
 /** True when the viewport is near the bottom of the chat log (follow new tokens without snapping when scrolled up). */
 function isChatNearBottom(thPx = 120) {
@@ -452,6 +454,12 @@ async function init() {
     if (!chatConfig.hideFileUpload) {
       const attachIcons = document.getElementById('attachIcons');
       if (attachIcons) attachIcons.style.display = '';
+    }
+    if (chatConfig.hideHistory) {
+      if (sidebarSpacer) sidebarSpacer.style.display = '';
+    } else {
+      if (historyHeading) historyHeading.style.display = '';
+      if (sessionList) sessionList.style.display = '';
     }
 
     const modelsData = modelsRes.ok ? await modelsRes.json() : { models: [] };
@@ -921,13 +929,58 @@ async function deleteSession(sid) {
   }
 }
 
-if (newChatBtn) newChatBtn.addEventListener('click', startNewChat);
+if (newChatBtn) {
+  newChatBtn.addEventListener('click', () => {
+    if (chatConfig.hideHistory) {
+      confirmAndReplaceChat();
+    } else {
+      startNewChat();
+    }
+  });
+}
 
 function applyInitialPrompt() {
   if (chatConfig.initialPrompt) {
     promptInput.value = chatConfig.initialPrompt;
     promptInput.dispatchEvent(new Event('input'));
   }
+}
+
+function confirmAndReplaceChat() {
+  const hasMessages = restoredMessages.length > 0 ||
+    (chatHistory && chatHistory.querySelector('.messages')?.childElementCount > 0);
+
+  if (!hasMessages) {
+    replaceCurrentChat();
+    return;
+  }
+
+  const content = document.createElement('div');
+  content.innerHTML = `<p class="body-medium">Starting a new chat will <strong>permanently delete</strong> your current conversation. This cannot be undone.</p>`;
+
+  const confirmModal = new Modal({
+    size: 'small',
+    title: 'Start new chat?',
+    content,
+    closeOnOverlayClick: true,
+    closeOnEscape: true,
+    footerButtons: [
+      { label: 'Cancel', type: 'secondary', onClick: () => confirmModal.close() },
+      { label: 'Delete & Start New', type: 'primary', onClick: async () => {
+        confirmModal.close();
+        await replaceCurrentChat();
+      }},
+    ],
+  });
+  confirmModal.open();
+}
+
+async function replaceCurrentChat() {
+  if (sessionId) {
+    await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+    allSessionsMeta = allSessionsMeta.filter((s) => s.session_id !== sessionId);
+  }
+  await startNewChat();
 }
 
 async function startNewChat() {
@@ -945,8 +998,11 @@ async function startNewChat() {
   clearAttachment();
   applyInitialPrompt();
 
-  // Prepend to the meta list so it appears at the top
-  allSessionsMeta.unshift({ session_id: sessionId, title: 'New conversation', updated_at: new Date().toISOString() });
+  if (chatConfig.hideHistory) {
+    allSessionsMeta = [{ session_id: sessionId, title: 'New conversation', updated_at: new Date().toISOString() }];
+  } else {
+    allSessionsMeta.unshift({ session_id: sessionId, title: 'New conversation', updated_at: new Date().toISOString() });
+  }
 
   buildChat(sessionId);
   renderMessages([], 'idle');

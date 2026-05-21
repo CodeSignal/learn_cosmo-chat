@@ -307,6 +307,10 @@ body {
   min-height: 0;
 }
 
+.sidebar__spacer {
+  flex: 1;
+}
+
 .sidebar__model {
   padding-top: var(--UI-Spacing-spacing-xs);
   display: flex;
