@@ -102,6 +102,7 @@ cp chat-config.example.json chat-config.json
 | `hideSettings` | `boolean` | `false` | Hide the settings button from the sidebar. |
 | `hideHistory` | `boolean` | `false` | Hide the conversation history sidebar. Only one chat exists at a time; "New chat" deletes the current conversation (with confirmation). |
 | `hideFileUpload` | `boolean` | `false` | Hide the image and file attachment buttons from the composer. |
+| `hidePromptControls` | `boolean` | `false` | Hide stop, regenerate, and edit controls for a classic chat experience. |
 
 **Example `chat-config.json`:**
 
