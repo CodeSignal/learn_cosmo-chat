@@ -87,18 +87,37 @@ cp chat-config.example.json chat-config.json
 
 ### Supported options
 
-| Key | Type | Description |
-|---|---|---|
-| `initialPrompt` | `string` | Text pre-populated in the composer on every page load and when creating a new chat. Supports multiple lines (`\n`). Leave empty (`""`) to start with a blank input. |
-| `allowedModels` | `string[]` | Whitelist of model IDs available in the picker. When set to a non-empty array, only those models are shown. When omitted or `[]`, all models from `current-models.txt` are available. |
-| `systemPromptExtra` | `string` | Additional instructions appended to Cosmo's system prompt at session creation. Use this to tailor the persona or add domain-specific context without touching `agents/cosmo-tutor/prompts/system.md`. Supports multiple lines (`\n`). Leave empty (`""`) for no extra instructions. |
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `initialPrompt` | `string` | `""` | Text pre-populated in the composer on every page load and new chat. |
+| `model` | `string` | first available | Default model ID used when creating new sessions. |
+| `allowedModels` | `string[]` | `[]` (all) | Whitelist of exact model IDs for the picker. Empty means all models from `current-models.txt`. |
+| `allowedModelFamilies` | `string[]` | `[]` (all) | Filter models by provider prefix (e.g. `["openai", "openrouter/deepseek"]`). Can be combined with `allowedModels`. |
+| `modelDisplayNames` | `object` | `{}` | Map of model ID to display label shown in the dropdown (e.g. `{"openai/gpt-5": "GPT-5"}`). Models without an entry use the default `provider/model` label. |
+| `temperature` | `number` | `0.7` | Controls randomness (0–2). Lower = more focused, higher = more creative. Ignored when thinking is enabled. |
+| `systemPromptExtra` | `string` | `""` | Additional instructions appended to Cosmo's system prompt at session creation. |
+| `heading` | `string` | `"What's on your mind?"` | Override the empty-state heading shown before the first message. |
+| `hideSettings` | `boolean` | `false` | Hide the settings button from the sidebar. |
+| `hideHistory` | `boolean` | `false` | Hide the conversation history sidebar. Only one chat exists at a time; "New chat" deletes the current conversation (with confirmation). |
+| `hideFileUpload` | `boolean` | `false` | Hide the image and file attachment buttons from the composer. |
 
 **Example `chat-config.json`:**
 
 ```json
 {
-  "initialPrompt": "Write a prompt that asks Cosmo to explain what a large language model is,\nusing simple analogies a 10-year-old could understand.",
-  "systemPromptExtra": "You are assisting students in a Python programming course. Focus all examples and exercises on Python."
+  "initialPrompt": "Write a prompt that asks Cosmo to explain what a large language model is.",
+  "model": "anthropic/claude-sonnet-4-6",
+  "allowedModels": ["anthropic/claude-sonnet-4-6", "openrouter/deepseek/deepseek-r1"],
+  "modelDisplayNames": {
+    "anthropic/claude-sonnet-4-6": "Claude Sonnet 4.6",
+    "openrouter/deepseek/deepseek-r1": "DeepSeek R1"
+  },
+  "temperature": 0.7,
+  "systemPromptExtra": "Focus all examples on Python.",
+  "heading": "How can I help you today?",
+  "hideSettings": true,
+  "hideHistory": true,
+  "hideFileUpload": false
 }
 ```
 

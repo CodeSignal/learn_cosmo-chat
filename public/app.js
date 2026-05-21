@@ -451,6 +451,10 @@ async function init() {
     if (chatConfig.temperature !== undefined) selectedTemperature = chatConfig.temperature;
     if (chatConfig.thinking   !== undefined) selectedThinking    = chatConfig.thinking;
     if (!chatConfig.hideSettings && settingsBtn) settingsBtn.style.display = '';
+    if (chatConfig.heading) {
+      const headingEl = document.querySelector('.empty-state__heading');
+      if (headingEl) headingEl.textContent = chatConfig.heading;
+    }
     if (!chatConfig.hideFileUpload) {
       const attachIcons = document.getElementById('attachIcons');
       if (attachIcons) attachIcons.style.display = '';
