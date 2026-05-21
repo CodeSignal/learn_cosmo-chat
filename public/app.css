@@ -1208,7 +1208,7 @@ textarea.input.composer__textarea {
   justify-content: center;
   width: auto;
   height: auto;
-  margin: 0;
+  margin: 0 0 0 auto;
   padding: 0;
   border: none;
   background: transparent;

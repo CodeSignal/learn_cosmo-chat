@@ -449,6 +449,10 @@ async function init() {
     if (chatConfig.temperature !== undefined) selectedTemperature = chatConfig.temperature;
     if (chatConfig.thinking   !== undefined) selectedThinking    = chatConfig.thinking;
     if (!chatConfig.hideSettings && settingsBtn) settingsBtn.style.display = '';
+    if (!chatConfig.hideFileUpload) {
+      const attachIcons = document.getElementById('attachIcons');
+      if (attachIcons) attachIcons.style.display = '';
+    }
 
     const modelsData = modelsRes.ok ? await modelsRes.json() : { models: [] };
     availableModels = modelsData.models;
