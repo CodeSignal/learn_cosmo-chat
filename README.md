@@ -96,7 +96,9 @@ cp chat-config.example.json chat-config.json
 | `modelDisplayNames` | `object` | `{}` | Map of model ID to display label shown in the dropdown (e.g. `{"openai/gpt-5": "GPT-5"}`). Models without an entry use the default `provider/model` label. |
 | `temperature` | `number` | `0.7` | Controls randomness (0–2). Lower = more focused, higher = more creative. Ignored when thinking is enabled. |
 | `systemPromptExtra` | `string` | `""` | Additional instructions appended to Cosmo's system prompt at session creation. |
+| `title` | `string` | `"ChatCPT"` | Override the app name shown in the sidebar header and browser tab. |
 | `heading` | `string` | `"What's on your mind?"` | Override the empty-state heading shown before the first message. |
+| `footer` | `string` | `"Cosmo can make mistakes..."` | Override the disclaimer text below the composer. |
 | `hideSettings` | `boolean` | `false` | Hide the settings button from the sidebar. |
 | `hideHistory` | `boolean` | `false` | Hide the conversation history sidebar. Only one chat exists at a time; "New chat" deletes the current conversation (with confirmation). |
 | `hideFileUpload` | `boolean` | `false` | Hide the image and file attachment buttons from the composer. |
@@ -114,7 +116,9 @@ cp chat-config.example.json chat-config.json
   },
   "temperature": 0.7,
   "systemPromptExtra": "Focus all examples on Python.",
+  "title": "My AI Tutor",
   "heading": "How can I help you today?",
+  "footer": "AI responses may be inaccurate. Always verify.",
   "hideSettings": true,
   "hideHistory": true,
   "hideFileUpload": false

@@ -455,6 +455,15 @@ async function init() {
       const headingEl = document.querySelector('.empty-state__heading');
       if (headingEl) headingEl.textContent = chatConfig.heading;
     }
+    if (chatConfig.footer) {
+      const footerEl = document.querySelector('.composer__hint');
+      if (footerEl) footerEl.textContent = chatConfig.footer;
+    }
+    if (chatConfig.title) {
+      document.title = chatConfig.title;
+      const titleEl = document.querySelector('.sidebar__title');
+      if (titleEl) titleEl.textContent = chatConfig.title;
+    }
     if (!chatConfig.hideFileUpload) {
       const attachIcons = document.getElementById('attachIcons');
       if (attachIcons) attachIcons.style.display = '';
