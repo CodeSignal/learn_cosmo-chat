@@ -657,7 +657,7 @@ function renderMessages(liveMessages, status) {
         row.querySelector('.message__body').appendChild(stoppedEl);
       }
 
-      if (!chatConfig.hidePromptControls && isIdle && i === lastAssistantIdx && hasText) {
+      if (!chatConfig.hidePromptControls && isIdle && i === lastAssistantIdx && (hasText || msg.stopped)) {
         const actionsEl = document.createElement('div');
         actionsEl.className = 'message__actions';
         const regenBtn = document.createElement('button');
