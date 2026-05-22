@@ -146,6 +146,34 @@ app.delete('/api/sessions/:sessionId', async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── POST /api/session/fork ────────────────────────────────────
+// Creates a new Octavus session, seeds it with the supplied messages, and
+// removes the old session record.  Used by regenerate / edit-and-resend.
+app.post('/api/session/fork', async (req, res) => {
+  const { oldSessionId, messages, model, temperature, thinking } = req.body;
+  if (!oldSessionId || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'oldSessionId and messages[] are required' });
+  }
+
+  try {
+    const record = await createNewSession({ model, temperature, thinking });
+    const data = await readSessionsFile();
+
+    const idx = data.sessions.findIndex((s) => s.session_id === record.session_id);
+    if (idx >= 0) {
+      data.sessions[idx].messages = messages;
+      data.sessions[idx].updated_at = new Date().toISOString();
+    }
+
+    data.sessions = data.sessions.filter((s) => s.session_id !== oldSessionId);
+    await writeSessionsFile(data);
+    res.json({ sessionId: record.session_id });
+  } catch (err) {
+    console.error('[session/fork] Error:', err);
+    res.status(500).json({ error: 'Failed to fork session' });
+  }
+});
+
 // ── POST /api/session/save ────────────────────────────────────
 // Receives the full serialised message list and writes it into chat-sessions.json.
 app.post('/api/session/save', async (req, res) => {

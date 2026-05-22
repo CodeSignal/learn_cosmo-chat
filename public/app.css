@@ -790,6 +790,7 @@ body {
 }
 
 .message__user-content {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -823,6 +824,110 @@ body {
   border-radius: var(--UI-Radius-radius-m) !important;
   padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
 }
+
+/* ── Message action buttons (regenerate, edit) ──────────────── */
+
+.message__actions {
+  display: flex;
+  gap: var(--UI-Spacing-spacing-xxs);
+  padding-top: var(--UI-Spacing-spacing-xxs);
+}
+
+.message__action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--UI-Radius-radius-s);
+  background: transparent;
+  color: var(--Colors-Text-Subdued);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+
+.message:hover .message__action-btn,
+.message__action-btn:focus-visible {
+  opacity: 1;
+}
+
+.message__action-btn:hover {
+  background-color: var(--Colors-Backgrounds-Main-Medium);
+  color: var(--Colors-Text-Default);
+}
+
+.message__stopped {
+  margin-top: var(--UI-Spacing-spacing-xs);
+  color: var(--Colors-Text-Subdued);
+  font-style: italic;
+}
+
+.message__edit-btn {
+  position: absolute;
+  top: 50%;
+  left: -32px;
+  transform: translateY(-50%);
+}
+
+/* ── Inline edit form ───────────────────────────────────────── */
+
+.message__edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--UI-Spacing-spacing-xs);
+  width: 100%;
+}
+
+.message__edit-textarea {
+  width: 100%;
+  min-height: 60px;
+  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
+  border: 1px solid var(--Colors-Borders-Default);
+  border-radius: var(--UI-Radius-radius-m);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  background: var(--Colors-Backgrounds-Main-Top);
+  color: var(--Colors-Text-Default);
+}
+
+.message__edit-textarea:focus {
+  outline: none;
+  border-color: var(--Colors-Primary-Default);
+}
+
+.message__edit-actions {
+  display: flex;
+  gap: var(--UI-Spacing-spacing-xs);
+  justify-content: flex-end;
+}
+
+.message__edit-cancel,
+.message__edit-submit {
+  padding: 6px 16px;
+  border-radius: var(--UI-Radius-radius-s);
+  border: none;
+  font-size: var(--Fonts-Special-sm);
+  cursor: pointer;
+}
+
+.message__edit-cancel {
+  background: var(--Colors-Backgrounds-Main-Medium);
+  color: var(--Colors-Text-Default);
+}
+
+.message__edit-submit {
+  background: var(--Colors-Primary-Default);
+  color: #fff;
+}
+
+.message__edit-cancel:hover { opacity: 0.8; }
+.message__edit-submit:hover { opacity: 0.9; }
+.message__edit-submit:disabled,
+.message__edit-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ============================================================
    COMPOSER

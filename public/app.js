@@ -193,6 +193,7 @@ let availableModels = [];
 let selectedModel = '';
 let selectedTemperature = 0.7;
 let selectedThinking = 'off';
+let currentAbortController = null;
 let settingsModal = null;
 let thinkingDropdownInstance = null;
 let temperatureSliderInstance = null;
@@ -202,13 +203,15 @@ function buildChat(sid) {
   if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
 
   const transport = createHttpTransport({
-    request: (payload, options) =>
-      fetch('/api/trigger', {
+    request: (payload, options) => {
+      currentAbortController = new AbortController();
+      return fetch('/api/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: sid, ...payload }),
-        signal: options?.signal,
-      }),
+        signal: currentAbortController.signal,
+      });
+    },
   });
 
   const requestUploadUrls = async (files) => {
@@ -587,7 +590,17 @@ function renderMessages(liveMessages, status) {
 
   messagesEl.innerHTML = '';
 
-  for (const msg of messages) {
+  const isIdle = status !== 'streaming';
+  let userAssistantIdx = 0;
+  const lastAssistantIdx = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') return i;
+    }
+    return -1;
+  })();
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
     const row = document.createElement('div');
 
     if (msg.role === 'assistant') {
@@ -636,6 +649,29 @@ function renderMessages(liveMessages, status) {
           ${statusHtml}
         </div>
       `;
+
+      if (msg.stopped) {
+        const stoppedEl = document.createElement('div');
+        stoppedEl.className = 'message__stopped body-xsmall';
+        stoppedEl.textContent = 'Response stopped';
+        row.querySelector('.message__body').appendChild(stoppedEl);
+      }
+
+      if (!chatConfig.hidePromptControls && isIdle && i === lastAssistantIdx && (hasText || msg.stopped)) {
+        const actionsEl = document.createElement('div');
+        actionsEl.className = 'message__actions';
+        const regenBtn = document.createElement('button');
+        regenBtn.type = 'button';
+        regenBtn.className = 'message__action-btn';
+        regenBtn.setAttribute('aria-label', 'Regenerate response');
+        regenBtn.title = 'Regenerate';
+        regenBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>`;
+        regenBtn.addEventListener('click', regenerateLastResponse);
+        actionsEl.appendChild(regenBtn);
+        row.appendChild(actionsEl);
+      }
     } else if (msg.role === 'user') {
       const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
       const fileParts = msg.parts.filter((p) => p.type === 'file');
@@ -649,10 +685,26 @@ function renderMessages(liveMessages, status) {
           ${text ? `<div class="message__bubble body-medium">${text}</div>` : ''}
         </div>
       `;
+
+      if (!chatConfig.hidePromptControls && isIdle && text) {
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'message__action-btn message__edit-btn';
+        editBtn.setAttribute('aria-label', 'Edit message');
+        editBtn.title = 'Edit';
+        editBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+        </svg>`;
+        const capturedIdx = userAssistantIdx;
+        const capturedText = text;
+        editBtn.addEventListener('click', () => startEditingMessage(row, capturedIdx, capturedText));
+        row.querySelector('.message__user-content').appendChild(editBtn);
+      }
     } else {
       continue;
     }
 
+    if (msg.role === 'user' || msg.role === 'assistant') userAssistantIdx++;
     messagesEl.appendChild(row);
   }
 
@@ -877,10 +929,71 @@ promptInput.addEventListener('keydown', (e) => {
   sendMessage();
 });
 
-sendBtn.addEventListener('click', sendMessage);
+sendBtn.addEventListener('click', () => {
+  if (!chatConfig.hidePromptControls && chat?.status === 'streaming') {
+    stopGeneration();
+  } else {
+    sendMessage();
+  }
+});
+
+function stopGeneration() {
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+
+  if (loadingIntervalId) {
+    clearInterval(loadingIntervalId);
+    loadingIntervalId = null;
+  }
+  streamingStartTime = null;
+
+  const partialMessages = chat?.messages ?? [];
+  if (partialMessages.length > 0) {
+    restoredMessages = partialMessages
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .map((m) => ({
+        role: m.role,
+        content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
+        files: m.parts
+          .filter((p) => p.type === 'file')
+          .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
+        timestamp: new Date().toISOString(),
+      }));
+
+    for (let i = restoredMessages.length - 1; i >= 0; i--) {
+      if (restoredMessages[i].role === 'assistant') {
+        restoredMessages[i].stopped = true;
+        break;
+      }
+    }
+
+    saveSession(partialMessages);
+  }
+
+  lastStatus = null;
+  buildChat(sessionId);
+  renderMessages([], 'idle');
+}
 
 function updateSendBtn() {
-  sendBtn.disabled = !isComposerSendAllowed();
+  const streaming = chat?.status === 'streaming';
+  const showStop = streaming && !chatConfig.hidePromptControls;
+  const sendSvg = sendBtn.querySelector('.composer__send-svg');
+  const stopSvg = sendBtn.querySelector('.composer__stop-svg');
+
+  if (showStop) {
+    sendBtn.disabled = false;
+    sendBtn.setAttribute('aria-label', 'Stop generation');
+    if (sendSvg) sendSvg.style.display = 'none';
+    if (stopSvg) stopSvg.style.display = '';
+  } else {
+    sendBtn.disabled = !isComposerSendAllowed();
+    sendBtn.setAttribute('aria-label', 'Send prompt');
+    if (sendSvg) sendSvg.style.display = '';
+    if (stopSvg) stopSvg.style.display = 'none';
+  }
 }
 
 // ── Sidebar ───────────────────────────────────────────────────
@@ -1022,6 +1135,166 @@ async function startNewChat() {
   renderSidebar();
 }
 
+// ── Regenerate / Edit ─────────────────────────────────────────
+
+function getAllCurrentMessages() {
+  if (chat?.messages?.length > 0) {
+    return chat.messages
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .map((m) => ({
+        role: m.role,
+        content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
+        files: m.parts
+          .filter((p) => p.type === 'file')
+          .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
+        timestamp: new Date().toISOString(),
+      }));
+  }
+  return [...restoredMessages];
+}
+
+async function forkSession(messages) {
+  const res = await fetch('/api/session/fork', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      oldSessionId: sessionId,
+      messages,
+      model: selectedModel,
+      temperature: selectedTemperature,
+      thinking: selectedThinking,
+    }),
+  });
+  if (!res.ok) throw new Error('Fork failed');
+  return res.json();
+}
+
+async function resendOnForkedSession(historyMessages, userText, userFiles) {
+  const data = await forkSession(historyMessages);
+
+  const oldSessionId = sessionId;
+  sessionId = data.sessionId;
+  restoredMessages = historyMessages;
+  lastStatus = null;
+
+  const metaIdx = allSessionsMeta.findIndex((s) => s.session_id === oldSessionId);
+  if (metaIdx >= 0) {
+    allSessionsMeta[metaIdx].session_id = sessionId;
+  } else {
+    allSessionsMeta.unshift({
+      session_id: sessionId,
+      title: deriveTitle(historyMessages) || 'New conversation',
+      updated_at: new Date().toISOString(),
+    });
+  }
+  renderSidebar();
+
+  buildChat(sessionId);
+  renderMessages([], 'idle');
+
+  const filesToSend = userFiles?.length > 0 ? userFiles : undefined;
+  await chat.send(
+    'user-message',
+    { USER_MESSAGE: userText, ...(filesToSend ? { FILES: filesToSend } : {}) },
+    { userMessage: { content: userText, ...(filesToSend ? { files: filesToSend } : {}) } },
+  );
+}
+
+async function regenerateLastResponse() {
+  const allMsgs = getAllCurrentMessages();
+
+  let lastAssistantIdx = -1;
+  for (let i = allMsgs.length - 1; i >= 0; i--) {
+    if (allMsgs[i].role === 'assistant') { lastAssistantIdx = i; break; }
+  }
+  if (lastAssistantIdx < 0) return;
+
+  const beforeAssistant = allMsgs.slice(0, lastAssistantIdx);
+
+  let lastUserIdx = -1;
+  for (let i = beforeAssistant.length - 1; i >= 0; i--) {
+    if (beforeAssistant[i].role === 'user') { lastUserIdx = i; break; }
+  }
+  if (lastUserIdx < 0) return;
+
+  const lastUserMsg = beforeAssistant[lastUserIdx];
+  const historyBeforeUser = beforeAssistant.slice(0, lastUserIdx);
+
+  try {
+    await resendOnForkedSession(
+      historyBeforeUser,
+      lastUserMsg.content,
+      lastUserMsg.files,
+    );
+  } catch (err) {
+    console.error('[ChatCPT] Regenerate error:', err);
+  }
+}
+
+async function editAndResend(messageIndex, newText) {
+  const allMsgs = getAllCurrentMessages();
+  const historyBeforeEdit = allMsgs.slice(0, messageIndex);
+
+  try {
+    await resendOnForkedSession(historyBeforeEdit, newText);
+  } catch (err) {
+    console.error('[ChatCPT] Edit & resend error:', err);
+  }
+}
+
+function startEditingMessage(row, msgIndex, originalText) {
+  const bubble = row.querySelector('.message__bubble');
+  if (!bubble) return;
+
+  const editor = document.createElement('div');
+  editor.className = 'message__edit-form';
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'input message__edit-textarea';
+  textarea.value = originalText;
+  textarea.rows = Math.max(2, originalText.split('\n').length);
+
+  const actions = document.createElement('div');
+  actions.className = 'message__edit-actions';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn btn--secondary message__edit-cancel';
+  cancelBtn.textContent = 'Cancel';
+
+  const submitBtn = document.createElement('button');
+  submitBtn.type = 'button';
+  submitBtn.className = 'btn btn--primary message__edit-submit';
+  submitBtn.textContent = 'Save & Submit';
+
+  actions.appendChild(cancelBtn);
+  actions.appendChild(submitBtn);
+  editor.appendChild(textarea);
+  editor.appendChild(actions);
+
+  bubble.replaceWith(editor);
+  textarea.focus();
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+  cancelBtn.addEventListener('click', () => {
+    renderMessages(chat?.messages ?? [], chat?.status ?? 'idle');
+  });
+
+  submitBtn.addEventListener('click', async () => {
+    const newText = textarea.value.trim();
+    if (!newText) return;
+    submitBtn.disabled = true;
+    cancelBtn.disabled = true;
+    await editAndResend(msgIndex, newText);
+  });
+}
+
+function deriveTitle(messages) {
+  const first = messages.find((m) => m.role === 'user');
+  if (!first?.content) return '';
+  return first.content.length > 45 ? first.content.slice(0, 45) + '…' : first.content;
+}
+
 // ── Session persistence ───────────────────────────────────────
 
 // Convert a stored plain-object message back into the shape renderMessages expects
@@ -1030,6 +1303,7 @@ function storedToDisplayMsg(m) {
   return {
     role: m.role,
     status: 'done',
+    stopped: m.stopped || false,
     parts: [
       ...(m.content ? [{ type: 'text', text: m.content }] : []),
       ...(m.files ?? []).map((f) => ({ type: 'file', ...f })),
