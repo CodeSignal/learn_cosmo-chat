@@ -821,6 +821,7 @@ body {
   justify-content: flex-start;
   text-align: left;
   line-height: 1.6;
+  white-space: pre-wrap;
   border-radius: var(--UI-Radius-radius-m) !important;
   padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
 }
