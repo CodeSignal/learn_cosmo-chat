@@ -467,6 +467,9 @@ async function init() {
       const titleEl = document.querySelector('.sidebar__title');
       if (titleEl) titleEl.textContent = chatConfig.title;
     }
+    if (chatConfig.placeholder) {
+      promptInput.placeholder = chatConfig.placeholder;
+    }
     if (!chatConfig.hideFileUpload) {
       const attachIcons = document.getElementById('attachIcons');
       if (attachIcons) attachIcons.style.display = '';
@@ -486,6 +489,8 @@ async function init() {
     buildChat(sessionId);
     renderMessages([], 'idle');
     renderSidebar();
+
+    document.querySelector('.chat-app').style.visibility = '';
   } catch (err) {
     console.error('[ChatCPT] Failed to initialise session:', err);
     const el = document.getElementById('bootError');
