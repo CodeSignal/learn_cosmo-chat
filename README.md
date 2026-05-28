@@ -98,6 +98,7 @@ cp chat-config.example.json chat-config.json
 | `systemPromptExtra` | `string` | `""` | Additional instructions appended to Cosmo's system prompt at session creation. |
 | `title` | `string` | `"ChatCPT"` | Override the app name shown in the sidebar header and browser tab. |
 | `heading` | `string` | `"What's on your mind?"` | Override the empty-state heading shown before the first message. |
+| `placeholder` | `string` | `"Ask me anything..."` | Override the placeholder text in the composer input. |
 | `footer` | `string` | `"Cosmo can make mistakes..."` | Override the disclaimer text below the composer. |
 | `hideSettings` | `boolean` | `false` | Hide the settings button from the sidebar. |
 | `hideHistory` | `boolean` | `false` | Hide the conversation history sidebar. Only one chat exists at a time; "New chat" deletes the current conversation (with confirmation). |
