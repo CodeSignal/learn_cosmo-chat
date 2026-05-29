@@ -101,6 +101,12 @@ renderer.table = function (token) {
   return `<div class="message__table-scroll">${inner}</div>`;
 };
 
+// Force all rendered links to open in a new tab (with safe rel attributes).
+renderer.link = function (token) {
+  const html = Renderer.prototype.link.call(this, token);
+  return html.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
+};
+
 marked.use({ breaks: true, gfm: true, renderer });
 
 /** Strip leading emoji / pictographic decorations models often put before heading text (e.g. colored squares). */
