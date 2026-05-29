@@ -790,12 +790,8 @@ function openFilePicker(accept) {
 uploadImageBtn.addEventListener('click', () => openFilePicker(ACCEPT_IMAGE_TYPES));
 uploadFileBtn.addEventListener('click', () => openFilePicker(ACCEPT_FILE_TYPES));
 
-fileInput.addEventListener('change', async () => {
-  const files = Array.from(fileInput.files);
+async function handleFiles(files) {
   if (!files.length || !chat) return;
-
-  // Reset so re-selecting the same file(s) fires 'change' again
-  fileInput.value = '';
 
   const newItems = files.map((f) => ({
     file: f,
@@ -821,6 +817,24 @@ fileInput.addEventListener('change', async () => {
     isUploading = false;
     renderAttachmentPreview();
     updateSendBtn();
+  }
+}
+
+fileInput.addEventListener('change', () => {
+  const files = Array.from(fileInput.files);
+  fileInput.value = '';
+  handleFiles(files);
+});
+
+promptInput.addEventListener('paste', (e) => {
+  const items = Array.from(e.clipboardData?.items ?? []);
+  const imageFiles = items
+    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    .map((item) => item.getAsFile())
+    .filter(Boolean);
+  if (imageFiles.length > 0) {
+    e.preventDefault();
+    handleFiles(imageFiles);
   }
 });
 
