@@ -190,8 +190,6 @@ let sessionId = null;
 let fileItems = [];
 let isUploading = false;
 let lastStatus = null;
-let pendingScrollUserToTop = false;
-let pinnedToTopActive = false; // suppress auto-bottom-scroll while a sent turn is pinned to top
 let restoredMessages = [];
 let allSessionsMeta = []; // [{session_id, title, updated_at}]
 let streamingStartTime = null;
@@ -257,7 +255,6 @@ function buildChat(sid) {
 
     renderMessages(messages, status);
     if (lastStatus === 'streaming' && status !== 'streaming') {
-      pinnedToTopActive = false; // turn finished — resume normal follow behaviour
       saveSession(messages);
     }
     lastStatus = status;
@@ -269,9 +266,6 @@ async function switchSession(sid) {
   clearAttachment();
   promptInput.value = '';
   lastStatus = null;
-  pendingScrollUserToTop = false;
-  pinnedToTopActive = false;
-  resetScrollSpacer();
 
   const res = await fetch(`/api/session?id=${sid}`);
   if (!res.ok) return;
@@ -701,9 +695,18 @@ async function init() {
     selectedModel = chatConfig.model || availableModels[0] || '';
     renderModelSelector();
 
-    buildChat(sessionId);
-    renderMessages([], 'idle');
-    renderSidebar();
+    // Start fresh on reload: don't resume a previous conversation. If the
+    // most-recent session already has messages, spin up a new empty one;
+    // otherwise reuse the (already-empty) latest session to avoid piling up
+    // empty sessions across repeated reloads.
+    if (restoredMessages.length > 0) {
+      restoredMessages = [];
+      await startNewChat();
+    } else {
+      buildChat(sessionId);
+      renderMessages([], 'idle');
+      renderSidebar();
+    }
 
     document.querySelector('.chat-app').style.visibility = '';
   } catch (err) {
@@ -969,10 +972,7 @@ function renderMessages(liveMessages, status) {
     emptyState.hidden = messagesEl.childElementCount > 0;
   }
 
-  if (pendingScrollUserToTop) {
-    pendingScrollUserToTop = false;
-    requestAnimationFrame(scrollLastUserMessageToTop);
-  } else if (wasPinnedToBottom && !pinnedToTopActive) {
+  if (wasPinnedToBottom) {
     requestAnimationFrame(() => {
       if (!chatHistory) return;
       chatHistory.scrollTop = Math.max(0, chatHistory.scrollHeight - chatHistory.clientHeight);
@@ -982,39 +982,6 @@ function renderMessages(liveMessages, status) {
   const streaming = status === 'streaming';
   promptInput.disabled = streaming;
   updateSendBtn();
-}
-
-// Smoothly scroll so the most recent user message sits at the top of the
-// chat viewport. Reserves space below (via min-height) so the message can
-// reach the top even before the response has generated; the reserve is
-// harmless once real content grows past it, and is reset on the next send.
-function scrollLastUserMessageToTop() {
-  if (!chatHistory) return;
-  const messagesEl = chatHistory.querySelector('.messages');
-  if (!messagesEl) return;
-  const rows = messagesEl.querySelectorAll('.message--user');
-  const row = rows[rows.length - 1];
-  if (!row) return;
-
-  messagesEl.style.minHeight = ''; // reset before measuring
-
-  const TOP_GAP = 16;
-  const messagesTop = messagesEl.getBoundingClientRect().top;
-  const containerTop = chatHistory.getBoundingClientRect().top;
-  const rowTop = row.getBoundingClientRect().top;
-
-  // Ensure there's enough height below the message for it to reach the top.
-  const rowOffsetInMessages = rowTop - messagesTop;
-  const minH = rowOffsetInMessages + chatHistory.clientHeight - TOP_GAP;
-  if (minH > messagesEl.offsetHeight) messagesEl.style.minHeight = `${minH}px`;
-
-  const targetTop = Math.max(0, chatHistory.scrollTop + (rowTop - containerTop) - TOP_GAP);
-  chatHistory.scrollTo({ top: targetTop, behavior: 'smooth' });
-}
-
-function resetScrollSpacer() {
-  const messagesEl = chatHistory?.querySelector('.messages');
-  if (messagesEl) messagesEl.style.minHeight = '';
 }
 
 function renderFilePart(part) {
@@ -1044,11 +1011,6 @@ async function sendMessage() {
   const filesToSend = readyRefs;
   clearAttachment();
   updateSendBtn();
-
-  // Once the new user message renders, scroll it to the top of the view
-  // and keep it there (no auto-bottom-scroll) while the response streams in.
-  pendingScrollUserToTop = true;
-  pinnedToTopActive = true;
 
   try {
     await chat.send(
@@ -1433,9 +1395,6 @@ async function startNewChat() {
   sessionId = data.sessionId;
   restoredMessages = [];
   lastStatus = null;
-  pendingScrollUserToTop = false;
-  pinnedToTopActive = false;
-  resetScrollSpacer();
   clearAttachment();
   applyInitialPrompt();
 
