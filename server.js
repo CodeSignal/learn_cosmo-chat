@@ -64,7 +64,8 @@ async function createNewSession(options = {}) {
   const sessionId = await octavus.agentSessions.create(AGENT_ID, input);
   const record = buildSessionRecord(sessionId);
   const data = await readSessionsFile();
-  data.sessions.push(record);
+  // With history hidden there is only ever one conversation; drop the rest.
+  data.sessions = config.hideHistory ? [record] : [...data.sessions, record];
   await writeSessionsFile(data);
   return record;
 }
@@ -92,6 +93,7 @@ app.get('/api/session', async (req, res) => {
   }
 
   const data = await readSessionsFile();
+  const config = await readConfig();
 
   // Load a specific session when ?id= is provided
   if (req.query.id) {
@@ -105,6 +107,11 @@ app.get('/api/session', async (req, res) => {
     const latest = data.sessions.reduce((a, b) =>
       (a.updated_at || a.created_at) > (b.updated_at || b.created_at) ? a : b,
     );
+    // With history hidden, keep only the resumed session; discard any others.
+    if (config.hideHistory && data.sessions.length > 1) {
+      data.sessions = [latest];
+      await writeSessionsFile(data);
+    }
     return res.json({ sessionId: latest.session_id, messages: latest.messages });
   }
 
@@ -184,6 +191,7 @@ app.post('/api/session/save', async (req, res) => {
 
   try {
     const data = await readSessionsFile();
+    const config = await readConfig();
     const idx = data.sessions.findIndex((s) => s.session_id === sessionId);
     const now = new Date().toISOString();
 
@@ -198,6 +206,11 @@ app.post('/api/session/save', async (req, res) => {
         messages,
         selected_submission: null,
       });
+    }
+
+    // With history hidden, only the current conversation is ever persisted.
+    if (config.hideHistory) {
+      data.sessions = data.sessions.filter((s) => s.session_id === sessionId);
     }
 
     await writeSessionsFile(data);
