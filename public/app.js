@@ -563,18 +563,9 @@ async function init() {
     selectedModel = chatConfig.model || availableModels[0] || '';
     renderModelSelector();
 
-    // Start fresh on reload: don't resume a previous conversation. If the
-    // most-recent session already has messages, spin up a new empty one;
-    // otherwise reuse the (already-empty) latest session to avoid piling up
-    // empty sessions across repeated reloads.
-    if (restoredMessages.length > 0) {
-      restoredMessages = [];
-      await startNewChat();
-    } else {
-      buildChat(sessionId);
-      renderMessages([], 'idle');
-      renderSidebar();
-    }
+    buildChat(sessionId);
+    renderMessages([], 'idle');
+    renderSidebar();
 
     document.querySelector('.chat-app').style.visibility = '';
   } catch (err) {
