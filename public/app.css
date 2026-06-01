@@ -14,7 +14,6 @@
   --sidebar-border-color: var(--Colors-Stroke-Light);
   --session-item-hover-bg: var(--Colors-Base-Neutral-20);
   --session-item-active-bg: var(--Colors-Base-Primary-20);
-  --code-block-bg: var(--Colors-Base-Neutral-50);
   --markdown-hr-border-color: var(--Colors-Stroke-Default);
   --chatbox-bg: var(--Colors-Base-Neutral-20);
   --chatbox-focus-bg: var(--Colors-Backgrounds-Main-Top);
@@ -30,13 +29,15 @@
     --sidebar-border-color: var(--Colors-Base-Neutral-1250);
     --session-item-hover-bg: var(--Colors-Base-Neutral-1250);
     --session-item-active-bg: var(--Colors-Base-Neutral-1250);
-    --code-block-bg: var(--Colors-Base-Neutral-1250);
     --markdown-hr-border-color: var(--Colors-Base-Neutral-1250);
     --chatbox-bg: var(--Colors-Base-Neutral-1250);
     --chatbox-focus-bg: var(--Colors-Base-Neutral-1250);
     --chatbox-bg-transition: none;
     --chatbox-ring-display: none;
     --chatbox-placeholder-focus-opacity: 1;
+    /* The DS forgets to dark-adapt the tertiary button's border (it stays
+       light Neutral-300), so supply the missing dark value here. */
+    --Colors-Buttons-Tertiary-Default: var(--Colors-Base-Neutral-1100);
   }
 }
 
@@ -112,6 +113,7 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  overflow: hidden; /* app shell never scrolls — only inner containers (e.g. .chat-history) do */
   background-color: var(--Colors-Backgrounds-Main-Top);
   color: var(--Colors-Text-Body-Default);
   font-family: var(--body-family);
@@ -157,6 +159,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0; /* allow children to shrink so .chat-history scrolls, not the page */
   overflow: hidden;
 }
 
@@ -192,7 +195,7 @@ body {
    SIDEBAR
    ============================================================ */
 .sidebar {
-  width: 280px;
+  width: var(--sidebar-width, 280px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -201,6 +204,74 @@ body {
   border-right: 1px solid var(--sidebar-border-color);
   /* overflow: visible lets the Dropdown menu panel escape the sidebar bounds */
   overflow: visible;
+}
+
+/* ── Sidebar resizer ──────────────────────────────────────────
+   A draggable handle that overlays the sidebar's right edge (negative
+   margin keeps it out of the layout flow), with a highlight line on
+   hover/drag. */
+.sidebar-resizer {
+  flex-shrink: 0;
+  width: 8px;
+  margin-left: -8px;
+  z-index: 5;
+  cursor: col-resize;
+  position: relative;
+  align-self: stretch;
+  touch-action: none;
+}
+
+/* Centered pill grip: faint at rest, full on hover, primary while dragging. */
+.sidebar-resizer::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(calc(-50% - 3px), -50%);
+  width: 4px;
+  height: 60px;
+  border-radius: 12px;
+  background-color: var(--Colors-Stroke-Light); /* neutral light */
+  opacity: 0.5;
+  transition:
+    opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-resizer:hover::before,
+.sidebar-resizer:focus-visible::before {
+  opacity: 1;
+}
+
+/* Keyboard focus: highlight the grip in primary with a ring so the
+   focus target is clearly visible (the element outline is suppressed
+   because the 8px hit area would draw an awkward tall rectangle). */
+.sidebar-resizer:focus-visible::before {
+  background-color: var(--Colors-Primary-Light);
+  box-shadow: 0 0 0 2px var(--Colors-Primary-Default);
+}
+
+.sidebar-resizer.is-dragging::before {
+  background-color: var(--Colors-Primary-Light);
+  opacity: 1;
+}
+
+/* Dark mode: the rest pill uses a non-adaptive light token, so darken it. */
+@media (prefers-color-scheme: dark) {
+  .sidebar-resizer::before {
+    background-color: var(--Colors-Base-Neutral-900);
+  }
+}
+
+.sidebar-resizer:focus-visible {
+  outline: none;
+}
+
+/* While dragging, keep the resize cursor everywhere and prevent the
+   page from selecting text. */
+body.is-resizing-sidebar {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .sidebar__header {
@@ -426,10 +497,15 @@ body {
    ============================================================ */
 .chat-history {
   flex: 1;
+  min-height: 0; /* bound the height so this element scrolls internally, not the page */
   overflow-y: auto;
+  overscroll-behavior: contain; /* don't chain scroll to the page at the edges */
   display: flex;
   flex-direction: column;
-  scroll-behavior: smooth;
+  /* No CSS scroll-behavior: the auto-follow bottom-pin must be instant —
+     with smooth it re-animates on every streaming re-render and the chat
+     appears to scroll down endlessly. The deliberate scroll-to-top on
+     send still animates via its JS { behavior: 'smooth' } option. */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* legacy Edge */
 }
@@ -553,13 +629,15 @@ body {
 .message__ai-trailing {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
-  gap: var(--UI-Spacing-spacing-xs);
+  align-items: center;
+  gap: var(--UI-Spacing-spacing-mxs); /* 12px between avatar and regenerate */
   flex-shrink: 0;
   padding-top: var(--UI-Spacing-spacing-xs);
 }
 
 .message__ai-status {
+  display: flex;
+  align-items: center;
   color: var(--Colors-Text-Body-Secondary);
   min-width: 0;
   /* Reserve space so stage label changes don’t shift the avatar row */
@@ -682,15 +760,16 @@ body {
 /* Fenced code block container */
 .code-block {
   margin: var(--UI-Spacing-spacing-ms) 0;
+  border: 1.5px solid var(--Colors-Backgrounds-Main-Medium);
   border-radius: var(--UI-Radius-radius-m);
   overflow: hidden;
-  background-color: var(--code-block-bg);
 }
 
 .code-block__header {
   display: flex;
   align-items: center;
   padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
+  border-bottom: 1.5px solid var(--Colors-Backgrounds-Main-Medium);
 }
 
 .code-block__lang {
@@ -817,7 +896,7 @@ body {
    We only override the background colour and alignment so it reads
    as a distinct user turn rather than the default white box. */
 .message__bubble {
-  background-color: var(--Colors-Backgrounds-Main-Medium) !important;
+  background-color: var(--Colors-Backgrounds-Main-Light) !important;
   justify-content: flex-start;
   text-align: left;
   line-height: 1.6;
@@ -826,37 +905,94 @@ body {
   padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
 }
 
-/* ── Message action buttons (regenerate, edit) ──────────────── */
+/* ── Local button-icon (NOT from the design system) ──────────
+   App-local icon button. The design system has no icon-button
+   variant, so this lives here: 32x32, square, 6px radius, with a
+   centred icon. Neutral icon colour by default, darker on hover. */
+.button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--UI-Radius-radius-xs); /* 6px */
+  color: var(--Colors-Icon-Default);
+  cursor: pointer;
+  transition: color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
+.button-icon:hover {
+  color: var(--Colors-Icon-Medium);
+}
+
+/* .button-icon sets display: inline-flex, which would otherwise win
+   over the default [hidden] rule — restore it so the icon fully hides
+   in edit mode. */
+.button-icon[hidden] {
+  display: none;
+}
+
+.button-icon:focus-visible {
+  outline: 2px solid var(--Colors-Primary-Default);
+  outline-offset: 1px;
+}
+
+.button-icon svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Message action buttons ─────────────────────────────────── */
+
+/* AI regenerate row (existing behaviour) */
 .message__actions {
   display: flex;
   gap: var(--UI-Spacing-spacing-xxs);
   padding-top: var(--UI-Spacing-spacing-xxs);
 }
 
-.message__action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--UI-Radius-radius-s);
-  background: transparent;
-  color: var(--Colors-Text-Subdued);
-  cursor: pointer;
+/* Message hover actions (regenerate, copy) — .button-icon style,
+   revealed only on hover/focus of the message. */
+.message__hover-btn {
   opacity: 0;
-  transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+  transition: opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.message:hover .message__action-btn,
-.message__action-btn:focus-visible {
+.message:hover .message__hover-btn,
+.message__hover-btn:focus-visible {
   opacity: 1;
 }
 
-.message__action-btn:hover {
-  background-color: var(--Colors-Backgrounds-Main-Medium);
-  color: var(--Colors-Text-Default);
+/* Group holding the regenerate + copy buttons. */
+.message__msg-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--UI-Spacing-spacing-xxs); /* 4px between the buttons */
+}
+
+/* When there's no trailing avatar row (earlier AI messages), the group
+   sits below the message body with a little breathing room. */
+.message__msg-actions--standalone {
+  padding-top: var(--UI-Spacing-spacing-xs);
+}
+
+/* User message action row: under the bubble, right-aligned, 6px gap.
+   Revealed on hover/focus, ChatGPT-style. */
+.message__actions--user {
+  padding-top: 0;
+  justify-content: flex-end;
+  gap: var(--UI-Spacing-spacing-xs); /* 6px */
+  opacity: 0;
+  transition: opacity 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.message--user:hover .message__actions--user,
+.message__actions--user:focus-within {
+  opacity: 1;
 }
 
 .message__stopped {
@@ -865,70 +1001,83 @@ body {
   font-style: italic;
 }
 
-.message__edit-btn {
-  position: absolute;
-  top: 50%;
-  left: -32px;
-  transform: translateY(-50%);
+/* ── Inline edit (ChatGPT-style) ────────────────────────────── */
+
+/* While editing, the user turn expands to the full container width. */
+.message__user-content {
+  transition: max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── Inline edit form ───────────────────────────────────────── */
+.message__user-content.is-editing {
+  max-width: 100%;
+  width: 100%;
+  align-items: stretch;
+}
 
-.message__edit-form {
+/* In edit mode the Save / Cancel buttons live inside the editor box,
+   so the idle action row (edit icon) is removed entirely. */
+.message__user-content.is-editing .message__actions--user {
+  display: none;
+}
+
+/* The editor box matches the user bubble exactly (background, radius,
+   padding) and holds the textarea plus the action buttons. The border
+   stays transparent until focus to avoid any layout shift. */
+.message__edit-box {
   display: flex;
   flex-direction: column;
-  gap: var(--UI-Spacing-spacing-xs);
+  gap: var(--UI-Spacing-spacing-s);
   width: 100%;
+  box-sizing: border-box;
+  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
+  border: 1.5px solid transparent;
+  border-radius: var(--UI-Radius-radius-m);
+  background-color: var(--Colors-Backgrounds-Main-Light);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.message__edit-box.is-visible {
+  opacity: 1;
+}
+
+.message__edit-box:focus-within {
+  border-color: var(--Colors-Backgrounds-Main-Medium);
+}
+
+/* Height only animates during the open transition (the class is
+   removed afterwards) so typing stays responsive, not jumpy. */
+.message__edit-box.is-animating {
+  transition:
+    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Bare textarea — all surface styling lives on the box. */
 .message__edit-textarea {
   width: 100%;
-  min-height: 60px;
-  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
-  border: 1px solid var(--Colors-Borders-Default);
-  border-radius: var(--UI-Radius-radius-m);
-  font-family: inherit;
-  font-size: inherit;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
   line-height: 1.6;
-  resize: vertical;
-  background: var(--Colors-Backgrounds-Main-Top);
-  color: var(--Colors-Text-Default);
+  white-space: pre-wrap;
+  resize: none;
+  overflow: hidden;
 }
 
 .message__edit-textarea:focus {
   outline: none;
-  border-color: var(--Colors-Primary-Default);
 }
 
+/* Save / Cancel sit inside the box, bottom-right. */
 .message__edit-actions {
   display: flex;
-  gap: var(--UI-Spacing-spacing-xs);
   justify-content: flex-end;
+  gap: var(--UI-Spacing-spacing-xs);
 }
-
-.message__edit-cancel,
-.message__edit-submit {
-  padding: 6px 16px;
-  border-radius: var(--UI-Radius-radius-s);
-  border: none;
-  font-size: var(--Fonts-Special-sm);
-  cursor: pointer;
-}
-
-.message__edit-cancel {
-  background: var(--Colors-Backgrounds-Main-Medium);
-  color: var(--Colors-Text-Default);
-}
-
-.message__edit-submit {
-  background: var(--Colors-Primary-Default);
-  color: #fff;
-}
-
-.message__edit-cancel:hover { opacity: 0.8; }
-.message__edit-submit:hover { opacity: 0.9; }
-.message__edit-submit:disabled,
-.message__edit-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ============================================================
    COMPOSER
@@ -1411,6 +1560,23 @@ textarea.input.composer__textarea {
 
 .settings-dropdown-container {
   margin-top: var(--UI-Spacing-spacing-s);
+}
+
+/* Dark mode: drop the DS light hover border on the sidebar model
+   selector and the settings thinking dropdown. */
+@media (prefers-color-scheme: dark) {
+  #thinkingDropdownEl .dropdown-toggle:hover,
+  #modelSelect .dropdown-toggle:hover {
+    border-color: transparent !important;
+  }
+}
+
+/* When the Thinking dropdown is open, let its menu escape the modal's
+   clipping containers so it isn't cut off — pure CSS, no DOM portal
+   (keeps the DS dropdown intact). Reverts once the dropdown closes. */
+.modal-content:has(.settings-content .dropdown-container.open),
+.modal-dialog:has(.settings-content .dropdown-container.open) {
+  overflow: visible;
 }
 
 /* ============================================================

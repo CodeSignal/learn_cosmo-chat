@@ -254,7 +254,7 @@ function buildChat(sid) {
 
     renderMessages(messages, status);
     if (lastStatus === 'streaming' && status !== 'streaming') {
-      saveSession(messages);
+      saveSession();
     }
     lastStatus = status;
   });
@@ -330,6 +330,40 @@ const THINKING_OPTIONS = [
   { value: 'high',   label: 'High' },
   { value: 'max',    label: 'Max' },
 ];
+
+// Apply the (client-side) parts of chatConfig to the live UI. Safe to
+// call repeatedly — used at load and whenever a setting changes in the
+// settings modal. Toggles both ways so runtime changes take effect.
+function applyChatConfigUI() {
+  if (settingsBtn) settingsBtn.style.display = chatConfig.hideSettings ? 'none' : '';
+
+  const headingEl = document.querySelector('.empty-state__heading');
+  if (headingEl && chatConfig.heading !== undefined) headingEl.textContent = chatConfig.heading;
+
+  const footerEl = document.querySelector('.composer__hint');
+  if (footerEl && chatConfig.footer !== undefined) footerEl.textContent = chatConfig.footer;
+
+  if (chatConfig.title !== undefined) {
+    document.title = chatConfig.title;
+    const titleEl = document.querySelector('.sidebar__title');
+    if (titleEl) titleEl.textContent = chatConfig.title;
+  }
+
+  if (chatConfig.placeholder !== undefined) promptInput.placeholder = chatConfig.placeholder;
+
+  const attachIcons = document.getElementById('attachIcons');
+  if (attachIcons) attachIcons.style.display = chatConfig.hideFileUpload ? 'none' : '';
+
+  if (chatConfig.hideHistory) {
+    if (sidebarSpacer)   sidebarSpacer.style.display   = '';
+    if (historyHeading)  historyHeading.style.display  = 'none';
+    if (sessionList)     sessionList.style.display     = 'none';
+  } else {
+    if (sidebarSpacer)   sidebarSpacer.style.display   = 'none';
+    if (historyHeading)  historyHeading.style.display  = '';
+    if (sessionList)     sessionList.style.display     = '';
+  }
+}
 
 function openSettings() {
   if (!settingsModal) {
@@ -411,6 +445,81 @@ function openSettings() {
 
 if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
 
+// ── Sidebar resizer ───────────────────────────────────────────
+(function initSidebarResizer() {
+  const sidebarEl = document.getElementById('sidebar');
+  const resizer   = document.getElementById('sidebarResizer');
+  if (!sidebarEl || !resizer) return;
+
+  const MIN = 200;
+  const MAX = 480;
+  const STEP = 16;
+  const STORAGE_KEY = 'chatcpt:sidebarWidth';
+  const clamp = (w) => Math.max(MIN, Math.min(MAX, w));
+  const setWidth = (w, persist = true) => {
+    const c = clamp(Math.round(w));
+    document.documentElement.style.setProperty('--sidebar-width', `${c}px`);
+    if (persist) localStorage.setItem(STORAGE_KEY, String(c));
+    resizer.setAttribute('aria-valuenow', String(c));
+  };
+
+  // Advertise the adjustable range to assistive tech (static bounds).
+  resizer.setAttribute('aria-valuemin', String(MIN));
+  resizer.setAttribute('aria-valuemax', String(MAX));
+
+  // Sync aria-valuenow to whatever width the sidebar currently renders at.
+  const syncValueNow = () => {
+    resizer.setAttribute('aria-valuenow', String(Math.round(parseFloat(getComputedStyle(sidebarEl).width))));
+  };
+
+  // Restore a saved width.
+  const saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+  if (Number.isFinite(saved)) setWidth(saved, false);
+  else syncValueNow();
+
+  let dragging = false;
+  const onMove = (e) => {
+    if (!dragging) return;
+    setWidth(e.clientX - sidebarEl.getBoundingClientRect().left, false);
+  };
+  const onUp = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('is-dragging');
+    document.body.classList.remove('is-resizing-sidebar');
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    try { resizer.releasePointerCapture(e.pointerId); } catch {}
+    // Persist the final width.
+    setWidth(parseFloat(getComputedStyle(sidebarEl).width));
+  };
+
+  resizer.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    dragging = true;
+    resizer.classList.add('is-dragging');
+    document.body.classList.add('is-resizing-sidebar');
+    try { resizer.setPointerCapture(e.pointerId); } catch {}
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  });
+
+  // Keyboard support (arrow keys nudge the width).
+  resizer.addEventListener('keydown', (e) => {
+    const cur = parseFloat(getComputedStyle(sidebarEl).width);
+    if (e.key === 'ArrowLeft')  { setWidth(cur - STEP); e.preventDefault(); }
+    if (e.key === 'ArrowRight') { setWidth(cur + STEP); e.preventDefault(); }
+  });
+
+  // Double-click resets to the default width.
+  resizer.addEventListener('dblclick', () => {
+    document.documentElement.style.removeProperty('--sidebar-width');
+    localStorage.removeItem(STORAGE_KEY);
+    // Reflect the restored default width in ARIA.
+    syncValueNow();
+  });
+})();
+
 function showBootError(message) {
   const el = document.getElementById('bootError');
   if (!el) return;
@@ -459,33 +568,7 @@ async function init() {
     applyInitialPrompt();
     if (chatConfig.temperature !== undefined) selectedTemperature = chatConfig.temperature;
     if (chatConfig.thinking   !== undefined) selectedThinking    = chatConfig.thinking;
-    if (!chatConfig.hideSettings && settingsBtn) settingsBtn.style.display = '';
-    if (chatConfig.heading) {
-      const headingEl = document.querySelector('.empty-state__heading');
-      if (headingEl) headingEl.textContent = chatConfig.heading;
-    }
-    if (chatConfig.footer) {
-      const footerEl = document.querySelector('.composer__hint');
-      if (footerEl) footerEl.textContent = chatConfig.footer;
-    }
-    if (chatConfig.title) {
-      document.title = chatConfig.title;
-      const titleEl = document.querySelector('.sidebar__title');
-      if (titleEl) titleEl.textContent = chatConfig.title;
-    }
-    if (chatConfig.placeholder) {
-      promptInput.placeholder = chatConfig.placeholder;
-    }
-    if (!chatConfig.hideFileUpload) {
-      const attachIcons = document.getElementById('attachIcons');
-      if (attachIcons) attachIcons.style.display = '';
-    }
-    if (chatConfig.hideHistory) {
-      if (sidebarSpacer) sidebarSpacer.style.display = '';
-    } else {
-      if (historyHeading) historyHeading.style.display = '';
-      if (sessionList) sessionList.style.display = '';
-    }
+    applyChatConfigUI();
 
     const modelsData = modelsRes.ok ? await modelsRes.json() : { models: [] };
     availableModels = modelsData.models;
@@ -648,17 +731,23 @@ function renderMessages(liveMessages, status) {
         : '<div class="message__avatar">';
       const avatarClose = '</div>';
 
-      row.className = streaming ? 'message message--ai message--ai--streaming' : 'message message--ai';
-      row.innerHTML = `
-        <div class="message__body body-medium markdown">
-          ${bodyContent}
-        </div>
+      // Only the last assistant message gets the trailing Cosmo avatar
+      // (and its thinking animation) — earlier replies don't repeat it.
+      const trailingHtml = i === lastAssistantIdx ? `
         <div class="message__ai-trailing">
           ${avatarOpen}
             <span class="cosmo-avatar small" role="img" aria-label="Cosmo"></span>
           ${avatarClose}
           ${statusHtml}
         </div>
+      ` : '';
+
+      row.className = streaming ? 'message message--ai message--ai--streaming' : 'message message--ai';
+      row.innerHTML = `
+        <div class="message__body body-medium markdown">
+          ${bodyContent}
+        </div>
+        ${trailingHtml}
       `;
 
       if (msg.stopped) {
@@ -668,20 +757,43 @@ function renderMessages(liveMessages, status) {
         row.querySelector('.message__body').appendChild(stoppedEl);
       }
 
-      if (!chatConfig.hidePromptControls && isIdle && i === lastAssistantIdx && (hasText || msg.stopped)) {
-        const actionsEl = document.createElement('div');
-        actionsEl.className = 'message__actions';
+      // Hover actions on every assistant message (when idle): regenerate
+      // and copy-as-markdown. Both use the .button-icon style and reveal on
+      // hover. On the last message they share the trailing avatar row (12px
+      // from the avatar); earlier messages get their own row below.
+      if (!chatConfig.hidePromptControls && isIdle && (hasText || msg.stopped)) {
+        const actions = document.createElement('div');
+        actions.className = 'message__msg-actions';
+
         const regenBtn = document.createElement('button');
         regenBtn.type = 'button';
-        regenBtn.className = 'message__action-btn';
+        regenBtn.className = 'button-icon message__hover-btn';
         regenBtn.setAttribute('aria-label', 'Regenerate response');
         regenBtn.title = 'Regenerate';
-        regenBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-        </svg>`;
-        regenBtn.addEventListener('click', regenerateLastResponse);
-        actionsEl.appendChild(regenBtn);
-        row.appendChild(actionsEl);
+        regenBtn.innerHTML = REGEN_ICON_SVG;
+        const capturedIdx = userAssistantIdx;
+        regenBtn.addEventListener('click', () => regenerateResponse(capturedIdx));
+        actions.appendChild(regenBtn);
+
+        if (hasText) {
+          const copyBtn = document.createElement('button');
+          copyBtn.type = 'button';
+          copyBtn.className = 'button-icon message__hover-btn';
+          copyBtn.setAttribute('aria-label', 'Copy as Markdown');
+          copyBtn.title = 'Copy';
+          copyBtn.innerHTML = COPY_ICON_SVG;
+          const markdown = text;
+          copyBtn.addEventListener('click', () => copyMessageMarkdown(copyBtn, markdown));
+          actions.appendChild(copyBtn);
+        }
+
+        const trailing = row.querySelector('.message__ai-trailing');
+        if (trailing) {
+          trailing.appendChild(actions);
+        } else {
+          actions.classList.add('message__msg-actions--standalone');
+          row.appendChild(actions);
+        }
       }
     } else if (msg.role === 'user') {
       const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
@@ -698,18 +810,26 @@ function renderMessages(liveMessages, status) {
       `;
 
       if (!chatConfig.hidePromptControls && isIdle && text) {
+        const actionsEl = document.createElement('div');
+        actionsEl.className = 'message__actions message__actions--user';
+
         const editBtn = document.createElement('button');
         editBtn.type = 'button';
-        editBtn.className = 'message__action-btn message__edit-btn';
+        editBtn.className = 'button-icon';
         editBtn.setAttribute('aria-label', 'Edit message');
         editBtn.title = 'Edit';
-        editBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+        // Edit icon (local inline SVG) — inherits currentColor. A matching
+        // stroke fattens the otherwise-thin fill paths.
+        editBtn.innerHTML = `<svg viewBox="0 0 32 32" fill="currentColor" stroke="currentColor" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="m27.1 7.16-2.26-2.26c-1.2-1.2-3.15-1.2-4.35 0l-3.79 3.8s0 0 0 0l-11.19 11.18c-.98.98-1.51 2.27-1.51 3.65v3.47c0 .55.45 1 1 1h3.47c1.38 0 2.67-.54 3.65-1.51l11.19-11.18s0 0 0 0l3.79-3.8c.58-.58.9-1.35.9-2.17s-.32-1.59-.9-2.17zm-16.4 17.91c-.6.6-1.39.93-2.23.93h-2.47v-2.47c0-.84.33-1.64.93-2.23l10.48-10.47 3.78 3.78-10.48 10.48zm14.99-14.98s0 0 0 0l-3.08 3.09-3.78-3.78 3.08-3.09c.42-.42 1.1-.42 1.52 0l2.26 2.26c.2.2.31.47.31.76s-.11.55-.31.76z"/>
+          <path d="m26 26h-10c-.55 0-1 .45-1 1s.45 1 1 1h10c.55 0 1-.45 1-1s-.45-1-1-1z"/>
         </svg>`;
         const capturedIdx = userAssistantIdx;
         const capturedText = text;
         editBtn.addEventListener('click', () => startEditingMessage(row, capturedIdx, capturedText));
-        row.querySelector('.message__user-content').appendChild(editBtn);
+
+        actionsEl.appendChild(editBtn);
+        row.querySelector('.message__user-content').appendChild(actionsEl);
       }
     } else {
       continue;
@@ -975,31 +1095,29 @@ function stopGeneration() {
   streamingStartTime = null;
 
   const partialMessages = chat?.messages ?? [];
-  if (partialMessages.length > 0) {
-    restoredMessages = partialMessages
-      .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({
-        role: m.role,
-        content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
-        files: m.parts
-          .filter((p) => p.type === 'file')
-          .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
-        timestamp: new Date().toISOString(),
-      }));
+  const hadPartial = partialMessages.length > 0;
+  if (hadPartial) {
+    const serialized = serializeLiveMessages(partialMessages);
 
-    for (let i = restoredMessages.length - 1; i >= 0; i--) {
-      if (restoredMessages[i].role === 'assistant') {
-        restoredMessages[i].stopped = true;
+    // Flag the final assistant turn so the UI shows "Response stopped".
+    for (let i = serialized.length - 1; i >= 0; i--) {
+      if (serialized[i].role === 'assistant') {
+        serialized[i].stopped = true;
         break;
       }
     }
 
-    saveSession(partialMessages);
+    // Fold the partial turn into the pre-load history (append, don't
+    // overwrite) so any earlier resumed/forked history is preserved.
+    restoredMessages = [...restoredMessages, ...serialized];
   }
 
+  // Rebuild the chat so the live message set is cleared before we persist;
+  // saveSession() then writes restoredMessages (the full convo) only.
   lastStatus = null;
   buildChat(sessionId);
   renderMessages([], 'idle');
+  if (hadPartial) saveSession();
 }
 
 function updateSendBtn() {
@@ -1162,20 +1280,28 @@ async function startNewChat() {
 
 // ── Regenerate / Edit ─────────────────────────────────────────
 
+// Serialise live OctavusChat messages into the on-disk storage shape.
+// OctavusChat only holds messages produced in the current page session,
+// so this never includes the pre-load `restoredMessages` history.
+function serializeLiveMessages(liveMessages) {
+  return liveMessages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({
+      role: m.role,
+      content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
+      files: m.parts
+        .filter((p) => p.type === 'file')
+        .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
+      timestamp: new Date().toISOString(),
+    }));
+}
+
+// The full conversation in storage shape: pre-load history followed by
+// the live turns. This is the single source of truth used for rendering
+// indices, regenerate/edit targeting, and persistence — keep it in sync
+// with how renderMessages() composes the displayed list.
 function getAllCurrentMessages() {
-  if (chat?.messages?.length > 0) {
-    return chat.messages
-      .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({
-        role: m.role,
-        content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
-        files: m.parts
-          .filter((p) => p.type === 'file')
-          .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
-        timestamp: new Date().toISOString(),
-      }));
-  }
-  return [...restoredMessages];
+  return [...restoredMessages, ...serializeLiveMessages(chat?.messages ?? [])];
 }
 
 async function forkSession(messages) {
@@ -1225,32 +1351,53 @@ async function resendOnForkedSession(historyMessages, userText, userFiles) {
   );
 }
 
-async function regenerateLastResponse() {
+// Icons for the message hover actions (inline SVG, inherit currentColor).
+const REGEN_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+</svg>`;
+const COPY_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M16 16v2.8c0 1.12 0 1.68-.218 2.108a2 2 0 0 1-.874.874C14.48 22 13.92 22 12.8 22H5.2c-1.12 0-1.68 0-2.108-.218a2 2 0 0 1-.874-.874C2 20.48 2 19.92 2 18.8v-7.6c0-1.12 0-1.68.218-2.108a2 2 0 0 1 .874-.874C3.52 8 4.08 8 5.2 8H8m3.2 8h7.6c1.12 0 1.68 0 2.108-.218a2 2 0 0 0 .874-.874C22 14.48 22 13.92 22 12.8V5.2c0-1.12 0-1.68-.218-2.108a2 2 0 0 0-.874-.874C20.48 2 19.92 2 18.8 2h-7.6c-1.12 0-1.68 0-2.108.218a2 2 0 0 0-.874.874C8 3.52 8 4.08 8 5.2v7.6c0 1.12 0 1.68.218 2.108a2 2 0 0 0 .874.874C9.52 16 10.08 16 11.2 16Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+const CHECK_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M20 6 9 17l-5-5"/>
+</svg>`;
+
+// Copy the message's markdown source to the clipboard, with a brief
+// checkmark confirmation on the button.
+async function copyMessageMarkdown(btn, markdown) {
+  try {
+    await navigator.clipboard.writeText(markdown);
+  } catch (err) {
+    console.error('[ChatCPT] Copy failed:', err);
+    return;
+  }
+  const original = btn.innerHTML;
+  btn.innerHTML = CHECK_ICON_SVG;
+  btn.title = 'Copied';
+  setTimeout(() => {
+    btn.innerHTML = original;
+    btn.title = 'Copy';
+  }, 1500);
+}
+
+// Regenerate a specific assistant response: re-run the user turn that
+// preceded it (forking the session, which drops everything after).
+async function regenerateResponse(assistantIdx) {
   const allMsgs = getAllCurrentMessages();
+  if (assistantIdx < 0 || assistantIdx >= allMsgs.length) return;
+  if (allMsgs[assistantIdx].role !== 'assistant') return;
 
-  let lastAssistantIdx = -1;
-  for (let i = allMsgs.length - 1; i >= 0; i--) {
-    if (allMsgs[i].role === 'assistant') { lastAssistantIdx = i; break; }
+  let userIdx = -1;
+  for (let i = assistantIdx - 1; i >= 0; i--) {
+    if (allMsgs[i].role === 'user') { userIdx = i; break; }
   }
-  if (lastAssistantIdx < 0) return;
+  if (userIdx < 0) return;
 
-  const beforeAssistant = allMsgs.slice(0, lastAssistantIdx);
-
-  let lastUserIdx = -1;
-  for (let i = beforeAssistant.length - 1; i >= 0; i--) {
-    if (beforeAssistant[i].role === 'user') { lastUserIdx = i; break; }
-  }
-  if (lastUserIdx < 0) return;
-
-  const lastUserMsg = beforeAssistant[lastUserIdx];
-  const historyBeforeUser = beforeAssistant.slice(0, lastUserIdx);
+  const userMsg = allMsgs[userIdx];
+  const historyBeforeUser = allMsgs.slice(0, userIdx);
 
   try {
-    await resendOnForkedSession(
-      historyBeforeUser,
-      lastUserMsg.content,
-      lastUserMsg.files,
-    );
+    await resendOnForkedSession(historyBeforeUser, userMsg.content, userMsg.files);
   } catch (err) {
     console.error('[ChatCPT] Regenerate error:', err);
   }
@@ -1268,42 +1415,75 @@ async function editAndResend(messageIndex, newText) {
 }
 
 function startEditingMessage(row, msgIndex, originalText) {
+  const content = row.querySelector('.message__user-content');
   const bubble = row.querySelector('.message__bubble');
-  if (!bubble) return;
+  const actionsRow = content?.querySelector('.message__actions--user');
+  if (!content || !bubble) return;
 
-  const editor = document.createElement('div');
-  editor.className = 'message__edit-form';
+  // Editor box matches the bubble; the textarea and the action buttons
+  // both live inside it.
+  const box = document.createElement('div');
+  box.className = 'message__edit-box';
 
   const textarea = document.createElement('textarea');
-  textarea.className = 'input message__edit-textarea';
+  textarea.className = 'message__edit-textarea body-medium';
   textarea.value = originalText;
-  textarea.rows = Math.max(2, originalText.split('\n').length);
 
   const actions = document.createElement('div');
   actions.className = 'message__edit-actions';
 
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
-  cancelBtn.className = 'btn btn--secondary message__edit-cancel';
+  cancelBtn.className = 'button button-tertiary button-xsmall';
   cancelBtn.textContent = 'Cancel';
 
   const submitBtn = document.createElement('button');
   submitBtn.type = 'button';
-  submitBtn.className = 'btn btn--primary message__edit-submit';
-  submitBtn.textContent = 'Save & Submit';
+  submitBtn.className = 'button button-primary button-xsmall';
+  submitBtn.textContent = 'Save';
 
-  actions.appendChild(cancelBtn);
-  actions.appendChild(submitBtn);
-  editor.appendChild(textarea);
-  editor.appendChild(actions);
+  actions.append(cancelBtn, submitBtn);
+  box.append(textarea, actions);
 
-  bubble.replaceWith(editor);
+  // ── Enter edit mode ─────────────────────────────────────────
+  // Measure the bubble first so the box can grow from that height
+  // rather than popping to its full size.
+  const startHeight = bubble.offsetHeight;
+  content.classList.add('is-editing');
+  bubble.hidden = true;
+  if (actionsRow) actionsRow.hidden = true;
+  content.insertBefore(box, actionsRow ?? null);
+
+  const autosize = () => {
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  };
+  textarea.addEventListener('input', autosize);
+
+  // Animate the box open from the bubble's height; drop the height
+  // transition afterwards so typing doesn't lag behind an animation.
+  box.style.height = `${startHeight}px`;
+  requestAnimationFrame(() => {
+    autosize();
+    box.classList.add('is-animating', 'is-visible');
+    box.style.height = `${box.scrollHeight}px`;
+    setTimeout(() => {
+      box.classList.remove('is-animating');
+      box.style.height = 'auto';
+    }, 220);
+  });
+
   textarea.focus();
   textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 
-  cancelBtn.addEventListener('click', () => {
-    renderMessages(chat?.messages ?? [], chat?.status ?? 'idle');
-  });
+  function exitEditMode() {
+    content.classList.remove('is-editing');
+    box.remove();
+    if (actionsRow) actionsRow.hidden = false;
+    bubble.hidden = false;
+  }
+
+  cancelBtn.addEventListener('click', exitEditMode);
 
   submitBtn.addEventListener('click', async () => {
     const newText = textarea.value.trim();
@@ -1336,22 +1516,12 @@ function storedToDisplayMsg(m) {
   };
 }
 
-// Serialise OctavusChat messages into the storage format, prepend historical
-// messages (already in storage format), and write the whole lot to disk.
-function saveSession(liveMessages) {
-  const liveSerialized = liveMessages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({
-      role: m.role,
-      content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
-      files: m.parts.filter((p) => p.type === 'file').map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
-      timestamp: new Date().toISOString(),
-    }));
-
-  // Octavus returns the full session history in chat.messages, so liveSerialized
-  // already contains every message. Only fall back to restoredMessages if no
-  // live messages exist yet (e.g. the session was just loaded but nothing sent).
-  const allMessages = liveSerialized.length > 0 ? liveSerialized : restoredMessages;
+// Persist the full conversation (pre-load history + live turns) to disk.
+// Combining both is essential for resumed sessions, where chat.messages
+// only contains turns from the current page session — saving live-only
+// would otherwise drop the earlier history.
+function saveSession() {
+  const allMessages = getAllCurrentMessages();
 
   fetch('/api/session/save', {
     method: 'POST',
