@@ -254,7 +254,7 @@ function buildChat(sid) {
 
     renderMessages(messages, status);
     if (lastStatus === 'streaming' && status !== 'streaming') {
-      saveSession(messages);
+      saveSession();
     }
     lastStatus = status;
   });
@@ -463,9 +463,19 @@ if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
     resizer.setAttribute('aria-valuenow', String(c));
   };
 
+  // Advertise the adjustable range to assistive tech (static bounds).
+  resizer.setAttribute('aria-valuemin', String(MIN));
+  resizer.setAttribute('aria-valuemax', String(MAX));
+
+  // Sync aria-valuenow to whatever width the sidebar currently renders at.
+  const syncValueNow = () => {
+    resizer.setAttribute('aria-valuenow', String(Math.round(parseFloat(getComputedStyle(sidebarEl).width))));
+  };
+
   // Restore a saved width.
   const saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
   if (Number.isFinite(saved)) setWidth(saved, false);
+  else syncValueNow();
 
   let dragging = false;
   const onMove = (e) => {
@@ -505,6 +515,8 @@ if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
   resizer.addEventListener('dblclick', () => {
     document.documentElement.style.removeProperty('--sidebar-width');
     localStorage.removeItem(STORAGE_KEY);
+    // Reflect the restored default width in ARIA.
+    syncValueNow();
   });
 })();
 
@@ -1083,31 +1095,29 @@ function stopGeneration() {
   streamingStartTime = null;
 
   const partialMessages = chat?.messages ?? [];
-  if (partialMessages.length > 0) {
-    restoredMessages = partialMessages
-      .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({
-        role: m.role,
-        content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
-        files: m.parts
-          .filter((p) => p.type === 'file')
-          .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
-        timestamp: new Date().toISOString(),
-      }));
+  const hadPartial = partialMessages.length > 0;
+  if (hadPartial) {
+    const serialized = serializeLiveMessages(partialMessages);
 
-    for (let i = restoredMessages.length - 1; i >= 0; i--) {
-      if (restoredMessages[i].role === 'assistant') {
-        restoredMessages[i].stopped = true;
+    // Flag the final assistant turn so the UI shows "Response stopped".
+    for (let i = serialized.length - 1; i >= 0; i--) {
+      if (serialized[i].role === 'assistant') {
+        serialized[i].stopped = true;
         break;
       }
     }
 
-    saveSession(partialMessages);
+    // Fold the partial turn into the pre-load history (append, don't
+    // overwrite) so any earlier resumed/forked history is preserved.
+    restoredMessages = [...restoredMessages, ...serialized];
   }
 
+  // Rebuild the chat so the live message set is cleared before we persist;
+  // saveSession() then writes restoredMessages (the full convo) only.
   lastStatus = null;
   buildChat(sessionId);
   renderMessages([], 'idle');
+  if (hadPartial) saveSession();
 }
 
 function updateSendBtn() {
@@ -1270,20 +1280,28 @@ async function startNewChat() {
 
 // ── Regenerate / Edit ─────────────────────────────────────────
 
+// Serialise live OctavusChat messages into the on-disk storage shape.
+// OctavusChat only holds messages produced in the current page session,
+// so this never includes the pre-load `restoredMessages` history.
+function serializeLiveMessages(liveMessages) {
+  return liveMessages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({
+      role: m.role,
+      content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
+      files: m.parts
+        .filter((p) => p.type === 'file')
+        .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
+      timestamp: new Date().toISOString(),
+    }));
+}
+
+// The full conversation in storage shape: pre-load history followed by
+// the live turns. This is the single source of truth used for rendering
+// indices, regenerate/edit targeting, and persistence — keep it in sync
+// with how renderMessages() composes the displayed list.
 function getAllCurrentMessages() {
-  if (chat?.messages?.length > 0) {
-    return chat.messages
-      .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => ({
-        role: m.role,
-        content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
-        files: m.parts
-          .filter((p) => p.type === 'file')
-          .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
-        timestamp: new Date().toISOString(),
-      }));
-  }
-  return [...restoredMessages];
+  return [...restoredMessages, ...serializeLiveMessages(chat?.messages ?? [])];
 }
 
 async function forkSession(messages) {
@@ -1498,22 +1516,12 @@ function storedToDisplayMsg(m) {
   };
 }
 
-// Serialise OctavusChat messages into the storage format, prepend historical
-// messages (already in storage format), and write the whole lot to disk.
-function saveSession(liveMessages) {
-  const liveSerialized = liveMessages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({
-      role: m.role,
-      content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
-      files: m.parts.filter((p) => p.type === 'file').map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
-      timestamp: new Date().toISOString(),
-    }));
-
-  // Octavus returns the full session history in chat.messages, so liveSerialized
-  // already contains every message. Only fall back to restoredMessages if no
-  // live messages exist yet (e.g. the session was just loaded but nothing sent).
-  const allMessages = liveSerialized.length > 0 ? liveSerialized : restoredMessages;
+// Persist the full conversation (pre-load history + live turns) to disk.
+// Combining both is essential for resumed sessions, where chat.messages
+// only contains turns from the current page session — saving live-only
+// would otherwise drop the earlier history.
+function saveSession() {
+  const allMessages = getAllCurrentMessages();
 
   fetch('/api/session/save', {
     method: 'POST',

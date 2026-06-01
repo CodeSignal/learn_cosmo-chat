@@ -243,6 +243,14 @@ body {
   opacity: 1;
 }
 
+/* Keyboard focus: highlight the grip in primary with a ring so the
+   focus target is clearly visible (the element outline is suppressed
+   because the 8px hit area would draw an awkward tall rectangle). */
+.sidebar-resizer:focus-visible::before {
+  background-color: var(--Colors-Primary-Light);
+  box-shadow: 0 0 0 2px var(--Colors-Primary-Default);
+}
+
 .sidebar-resizer.is-dragging::before {
   background-color: var(--Colors-Primary-Light);
   opacity: 1;
