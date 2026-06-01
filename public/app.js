@@ -203,7 +203,6 @@ let currentAbortController = null;
 let settingsModal = null;
 let thinkingDropdownInstance = null;
 let temperatureSliderInstance = null;
-let settingsModelDropdownInstance = null;
 
 // ── Session wiring ────────────────────────────────────────────
 function buildChat(sid) {
@@ -366,93 +365,29 @@ function applyChatConfigUI() {
   }
 }
 
-// Small helper for the local switch control markup.
-function switchMarkup(id) {
-  return `<label class="switch">
-    <input type="checkbox" id="${id}">
-    <span class="switch__track"></span>
-    <span class="switch__thumb"></span>
-  </label>`;
-}
-
-// Info icon (Untitled UI "info-circle", inline SVG) + a local hover
-// tooltip carrying the field's description.
-function infoTip(desc) {
-  return `<span class="info-tip" tabindex="0" aria-label="${desc}">
-    <span class="info-tip__icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path d="M12 16v-4m0-4h.01M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10Z" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </span>
-    <span class="info-tip__bubble body-xsmall" role="tooltip" aria-hidden="true">${desc}</span>
-  </span>`;
-}
-
-// Row with a label (+ info tooltip) on the left and a switch on the right.
-function switchRow(id, label, desc) {
-  return `<div class="settings-field settings-field--row">
-    <span class="body-small settings-field__label">${label}${infoTip(desc)}</span>
-    ${switchMarkup(id)}
-  </div>`;
-}
-
-function textField(id, label, desc, multiline = false) {
-  const control = multiline
-    ? `<textarea class="input" id="${id}"></textarea>`
-    : `<input type="text" class="input" id="${id}">`;
-  return `<div class="settings-field">
-    <label class="body-small settings-field__label" for="${id}">${label}${infoTip(desc)}</label>
-    ${control}
-  </div>`;
-}
-
 function openSettings() {
   if (!settingsModal) {
     const content = document.createElement('div');
     content.className = 'settings-content';
     content.innerHTML = `
-      <div class="settings-tabs" role="tablist">
-        <button type="button" class="settings-tab body-small is-active" data-tab="general">General</button>
-        <button type="button" class="settings-tab body-small" data-tab="interface">Interface</button>
-        <button type="button" class="settings-tab body-small" data-tab="generation">Generation</button>
-      </div>
-
-      <div class="settings-panels">
-      <div class="settings-panel is-active" data-panel="general">
-        ${textField('setTitle', 'Title', 'Shown in the browser tab and the sidebar.')}
-        ${textField('setHeading', 'Heading', 'The greeting shown before any messages.')}
-        ${textField('setPlaceholder', 'Composer placeholder', 'Placeholder text in the message input.')}
-        ${textField('setFooter', 'Footer hint', 'Small print shown under the composer.')}
-        ${textField('setInitialPrompt', 'Initial prompt', 'Pre-fills the composer when a new chat starts.', true)}
-      </div>
-
-      <div class="settings-panel" data-panel="interface">
-        ${switchRow('setHidePromptControls', 'Hide prompt controls', 'Hides Edit, Regenerate and Stop on messages.')}
-        ${switchRow('setHideSettings', 'Hide settings button', 'Removes the settings button from the sidebar.')}
-        ${switchRow('setHideFileUpload', 'Hide file upload', 'Removes the attachment icons in the composer.')}
-        ${switchRow('setHideHistory', 'Hide history', 'Hides the conversation list in the sidebar.')}
-      </div>
-
-      <div class="settings-panel" data-panel="generation">
-        <div class="settings-field">
-          <label class="body-small settings-field__label">Model${infoTip('Applied when you start a new chat.')}</label>
-          <div class="settings-dropdown-container" id="modelDropdownEl"></div>
-        </div>
+      <section class="settings-section">
+        <h3 class="label-small settings-section__title">Generation</h3>
 
         <div class="settings-row" id="temperatureRow">
           <div class="settings-row__label-line">
-            <label class="body-small settings-field__label">Temperature${infoTip('Controls randomness (0–2). Lower = more focused, higher = more creative. Disabled when Thinking is on.')}</label>
+            <label class="body-small settings-row__label">Temperature</label>
             <span class="body-small settings-row__value" id="temperatureValue"></span>
           </div>
+          <p class="body-xsmall settings-row__desc">Controls randomness (0–2). Lower = more focused, higher = more creative. Disabled when Thinking is on.</p>
           <div class="settings-slider-container" id="temperatureSliderEl"></div>
         </div>
 
         <div class="settings-row">
-          <label class="body-small settings-field__label">Thinking${infoTip('Extended reasoning depth. When enabled, temperature is ignored by the model.')}</label>
+          <label class="body-small settings-row__label">Thinking</label>
+          <p class="body-xsmall settings-row__desc">Extended reasoning depth. When enabled, temperature is ignored by the model.</p>
           <div class="settings-dropdown-container" id="thinkingDropdownEl"></div>
         </div>
-      </div>
-      </div>
+      </section>
     `;
 
     settingsModal = new Modal({
@@ -462,56 +397,30 @@ function openSettings() {
       closeOnOverlayClick: true,
       closeOnEscape: true,
       onOpen: () => {
-        const root = settingsModal.content;
+        const sliderEl    = settingsModal.content.querySelector('#temperatureSliderEl');
+        const dropdownEl  = settingsModal.content.querySelector('#thinkingDropdownEl');
+        const tempRow     = settingsModal.content.querySelector('#temperatureRow');
 
-        // ── Sync controls from current state (every open) ──────────
-        root.querySelector('#setTitle').value          = chatConfig.title ?? '';
-        root.querySelector('#setHeading').value         = chatConfig.heading ?? '';
-        root.querySelector('#setPlaceholder').value     = chatConfig.placeholder ?? '';
-        root.querySelector('#setFooter').value          = chatConfig.footer ?? '';
-        root.querySelector('#setInitialPrompt').value   = chatConfig.initialPrompt ?? '';
-
-        // Show the current (effective) values as placeholders, read from
-        // the live DOM, so empty fields reveal what's currently in use.
-        const headingNow = document.querySelector('.empty-state__heading');
-        const footerNow  = document.querySelector('.composer__hint');
-        root.querySelector('#setTitle').placeholder       = document.title;
-        root.querySelector('#setHeading').placeholder     = headingNow ? headingNow.textContent : '';
-        root.querySelector('#setPlaceholder').placeholder = promptInput.placeholder;
-        root.querySelector('#setFooter').placeholder      = footerNow ? footerNow.textContent : '';
-        root.querySelector('#setHidePromptControls').checked = !!chatConfig.hidePromptControls;
-        root.querySelector('#setHideSettings').checked       = !!chatConfig.hideSettings;
-        root.querySelector('#setHideFileUpload').checked     = !!chatConfig.hideFileUpload;
-        root.querySelector('#setHideHistory').checked        = !!chatConfig.hideHistory;
-
-        // ── (Re)init Generation controls (measure the visible DOM) ─
-        const tempRow = root.querySelector('#temperatureRow');
-
-        if (settingsModelDropdownInstance) settingsModelDropdownInstance.destroy();
-        settingsModelDropdownInstance = new Dropdown(root.querySelector('#modelDropdownEl'), {
-          items: availableModels.map((m) => ({ value: m, label: modelDisplayName(m) })),
-          selectedValue: selectedModel || undefined,
-          width: '100%',
-          onSelect: (value) => { selectedModel = value; },
-        });
-
+        // Thinking dropdown
         if (thinkingDropdownInstance) thinkingDropdownInstance.destroy();
-        thinkingDropdownInstance = new Dropdown(root.querySelector('#thinkingDropdownEl'), {
+        thinkingDropdownInstance = new Dropdown(dropdownEl, {
           items: THINKING_OPTIONS,
           selectedValue: selectedThinking,
           width: '100%',
           onSelect: (value) => {
             selectedThinking = value;
+            // Dim temperature row when thinking is active
             tempRow.classList.toggle('settings-row--disabled', value !== 'off');
           },
         });
 
-        const tempValueEl = root.querySelector('#temperatureValue');
+        // Temperature slider — reinit each open so it measures the visible DOM
+        const tempValueEl = settingsModal.content.querySelector('#temperatureValue');
         const updateTempLabel = (v) => { if (tempValueEl) tempValueEl.textContent = Number(v).toFixed(2); };
         updateTempLabel(selectedTemperature);
 
         if (temperatureSliderInstance) temperatureSliderInstance.destroy();
-        temperatureSliderInstance = new NumericSlider(root.querySelector('#temperatureSliderEl'), {
+        temperatureSliderInstance = new NumericSlider(sliderEl, {
           type: 'single',
           min: 0,
           max: 2,
@@ -522,49 +431,8 @@ function openSettings() {
           onChange: (value) => { selectedTemperature = value; updateTempLabel(value); },
         });
 
+        // Reflect current thinking state on open
         tempRow.classList.toggle('settings-row--disabled', selectedThinking !== 'off');
-
-        // ── Wire listeners once ────────────────────────────────────
-        if (!root.dataset.wired) {
-          root.dataset.wired = '1';
-
-          // Tab switching
-          root.querySelectorAll('.settings-tab').forEach((tab) => {
-            tab.addEventListener('click', () => {
-              const id = tab.dataset.tab;
-              root.querySelectorAll('.settings-tab').forEach((t) => t.classList.toggle('is-active', t === tab));
-              root.querySelectorAll('.settings-panel').forEach((p) => p.classList.toggle('is-active', p.dataset.panel === id));
-            });
-          });
-
-          // General text fields — apply live
-          const bindText = (sel, key) => {
-            const el = root.querySelector(sel);
-            el.addEventListener('input', () => { chatConfig[key] = el.value; applyChatConfigUI(); });
-          };
-          bindText('#setTitle', 'title');
-          bindText('#setHeading', 'heading');
-          bindText('#setPlaceholder', 'placeholder');
-          bindText('#setFooter', 'footer');
-          // initialPrompt takes effect on the next new chat, so just store it.
-          root.querySelector('#setInitialPrompt')
-            .addEventListener('input', (e) => { chatConfig.initialPrompt = e.target.value; });
-
-          // Interface switches — apply live
-          const bindSwitch = (sel, key, after) => {
-            const el = root.querySelector(sel);
-            el.addEventListener('change', () => {
-              chatConfig[key] = el.checked;
-              applyChatConfigUI();
-              if (after) after();
-            });
-          };
-          bindSwitch('#setHidePromptControls', 'hidePromptControls',
-            () => renderMessages(chat?.messages ?? [], chat?.status ?? 'idle'));
-          bindSwitch('#setHideSettings', 'hideSettings');
-          bindSwitch('#setHideFileUpload', 'hideFileUpload');
-          bindSwitch('#setHideHistory', 'hideHistory');
-        }
       },
       footerButtons: [
         { label: 'Close', type: 'secondary', onClick: () => settingsModal.close() },

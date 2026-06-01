@@ -1511,241 +1511,20 @@ textarea.input.composer__textarea {
    SETTINGS MODAL
    ============================================================ */
 .settings-content {
-  width: 100%;
-  padding: 0;
+  padding: var(--UI-Spacing-spacing-xs) 0;
 }
 
-/* ── Local tabs (underline menu) — NOT from the design system ──
-   The DS has no tab/menu component, so this lives here, styled with
-   DS tokens: a row of items with an underline border on the active. */
-.settings-tabs {
-  display: flex;
-  gap: var(--UI-Spacing-spacing-ml);
-  padding: 0 var(--UI-Spacing-spacing-mxl); /* 24px left/right */
-  border-bottom: 1.5px solid var(--Colors-Backgrounds-Main-Medium);
-  margin-bottom: var(--UI-Spacing-spacing-ml);
-}
-
-.settings-tab {
-  appearance: none;
-  background: none;
-  border: none;
-  padding: var(--UI-Spacing-spacing-s) 0;
-  margin-bottom: -1.5px; /* overlap the container border */
-  border-bottom: 2px solid transparent;
-  color: var(--Colors-Text-Body-Secondary);
-  cursor: pointer;
-  font: inherit;
-  white-space: nowrap;
-  transition:
-    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.settings-tab:hover {
-  color: var(--Colors-Text-Body-Default);
-}
-
-.settings-tab.is-active {
-  color: var(--Colors-Text-Body-Strong);
-  border-bottom-color: var(--Colors-Primary-Default);
-}
-
-.settings-tab:focus-visible {
-  outline: 2px solid var(--Colors-Primary-Default);
-  outline-offset: 2px;
-  border-radius: var(--UI-Radius-radius-xs);
-}
-
-/* ── Panels & field groups ──────────────────────────────────── */
-/* All panels are stacked in one grid cell so the container is always
-   as tall as the tallest panel — switching tabs never changes height. */
-.settings-panels {
-  display: grid;
-}
-
-.settings-panel {
-  grid-area: 1 / 1;
-  display: flex;
-  flex-direction: column;
-  gap: var(--UI-Spacing-spacing-ms); /* 16px between fields */
-  padding: 0 var(--UI-Spacing-spacing-mxl); /* 24px left/right */
-  /* Inactive panels stay laid out (so they keep contributing height)
-     but are hidden and non-interactive. */
-  visibility: hidden;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Wider gutters on large screens. */
-@media (min-width: 1024px) {
-  .settings-tabs,
-  .settings-panel,
-  .modal-dialog:has(.settings-content) .modal-header {
-    padding-left: var(--UI-Spacing-spacing-xl);  /* 32px */
-    padding-right: var(--UI-Spacing-spacing-xl); /* 32px */
-  }
-}
-
-.settings-panel.is-active {
-  visibility: visible;
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.settings-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--UI-Spacing-spacing-xxs);
-}
-
-/* Row layout: label on the left, control on the right. */
-.settings-field--row {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--UI-Spacing-spacing-ms);
-}
-
-.settings-field__label {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--UI-Spacing-spacing-xxs);
-  font-family: var(--body-family);
-  font-weight: 500;
-  color: var(--Colors-Text-Body-Strong);
-}
-
-/* ── Local info tooltip — NOT from the design system ─────────── */
-.info-tip {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  color: var(--Colors-Icon-Default); /* closest token to "neutral light" */
-  cursor: help;
-}
-
-.info-tip__icon {
-  display: inline-flex;
-}
-
-.info-tip__icon svg {
+.settings-section__title {
   display: block;
-  width: 12px;
-  height: 12px;
+  margin: 0 0 var(--UI-Spacing-spacing-s);
+  color: var(--Colors-Text-Body-Secondary);
 }
 
-.info-tip__bubble {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  z-index: 4000;
-  width: max-content;
-  max-width: 240px;
-  padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-s);
-  border-radius: var(--UI-Radius-radius-s);
-  background-color: var(--Colors-Backgrounds-Main-Top);
-  color: var(--Colors-Text-Body-Default);
-  border: 1px solid var(--Colors-Backgrounds-Main-Medium);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-  font-weight: 400;
-  line-height: 1.4;
-  white-space: normal;
-  text-transform: none;
-  opacity: 0;
-  transform: translateY(4px);
-  pointer-events: none;
-  transition:
-    opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.info-tip:hover .info-tip__bubble,
-.info-tip:focus .info-tip__bubble,
-.info-tip:focus-visible .info-tip__bubble {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.settings-field textarea.input {
-  min-height: 72px;
-  resize: vertical;
-  line-height: 1.5;
-}
-
-/* ── Local switch — NOT from the design system ──────────────── */
-.switch {
-  position: relative;
-  display: inline-flex;
-  flex-shrink: 0;
-  width: 40px;
-  height: 24px;
-  cursor: pointer;
-}
-
-.switch input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.switch__track {
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  background-color: var(--Colors-Stroke-Strong);
-  transition: background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.switch__thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background-color: var(--Colors-Backgrounds-Main-Top);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
-}
-
-.switch input:checked ~ .switch__track {
-  background-color: var(--Colors-Primary-Default);
-}
-
-.switch input:checked ~ .switch__thumb {
-  transform: translateX(16px);
-}
-
-.switch input:focus-visible ~ .switch__track {
-  outline: 2px solid var(--Colors-Primary-Default);
-  outline-offset: 2px;
-}
-
-/* Dark mode: the off-track and thumb tokens above aren't dark-adaptive
-   (Stroke-Strong stays light; Main-Top thumb goes dark and would vanish
-   against the track), so override them here. The checked track stays
-   primary via its more specific rule. */
-@media (prefers-color-scheme: dark) {
-  .switch__track {
-    background-color: var(--Colors-Base-Neutral-1000);
-  }
-  .switch__thumb {
-    background-color: var(--Colors-Base-Neutral-00);
-  }
-}
-
-/* ── Rows reused inside panels (temperature / thinking) ─────── */
 .settings-row {
   display: flex;
   flex-direction: column;
   gap: var(--UI-Spacing-spacing-xxs);
+  margin-bottom: var(--UI-Spacing-spacing-m);
 }
 
 .settings-row--disabled {
@@ -1753,9 +1532,13 @@ textarea.input.composer__textarea {
   pointer-events: none;
 }
 
+.settings-row__desc {
+  color: var(--Colors-Text-Body-Secondary);
+}
+
 .settings-row__label-line {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--UI-Spacing-spacing-xs);
 }
 
@@ -1768,59 +1551,24 @@ textarea.input.composer__textarea {
 }
 
 .settings-dropdown-container {
-  margin-top: var(--UI-Spacing-spacing-xxs);
+  margin-top: var(--UI-Spacing-spacing-s);
 }
 
-/* Inputs/textareas fill the available content width. */
-.settings-field .input {
-  width: 100%;
-  box-sizing: border-box;
-  background-color: var(--Colors-Backgrounds-Main-Top); /* elevated surface (adapts) */
-}
-
-/* Pin the settings modal to the top so switching tabs (panels of
-   different heights) doesn't recenter and jump the modal. */
-.modal-overlay:has(.settings-content) {
-  align-items: flex-start;
-}
-
-/* No padding on the settings modal's content (overrides the DS
-   .modal-content here — never edits the DS); padding is handled by
-   .settings-tabs / .settings-panel instead. */
-.modal-content:has(.settings-content) {
-  padding: 0;
-}
-
-/* When a settings dropdown is open, let its menu escape the modal's
-   clipping containers — pure CSS, no DOM portal (keeps the DS dropdown
-   intact). Reverts to the clipped defaults once the dropdown closes. */
-.modal-content:has(.settings-content .dropdown-container.open),
-.modal-dialog:has(.settings-content .dropdown-container.open) {
-  overflow: visible;
-}
-
-/* Dark mode: no border on the select toggles on hover (the DS shows a
-   light hover border; override it to transparent for the settings selects
-   and the sidebar model selector). */
+/* Dark mode: drop the DS light hover border on the sidebar model
+   selector and the settings thinking dropdown. */
 @media (prefers-color-scheme: dark) {
-  #modelDropdownEl .dropdown-toggle:hover,
   #thinkingDropdownEl .dropdown-toggle:hover,
   #modelSelect .dropdown-toggle:hover {
     border-color: transparent !important;
   }
 }
 
-/* Close button: no background on hover, only the icon colour changes
-   (the DS handles the icon colour; this just drops the background). */
-.modal-dialog:has(.settings-content) .modal-close-button:hover {
-  background: transparent;
-}
-
-/* Header gutters match the tabs/panels (24px, 32px on large screens)
-   so the title lines up with the field content. */
-.modal-dialog:has(.settings-content) .modal-header {
-  padding-left: var(--UI-Spacing-spacing-mxl);  /* 24px */
-  padding-right: var(--UI-Spacing-spacing-mxl);
+/* When the Thinking dropdown is open, let its menu escape the modal's
+   clipping containers so it isn't cut off — pure CSS, no DOM portal
+   (keeps the DS dropdown intact). Reverts once the dropdown closes. */
+.modal-content:has(.settings-content .dropdown-container.open),
+.modal-dialog:has(.settings-content .dropdown-container.open) {
+  overflow: visible;
 }
 
 /* ============================================================
