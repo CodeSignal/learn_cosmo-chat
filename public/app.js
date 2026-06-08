@@ -253,8 +253,18 @@ function buildChat(sid) {
     }
 
     renderMessages(messages, status);
-    if (lastStatus === 'streaming' && status !== 'streaming') {
-      saveSession();
+
+    // Persistence strategy:
+    //  • Entering streaming → save immediately so the user message is
+    //    durable even if the turn never finishes (crash / closed tab).
+    //  • Mid-stream → persist partial output at most once per second.
+    //  • Leaving streaming → force a final save so the complete message
+    //    is never lost to throttling.
+    if (status === 'streaming') {
+      if (lastStatus !== 'streaming') flushSave();
+      else throttledSave();
+    } else if (lastStatus === 'streaming') {
+      flushSave();
     }
     lastStatus = status;
   });
@@ -1514,6 +1524,31 @@ function storedToDisplayMsg(m) {
       ...(m.files ?? []).map((f) => ({ type: 'file', ...f })),
     ],
   };
+}
+
+// ── Throttled persistence ─────────────────────────────────────
+// While a response streams we persist partial state at most once per
+// SAVE_THROTTLE_MS via throttledSave(). flushSave() bypasses the throttle
+// for guaranteed writes — the initial user-message save on turn start and
+// the final complete-message save on completion — so no data is lost.
+const SAVE_THROTTLE_MS = 1000;
+let saveThrottleTimer = null;
+let lastSaveTime = 0;
+
+function throttledSave() {
+  const elapsed = Date.now() - lastSaveTime;
+  if (elapsed >= SAVE_THROTTLE_MS) {
+    flushSave();
+  } else if (!saveThrottleTimer) {
+    // Trailing-edge save covering the remainder of the current window.
+    saveThrottleTimer = setTimeout(flushSave, SAVE_THROTTLE_MS - elapsed);
+  }
+}
+
+function flushSave() {
+  if (saveThrottleTimer) { clearTimeout(saveThrottleTimer); saveThrottleTimer = null; }
+  lastSaveTime = Date.now();
+  saveSession();
 }
 
 // Persist the full conversation (pre-load history + live turns) to disk.
