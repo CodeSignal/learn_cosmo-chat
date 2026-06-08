@@ -272,6 +272,7 @@ function buildChat(sid) {
 
 // Switch to an existing session (by id).
 async function switchSession(sid) {
+  cancelPendingSave();
   clearAttachment();
   promptInput.value = '';
   lastStatus = null;
@@ -1093,6 +1094,7 @@ sendBtn.addEventListener('click', () => {
 });
 
 function stopGeneration() {
+  cancelPendingSave();
   if (currentAbortController) {
     currentAbortController.abort();
     currentAbortController = null;
@@ -1263,6 +1265,7 @@ async function replaceCurrentChat() {
 }
 
 async function startNewChat() {
+  cancelPendingSave();
   const res = await fetch('/api/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1549,6 +1552,14 @@ function flushSave() {
   if (saveThrottleTimer) { clearTimeout(saveThrottleTimer); saveThrottleTimer = null; }
   lastSaveTime = Date.now();
   saveSession();
+}
+
+// Cancel any pending trailing-edge save so it can't fire against a
+// different session after a switch / new chat / stop. Resetting
+// lastSaveTime lets the next turn's first save run immediately.
+function cancelPendingSave() {
+  if (saveThrottleTimer) { clearTimeout(saveThrottleTimer); saveThrottleTimer = null; }
+  lastSaveTime = 0;
 }
 
 // Persist the full conversation (pre-load history + live turns) to disk.
