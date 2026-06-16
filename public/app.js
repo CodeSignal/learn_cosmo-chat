@@ -1411,14 +1411,23 @@ async function copyWithFeedback(btn, text, { ariaLabel = 'Copy', copiedLabel = '
     console.error('[ChatCPT] Copy failed:', err);
     return;
   }
-  const original = btn.innerHTML;
+  // Capture the true original state only when no reset is already pending; a
+  // rapid second click would otherwise snapshot the checkmark as the "original".
+  if (btn._copyResetTimer) {
+    clearTimeout(btn._copyResetTimer);
+  } else {
+    btn._copyOriginalHtml = btn.innerHTML;
+  }
+  const original = btn._copyOriginalHtml;
   btn.innerHTML = CHECK_ICON_SVG;
   btn.title = copiedLabel;
   btn.setAttribute('aria-label', copiedLabel);
-  setTimeout(() => {
+  btn._copyResetTimer = setTimeout(() => {
     btn.innerHTML = original;
     btn.title = ariaLabel;
     btn.setAttribute('aria-label', ariaLabel);
+    btn._copyResetTimer = null;
+    btn._copyOriginalHtml = null;
   }, 1500);
 }
 
