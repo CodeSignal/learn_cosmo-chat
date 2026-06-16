@@ -768,6 +768,8 @@ body.is-resizing-sidebar {
 .code-block__header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--UI-Spacing-spacing-xs);
   padding: var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
   border-bottom: 1.5px solid var(--Colors-Backgrounds-Main-Medium);
 }
@@ -777,6 +779,17 @@ body.is-resizing-sidebar {
   font-size: var(--Fonts-Special-sm);
   font-weight: 500;
   text-transform: capitalize;
+}
+
+.code-block__copy {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.code-block__copy svg {
+  width: 14px;
+  height: 14px;
 }
 
 .code-block__pre {

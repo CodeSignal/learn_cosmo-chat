@@ -70,6 +70,13 @@ function decodeHtmlEntities(str) {
     .replace(/&#39;/g, "'");
 }
 
+const COPY_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M16 16v2.8c0 1.12 0 1.68-.218 2.108a2 2 0 0 1-.874.874C14.48 22 13.92 22 12.8 22H5.2c-1.12 0-1.68 0-2.108-.218a2 2 0 0 1-.874-.874C2 20.48 2 19.92 2 18.8v-7.6c0-1.12 0-1.68.218-2.108a2 2 0 0 1 .874-.874C3.52 8 4.08 8 5.2 8H8m3.2 8h7.6c1.12 0 1.68 0 2.108-.218a2 2 0 0 0 .874-.874C22 14.48 22 13.92 22 12.8V5.2c0-1.12 0-1.68-.218-2.108a2 2 0 0 0-.874-.874C20.48 2 19.92 2 18.8 2h-7.6c-1.12 0-1.68 0-2.108.218a2 2 0 0 0-.874.874C8 3.52 8 4.08 8 5.2v7.6c0 1.12 0 1.68.218 2.108a2 2 0 0 0 .874.874C9.52 16 10.08 16 11.2 16Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>`;
+const CHECK_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M20 6 9 17l-5-5"/>
+</svg>`;
+
 // Custom renderer: single place for highlighting + block structure.
 // No markedHighlight plugin — that would double-process the code.
 const renderer = new marked.Renderer();
@@ -82,6 +89,9 @@ renderer.code = function ({ text, lang }) {
     <div class="code-block">
       <div class="code-block__header">
         <span class="code-block__lang">${label}</span>
+        <button type="button" class="button-icon code-block__copy" aria-label="Copy code" title="Copy">
+          ${COPY_ICON_SVG}
+        </button>
       </div>
       <pre class="code-block__pre"><code class="hljs language-${language}">${highlighted}</code></pre>
     </div>
@@ -455,6 +465,16 @@ function openSettings() {
 }
 
 if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+
+if (chatHistory) {
+  chatHistory.addEventListener('click', (e) => {
+    const btn = e.target.closest('.code-block__copy');
+    if (!btn) return;
+    const codeEl = btn.closest('.code-block')?.querySelector('.code-block__pre code');
+    if (!codeEl) return;
+    copyCodeBlock(btn, codeEl.textContent);
+  });
+}
 
 // ── Sidebar resizer ───────────────────────────────────────────
 (function initSidebarResizer() {
@@ -1368,29 +1388,32 @@ async function resendOnForkedSession(historyMessages, userText, userFiles) {
 const REGEN_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
   <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
 </svg>`;
-const COPY_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <path d="M16 16v2.8c0 1.12 0 1.68-.218 2.108a2 2 0 0 1-.874.874C14.48 22 13.92 22 12.8 22H5.2c-1.12 0-1.68 0-2.108-.218a2 2 0 0 1-.874-.874C2 20.48 2 19.92 2 18.8v-7.6c0-1.12 0-1.68.218-2.108a2 2 0 0 1 .874-.874C3.52 8 4.08 8 5.2 8H8m3.2 8h7.6c1.12 0 1.68 0 2.108-.218a2 2 0 0 0 .874-.874C22 14.48 22 13.92 22 12.8V5.2c0-1.12 0-1.68-.218-2.108a2 2 0 0 0-.874-.874C20.48 2 19.92 2 18.8 2h-7.6c-1.12 0-1.68 0-2.108.218a2 2 0 0 0-.874.874C8 3.52 8 4.08 8 5.2v7.6c0 1.12 0 1.68.218 2.108a2 2 0 0 0 .874.874C9.52 16 10.08 16 11.2 16Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>`;
-const CHECK_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-  <path d="M20 6 9 17l-5-5"/>
-</svg>`;
 
-// Copy the message's markdown source to the clipboard, with a brief
-// checkmark confirmation on the button.
-async function copyMessageMarkdown(btn, markdown) {
+// Copy to clipboard with a brief checkmark confirmation on the button.
+async function copyWithFeedback(btn, text, { ariaLabel = 'Copy', copiedLabel = 'Copied' } = {}) {
   try {
-    await navigator.clipboard.writeText(markdown);
+    await navigator.clipboard.writeText(text);
   } catch (err) {
     console.error('[ChatCPT] Copy failed:', err);
     return;
   }
   const original = btn.innerHTML;
   btn.innerHTML = CHECK_ICON_SVG;
-  btn.title = 'Copied';
+  btn.title = copiedLabel;
+  btn.setAttribute('aria-label', copiedLabel);
   setTimeout(() => {
     btn.innerHTML = original;
-    btn.title = 'Copy';
+    btn.title = ariaLabel;
+    btn.setAttribute('aria-label', ariaLabel);
   }, 1500);
+}
+
+async function copyMessageMarkdown(btn, markdown) {
+  await copyWithFeedback(btn, markdown, { ariaLabel: 'Copy as Markdown' });
+}
+
+async function copyCodeBlock(btn, code) {
+  await copyWithFeedback(btn, code, { ariaLabel: 'Copy code' });
 }
 
 // Regenerate a specific assistant response: re-run the user turn that
