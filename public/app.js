@@ -466,14 +466,20 @@ function openSettings() {
 
 if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
 
+/**
+ * Delegated click handler for `.code-block__copy` buttons in rendered markdown.
+ * @param {MouseEvent} e
+ */
+function handleCodeBlockCopyClick(e) {
+  const btn = e.target.closest('.code-block__copy');
+  if (!btn) return;
+  const codeEl = btn.closest('.code-block')?.querySelector('.code-block__pre code');
+  if (!codeEl) return;
+  copyCodeBlock(btn, codeEl.textContent);
+}
+
 if (chatHistory) {
-  chatHistory.addEventListener('click', (e) => {
-    const btn = e.target.closest('.code-block__copy');
-    if (!btn) return;
-    const codeEl = btn.closest('.code-block')?.querySelector('.code-block__pre code');
-    if (!codeEl) return;
-    copyCodeBlock(btn, codeEl.textContent);
-  });
+  chatHistory.addEventListener('click', handleCodeBlockCopyClick);
 }
 
 // ── Sidebar resizer ───────────────────────────────────────────
@@ -1390,6 +1396,14 @@ const REGEN_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 </svg>`;
 
 // Copy to clipboard with a brief checkmark confirmation on the button.
+
+/**
+ * Write text to the clipboard and briefly swap the trigger button to a checkmark.
+ * @param {HTMLButtonElement} btn - Button that initiated the copy; its icon, title, and aria-label are restored after 1.5s.
+ * @param {string} text - Raw text to copy.
+ * @param {{ ariaLabel?: string, copiedLabel?: string }} [options] - Labels restored/applied on the button.
+ * @returns {Promise<void>}
+ */
 async function copyWithFeedback(btn, text, { ariaLabel = 'Copy', copiedLabel = 'Copied' } = {}) {
   try {
     await navigator.clipboard.writeText(text);
@@ -1408,10 +1422,22 @@ async function copyWithFeedback(btn, text, { ariaLabel = 'Copy', copiedLabel = '
   }, 1500);
 }
 
+/**
+ * Copy an assistant message's markdown source via the hover action button.
+ * @param {HTMLButtonElement} btn
+ * @param {string} markdown - Full message text as returned by the model.
+ * @returns {Promise<void>}
+ */
 async function copyMessageMarkdown(btn, markdown) {
   await copyWithFeedback(btn, markdown, { ariaLabel: 'Copy as Markdown' });
 }
 
+/**
+ * Copy a fenced code block's source via its header copy button.
+ * @param {HTMLButtonElement} btn
+ * @param {string} code - Plain source text from the block's `<code>` element.
+ * @returns {Promise<void>}
+ */
 async function copyCodeBlock(btn, code) {
   await copyWithFeedback(btn, code, { ariaLabel: 'Copy code' });
 }
