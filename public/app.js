@@ -4,6 +4,12 @@
  */
 
 import { OctavusChat, createHttpTransport } from '@octavus/client-sdk';
+import {
+  MAX_CONCURRENT_STREAMS,
+  streamingCount as countStreaming,
+  canSendMessage,
+  nextSaveAction,
+} from '../lib/stream-registry.js';
 import Dropdown from '../design-system/components/dropdown/dropdown.js';
 import Modal from '../design-system/components/modal/modal.js';
 import NumericSlider from '../design-system/components/numeric-slider/numeric-slider.js';
@@ -193,39 +199,68 @@ function isChatNearBottom(thPx = 120) {
 }
 
 // ── State ─────────────────────────────────────────────────────
-let chat = null;
-let chatUnsubscribe = null;
-let sessionId = null;
+// ── Session registry ──────────────────────────────────────────
+// Each chat session gets its own Runtime so several can stream at once.
+// Only `active` is rendered, but every runtime persists itself independently
+// so a backgrounded stream never loses its tail when you switch away.
+// Runtime = { sessionId, chat, unsubscribe, abortController,
+//             restoredMessages, lastStatus, lastSaveTime,
+//             saveThrottleTimer, streamingStartTime }
+const sessions = new Map();
+let active = null; // the displayed Runtime
+// Count live streams across all sessions (pure logic lives in lib/stream-registry).
+const streamingCount = () => countStreaming(sessions.values());
+
 // Each entry: { file: File, ref: FileRef|null, status: 'uploading'|'ready'|'error' }
 let fileItems = [];
 let isUploading = false;
-let lastStatus = null;
-let restoredMessages = [];
 let allSessionsMeta = []; // [{session_id, title, updated_at}]
-let streamingStartTime = null;
 let loadingIntervalId = null;
 let chatConfig = {};
 let availableModels = [];
 let selectedModel = '';
 let selectedTemperature = 0.7;
 let selectedThinking = 'off';
-let currentAbortController = null;
 let settingsModal = null;
 let thinkingDropdownInstance = null;
 let temperatureSliderInstance = null;
 
 // ── Session wiring ────────────────────────────────────────────
-function buildChat(sid) {
-  if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
+// Return the runtime for `sid`, creating (and wiring up) one if needed.
+// Reusing an existing runtime is what lets a live stream survive a
+// switch-away-and-back without being torn down.
+function getOrCreateRuntime(sid, restored = []) {
+  let rt = sessions.get(sid);
+  if (rt) return rt;
+  rt = {
+    sessionId: sid,
+    chat: null,
+    unsubscribe: null,
+    abortController: null,
+    restoredMessages: restored,
+    lastStatus: null,
+    lastSaveTime: 0,
+    saveThrottleTimer: null,
+    streamingStartTime: null,
+  };
+  attachChat(rt);
+  sessions.set(sid, rt);
+  return rt;
+}
+
+// (Re)build the OctavusChat for a runtime and wire its subscription. Used on
+// creation and by stopGeneration() to clear live messages.
+function attachChat(rt) {
+  if (rt.unsubscribe) { rt.unsubscribe(); rt.unsubscribe = null; }
 
   const transport = createHttpTransport({
     request: (payload, options) => {
-      currentAbortController = new AbortController();
+      rt.abortController = new AbortController();
       return fetch('/api/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: sid, ...payload }),
-        signal: currentAbortController.signal,
+        body: JSON.stringify({ sessionId: rt.sessionId, ...payload }),
+        signal: rt.abortController.signal,
       });
     },
   });
@@ -234,69 +269,93 @@ function buildChat(sid) {
     const r = await fetch('/api/upload-urls', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId: sid, files }),
+      body: JSON.stringify({ sessionId: rt.sessionId, files }),
     });
     return r.json();
   };
 
-  chat = new OctavusChat({ transport, requestUploadUrls });
-  chatUnsubscribe = chat.subscribe(() => {
-    const { messages, status } = chat;
+  rt.chat = new OctavusChat({ transport, requestUploadUrls });
+  rt.unsubscribe = rt.chat.subscribe(() => {
+    const status = rt.chat.status;
 
-    // Track when streaming starts so the loading indicator knows elapsed time.
-    // Drive periodic re-renders while streaming so the message text updates
-    // even when no tokens arrive (e.g. during image generation).
-    if (status === 'streaming' && lastStatus !== 'streaming') {
-      streamingStartTime = Date.now();
-      if (loadingIntervalId) clearInterval(loadingIntervalId);
-      loadingIntervalId = setInterval(() => {
-        if (chat?.status === 'streaming') {
-          renderMessages(chat.messages, 'streaming');
-        } else {
-          clearInterval(loadingIntervalId);
-          loadingIntervalId = null;
-        }
-      }, 1000);
+    // Track when streaming starts so the elapsed-time indicator is accurate.
+    if (status === 'streaming' && rt.lastStatus !== 'streaming') {
+      rt.streamingStartTime = Date.now();
     } else if (status !== 'streaming') {
-      streamingStartTime = null;
-      if (loadingIntervalId) { clearInterval(loadingIntervalId); loadingIntervalId = null; }
+      rt.streamingStartTime = null;
     }
 
-    renderMessages(messages, status);
+    // Persistence runs for EVERY runtime, even when it isn't on screen, so a
+    // backgrounded stream keeps saving its tail. Policy:
+    //  • Entering streaming → immediate save (durable user message).
+    //  • Mid-stream → throttled partial saves.
+    //  • Leaving streaming → final flush so nothing is lost to throttling.
+    persist(rt);
 
-    // Persistence strategy:
-    //  • Entering streaming → save immediately so the user message is
-    //    durable even if the turn never finishes (crash / closed tab).
-    //  • Mid-stream → persist partial output at most once per second.
-    //  • Leaving streaming → force a final save so the complete message
-    //    is never lost to throttling.
-    if (status === 'streaming') {
-      if (lastStatus !== 'streaming') flushSave();
-      else throttledSave();
-    } else if (lastStatus === 'streaming') {
-      flushSave();
+    // Only the displayed runtime renders / drives the re-render loop.
+    if (rt === active) {
+      renderActive();
+      syncStreamingLoop();
     }
-    lastStatus = status;
+
+    // The send/stop gate depends on the global streaming count, so any
+    // runtime's status change can flip it.
+    updateSendBtn();
+
+    rt.lastStatus = status;
   });
 }
 
-// Switch to an existing session (by id).
+// Render the currently displayed runtime (idle-safe).
+function renderActive() {
+  if (!active?.chat) { renderMessages([], 'idle'); return; }
+  renderMessages(active.chat.messages, active.chat.status);
+}
+
+// One re-render loop, pointed at the active runtime, so streaming text keeps
+// updating even when no new tokens arrive (e.g. image generation).
+function syncStreamingLoop() {
+  const streaming = active?.chat?.status === 'streaming';
+  if (streaming && !loadingIntervalId) {
+    loadingIntervalId = setInterval(() => {
+      if (active?.chat?.status === 'streaming') renderActive();
+      else { clearInterval(loadingIntervalId); loadingIntervalId = null; }
+    }, 1000);
+  } else if (!streaming && loadingIntervalId) {
+    clearInterval(loadingIntervalId);
+    loadingIntervalId = null;
+  }
+}
+
+// Abort, unsubscribe, and forget a runtime (on delete / fork replacement).
+function teardownRuntime(sid) {
+  const rt = sessions.get(sid);
+  if (!rt) return;
+  if (rt.abortController) { rt.abortController.abort(); rt.abortController = null; }
+  clearSaveTimer(rt);
+  if (rt.unsubscribe) { rt.unsubscribe(); rt.unsubscribe = null; }
+  sessions.delete(sid);
+  if (active === rt) active = null;
+}
+
+// Switch to an existing session (by id). Reuses a live runtime if one exists
+// (preserving its in-flight stream); otherwise loads it from disk.
 async function switchSession(sid) {
-  cancelPendingSave();
   clearAttachment();
   promptInput.value = '';
-  lastStatus = null;
 
-  const res = await fetch(`/api/session?id=${sid}`);
-  if (!res.ok) return;
-  const data = await res.json();
-
-  sessionId = data.sessionId;
-  restoredMessages = data.messages ?? [];
-
-  buildChat(sessionId);
-  renderMessages([], 'idle');
+  let rt = sessions.get(sid);
+  if (!rt) {
+    const res = await fetch(`/api/session?id=${sid}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    rt = getOrCreateRuntime(data.sessionId, data.messages ?? []);
+  }
+  active = rt;
+  renderActive();
   renderSidebar();
+  updateSendBtn();
+  syncStreamingLoop();
 }
 
 // ── Model selector ────────────────────────────────────────────
@@ -582,8 +641,7 @@ async function init() {
     }
 
     const data = await sessionRes.json();
-    sessionId = data.sessionId;
-    restoredMessages = data.messages ?? [];
+    active = getOrCreateRuntime(data.sessionId, data.messages ?? []);
 
     const [listRes, configRes, modelsRes] = await Promise.all([
       fetch('/api/sessions'),
@@ -593,9 +651,9 @@ async function init() {
 
     const listData = await listRes.json();
     allSessionsMeta = listData.sessions ?? [];
-    if (!allSessionsMeta.some((s) => s.session_id === sessionId)) {
+    if (!allSessionsMeta.some((s) => s.session_id === active.sessionId)) {
       allSessionsMeta.unshift({
-        session_id: sessionId,
+        session_id: active.sessionId,
         title: 'New conversation',
         updated_at: new Date().toISOString(),
       });
@@ -612,9 +670,9 @@ async function init() {
     selectedModel = chatConfig.model || availableModels[0] || '';
     renderModelSelector();
 
-    buildChat(sessionId);
-    renderMessages([], 'idle');
+    renderActive();
     renderSidebar();
+    updateSendBtn();
 
     document.querySelector('.chat-app').style.visibility = '';
   } catch (err) {
@@ -656,6 +714,7 @@ function isImageGenerationLoading(parts) {
 
 /** Keeps conic border phase continuous across renderMessages() DOM rebuilds (matches animation duration in app.css). */
 function thinkingBorderAnimationDelayAttr() {
+  const streamingStartTime = active?.streamingStartTime;
   if (!streamingStartTime) return '';
   const sec = (Date.now() - streamingStartTime) / 1000;
   const wrapped = ((sec % THINKING_BORDER_DURATION_SEC) + THINKING_BORDER_DURATION_SEC) % THINKING_BORDER_DURATION_SEC;
@@ -682,6 +741,7 @@ function renderImagePlaceholderBody() {
  * @returns {{ label: string, icon: string | null, isImage: boolean }}
  */
 function getStreamingStatus(parts = []) {
+  const streamingStartTime = active?.streamingStartTime;
   const elapsed = streamingStartTime ? (Date.now() - streamingStartTime) / 1000 : 0;
   const toolName = activeToolNameFromParts(parts);
 
@@ -710,7 +770,7 @@ function getStreamingStatus(parts = []) {
 // We display restored first, then live so the conversation reads continuously.
 function renderMessages(liveMessages, status) {
   const wasPinnedToBottom = isChatNearBottom();
-  const messages = [...restoredMessages.map(storedToDisplayMsg), ...liveMessages];
+  const messages = [...(active?.restoredMessages ?? []).map(storedToDisplayMsg), ...liveMessages];
 
   let messagesEl = chatHistory.querySelector('.messages');
   if (!messagesEl) {
@@ -921,7 +981,7 @@ async function sendMessage() {
   updateSendBtn();
 
   try {
-    await chat.send(
+    await active.chat.send(
       'user-message',
       {
         USER_MESSAGE: text,
@@ -954,7 +1014,7 @@ uploadImageBtn.addEventListener('click', () => openFilePicker(ACCEPT_IMAGE_TYPES
 uploadFileBtn.addEventListener('click', () => openFilePicker(ACCEPT_FILE_TYPES));
 
 async function handleFiles(files) {
-  if (!files.length || !chat) return;
+  if (!files.length || !active?.chat) return;
 
   const newItems = files.map((f) => ({
     file: f,
@@ -968,7 +1028,7 @@ async function handleFiles(files) {
   updateSendBtn();
 
   try {
-    const refs = await chat.uploadFiles(files);
+    const refs = await active.chat.uploadFiles(files);
     refs.forEach((ref, i) => {
       newItems[i].ref = ref;
       newItems[i].status = 'ready';
@@ -1095,11 +1155,15 @@ function clearAttachment() {
 promptInput.addEventListener('input', updateSendBtn);
 
 function isComposerSendAllowed() {
-  if (!chat || isUploading) return false;
-  if (chat.status === 'streaming') return false;
-  const hasText = promptInput.value.trim().length > 0;
-  const hasFile = fileItems.some((i) => i.status === 'ready');
-  return hasText || hasFile;
+  return canSendMessage({
+    hasActiveChat: Boolean(active?.chat),
+    isUploading,
+    activeStatus: active?.chat?.status,
+    streamingCount: streamingCount(),
+    maxStreams: MAX_CONCURRENT_STREAMS,
+    hasText: promptInput.value.trim().length > 0,
+    hasReadyFile: fileItems.some((i) => i.status === 'ready'),
+  });
 }
 
 promptInput.addEventListener('keydown', (e) => {
@@ -1112,27 +1176,26 @@ promptInput.addEventListener('keydown', (e) => {
 });
 
 sendBtn.addEventListener('click', () => {
-  if (!chatConfig.hidePromptControls && chat?.status === 'streaming') {
+  if (!chatConfig.hidePromptControls && active?.chat?.status === 'streaming') {
     stopGeneration();
   } else {
     sendMessage();
   }
 });
 
+// Stop the ACTIVE session's stream and fold its partial turn into history.
 function stopGeneration() {
-  cancelPendingSave();
-  if (currentAbortController) {
-    currentAbortController.abort();
-    currentAbortController = null;
-  }
+  const rt = active;
+  if (!rt) return;
 
-  if (loadingIntervalId) {
-    clearInterval(loadingIntervalId);
-    loadingIntervalId = null;
+  clearSaveTimer(rt);
+  if (rt.abortController) {
+    rt.abortController.abort();
+    rt.abortController = null;
   }
-  streamingStartTime = null;
+  rt.streamingStartTime = null;
 
-  const partialMessages = chat?.messages ?? [];
+  const partialMessages = rt.chat?.messages ?? [];
   const hadPartial = partialMessages.length > 0;
   if (hadPartial) {
     const serialized = serializeLiveMessages(partialMessages);
@@ -1147,19 +1210,21 @@ function stopGeneration() {
 
     // Fold the partial turn into the pre-load history (append, don't
     // overwrite) so any earlier resumed/forked history is preserved.
-    restoredMessages = [...restoredMessages, ...serialized];
+    rt.restoredMessages = [...rt.restoredMessages, ...serialized];
   }
 
   // Rebuild the chat so the live message set is cleared before we persist;
   // saveSession() then writes restoredMessages (the full convo) only.
-  lastStatus = null;
-  buildChat(sessionId);
-  renderMessages([], 'idle');
-  if (hadPartial) saveSession();
+  rt.lastStatus = null;
+  attachChat(rt);
+  renderActive();
+  syncStreamingLoop();
+  updateSendBtn();
+  if (hadPartial) saveSession(rt);
 }
 
 function updateSendBtn() {
-  const streaming = chat?.status === 'streaming';
+  const streaming = active?.chat?.status === 'streaming';
   const showStop = streaming && !chatConfig.hidePromptControls;
   const sendSvg = sendBtn.querySelector('.composer__send-svg');
   const stopSvg = sendBtn.querySelector('.composer__stop-svg');
@@ -1171,7 +1236,14 @@ function updateSendBtn() {
     if (stopSvg) stopSvg.style.display = '';
   } else {
     sendBtn.disabled = !isComposerSendAllowed();
-    sendBtn.setAttribute('aria-label', 'Send prompt');
+    // When blocked purely by the concurrency cap, say so; otherwise it's a
+    // normal "nothing to send yet" disabled state.
+    const atCap = !streaming && streamingCount() >= MAX_CONCURRENT_STREAMS;
+    sendBtn.setAttribute(
+      'aria-label',
+      atCap ? `Waiting for a response to finish (max ${MAX_CONCURRENT_STREAMS} at once)` : 'Send prompt',
+    );
+    sendBtn.title = atCap ? `Up to ${MAX_CONCURRENT_STREAMS} chats can respond at once` : '';
     if (sendSvg) sendSvg.style.display = '';
     if (stopSvg) stopSvg.style.display = 'none';
   }
@@ -1182,15 +1254,26 @@ function renderSidebar() {
   sessionList.innerHTML = '';
 
   for (const s of allSessionsMeta) {
+    const isActive = s.session_id === active?.sessionId;
+    const isStreaming = sessions.get(s.session_id)?.chat?.status === 'streaming';
     const item = document.createElement('div');
-    item.className = 'session-item' + (s.session_id === sessionId ? ' session-item--active' : '');
+    item.className = 'session-item'
+      + (isActive ? ' session-item--active' : '')
+      + (isStreaming ? ' session-item--streaming' : '');
     item.setAttribute('role', 'button');
     item.setAttribute('tabindex', '0');
-    item.setAttribute('aria-label', s.title);
+    item.setAttribute('aria-label', isStreaming ? `${s.title} (responding)` : s.title);
 
     const title = document.createElement('span');
     title.className = 'session-item__title';
     title.textContent = s.title;
+    if (isStreaming) {
+      const dot = document.createElement('span');
+      dot.className = 'session-item__streaming-dot';
+      dot.setAttribute('aria-hidden', 'true');
+      dot.title = 'Responding…';
+      item.appendChild(dot);
+    }
 
     const del = document.createElement('button');
     del.type = 'button';
@@ -1207,7 +1290,7 @@ function renderSidebar() {
     });
 
     item.addEventListener('click', () => {
-      if (s.session_id !== sessionId) switchSession(s.session_id);
+      if (s.session_id !== active?.sessionId) switchSession(s.session_id);
     });
     item.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') switchSession(s.session_id);
@@ -1221,10 +1304,12 @@ function renderSidebar() {
 }
 
 async function deleteSession(sid) {
+  const wasActive = active?.sessionId === sid;
+  teardownRuntime(sid);
   await fetch(`/api/sessions/${sid}`, { method: 'DELETE' });
   allSessionsMeta = allSessionsMeta.filter((s) => s.session_id !== sid);
 
-  if (sid === sessionId) {
+  if (wasActive) {
     // Deleted the active session — switch to next or create new
     if (allSessionsMeta.length > 0) {
       await switchSession(allSessionsMeta[0].session_id);
@@ -1254,7 +1339,7 @@ function applyInitialPrompt() {
 }
 
 function confirmAndReplaceChat() {
-  const hasMessages = restoredMessages.length > 0 ||
+  const hasMessages = (active?.restoredMessages?.length ?? 0) > 0 ||
     (chatHistory && chatHistory.querySelector('.messages')?.childElementCount > 0);
 
   if (!hasMessages) {
@@ -1283,15 +1368,16 @@ function confirmAndReplaceChat() {
 }
 
 async function replaceCurrentChat() {
-  if (sessionId) {
-    await fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' });
-    allSessionsMeta = allSessionsMeta.filter((s) => s.session_id !== sessionId);
+  if (active) {
+    const sid = active.sessionId;
+    teardownRuntime(sid);
+    await fetch(`/api/sessions/${sid}`, { method: 'DELETE' });
+    allSessionsMeta = allSessionsMeta.filter((s) => s.session_id !== sid);
   }
   await startNewChat();
 }
 
 async function startNewChat() {
-  cancelPendingSave();
   const res = await fetch('/api/sessions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1300,21 +1386,21 @@ async function startNewChat() {
   if (!res.ok) return;
   const data = await res.json();
 
-  sessionId = data.sessionId;
-  restoredMessages = [];
-  lastStatus = null;
   clearAttachment();
   applyInitialPrompt();
 
+  active = getOrCreateRuntime(data.sessionId, []);
+
   if (chatConfig.hideHistory) {
-    allSessionsMeta = [{ session_id: sessionId, title: 'New conversation', updated_at: new Date().toISOString() }];
+    allSessionsMeta = [{ session_id: active.sessionId, title: 'New conversation', updated_at: new Date().toISOString() }];
   } else {
-    allSessionsMeta.unshift({ session_id: sessionId, title: 'New conversation', updated_at: new Date().toISOString() });
+    allSessionsMeta.unshift({ session_id: active.sessionId, title: 'New conversation', updated_at: new Date().toISOString() });
   }
 
-  buildChat(sessionId);
-  renderMessages([], 'idle');
+  renderActive();
   renderSidebar();
+  updateSendBtn();
+  syncStreamingLoop();
 }
 
 // ── Regenerate / Edit ─────────────────────────────────────────
@@ -1339,8 +1425,8 @@ function serializeLiveMessages(liveMessages) {
 // the live turns. This is the single source of truth used for rendering
 // indices, regenerate/edit targeting, and persistence — keep it in sync
 // with how renderMessages() composes the displayed list.
-function getAllCurrentMessages() {
-  return [...restoredMessages, ...serializeLiveMessages(chat?.messages ?? [])];
+function getAllCurrentMessages(rt = active) {
+  return [...(rt?.restoredMessages ?? []), ...serializeLiveMessages(rt?.chat?.messages ?? [])];
 }
 
 async function forkSession(messages) {
@@ -1348,7 +1434,7 @@ async function forkSession(messages) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      oldSessionId: sessionId,
+      oldSessionId: active.sessionId,
       messages,
       model: selectedModel,
       temperature: selectedTemperature,
@@ -1360,30 +1446,30 @@ async function forkSession(messages) {
 }
 
 async function resendOnForkedSession(historyMessages, userText, userFiles) {
+  const oldSessionId = active.sessionId;
   const data = await forkSession(historyMessages);
 
-  const oldSessionId = sessionId;
-  sessionId = data.sessionId;
-  restoredMessages = historyMessages;
-  lastStatus = null;
+  // The fork replaces the current conversation with a new session id, so
+  // retire the old runtime and stand up one for the forked session.
+  teardownRuntime(oldSessionId);
+  active = getOrCreateRuntime(data.sessionId, historyMessages);
 
   const metaIdx = allSessionsMeta.findIndex((s) => s.session_id === oldSessionId);
   if (metaIdx >= 0) {
-    allSessionsMeta[metaIdx].session_id = sessionId;
+    allSessionsMeta[metaIdx].session_id = active.sessionId;
   } else {
     allSessionsMeta.unshift({
-      session_id: sessionId,
+      session_id: active.sessionId,
       title: deriveTitle(historyMessages) || 'New conversation',
       updated_at: new Date().toISOString(),
     });
   }
   renderSidebar();
+  renderActive();
 
-  buildChat(sessionId);
-  renderMessages([], 'idle');
-
+  const rt = active;
   const filesToSend = userFiles?.length > 0 ? userFiles : undefined;
-  await chat.send(
+  await rt.chat.send(
     'user-message',
     { USER_MESSAGE: userText, ...(filesToSend ? { FILES: filesToSend } : {}) },
     { userMessage: { content: userText, ...(filesToSend ? { files: filesToSend } : {}) } },
@@ -1454,6 +1540,8 @@ async function copyCodeBlock(btn, code) {
 // Regenerate a specific assistant response: re-run the user turn that
 // preceded it (forking the session, which drops everything after).
 async function regenerateResponse(assistantIdx) {
+  // Forking starts a new stream; respect the global concurrency cap.
+  if (streamingCount() >= MAX_CONCURRENT_STREAMS) return;
   const allMsgs = getAllCurrentMessages();
   if (assistantIdx < 0 || assistantIdx >= allMsgs.length) return;
   if (allMsgs[assistantIdx].role !== 'assistant') return;
@@ -1475,6 +1563,8 @@ async function regenerateResponse(assistantIdx) {
 }
 
 async function editAndResend(messageIndex, newText) {
+  // Forking starts a new stream; respect the global concurrency cap.
+  if (streamingCount() >= MAX_CONCURRENT_STREAMS) return;
   const allMsgs = getAllCurrentMessages();
   const historyBeforeEdit = allMsgs.slice(0, messageIndex);
 
@@ -1592,45 +1682,57 @@ function storedToDisplayMsg(m) {
 // SAVE_THROTTLE_MS via throttledSave(). flushSave() bypasses the throttle
 // for guaranteed writes — the initial user-message save on turn start and
 // the final complete-message save on completion — so no data is lost.
+// All save state is per-runtime so concurrent streams persist independently.
 const SAVE_THROTTLE_MS = 1000;
-let saveThrottleTimer = null;
-let lastSaveTime = 0;
 
-function throttledSave() {
-  const elapsed = Date.now() - lastSaveTime;
+// Persist a runtime's partial state, debounced to the throttle window.
+function throttledSave(rt) {
+  const elapsed = Date.now() - rt.lastSaveTime;
   if (elapsed >= SAVE_THROTTLE_MS) {
-    flushSave();
-  } else if (!saveThrottleTimer) {
+    flushSave(rt);
+  } else if (!rt.saveThrottleTimer) {
     // Trailing-edge save covering the remainder of the current window.
-    saveThrottleTimer = setTimeout(flushSave, SAVE_THROTTLE_MS - elapsed);
+    rt.saveThrottleTimer = setTimeout(() => flushSave(rt), SAVE_THROTTLE_MS - elapsed);
   }
 }
 
-function flushSave() {
-  if (saveThrottleTimer) { clearTimeout(saveThrottleTimer); saveThrottleTimer = null; }
-  lastSaveTime = Date.now();
-  saveSession();
+function flushSave(rt) {
+  if (rt.saveThrottleTimer) { clearTimeout(rt.saveThrottleTimer); rt.saveThrottleTimer = null; }
+  rt.lastSaveTime = Date.now();
+  saveSession(rt);
 }
 
-// Cancel any pending trailing-edge save so it can't fire against a
-// different session after a switch / new chat / stop. Resetting
+// Cancel a runtime's pending trailing-edge save (on stop / delete). Resetting
 // lastSaveTime lets the next turn's first save run immediately.
-function cancelPendingSave() {
-  if (saveThrottleTimer) { clearTimeout(saveThrottleTimer); saveThrottleTimer = null; }
-  lastSaveTime = 0;
+function clearSaveTimer(rt) {
+  if (rt.saveThrottleTimer) { clearTimeout(rt.saveThrottleTimer); rt.saveThrottleTimer = null; }
+  rt.lastSaveTime = 0;
+}
+
+// Persistence policy applied on every subscription tick for a runtime:
+//  • Entering streaming → immediate save so the user message is durable.
+//  • Mid-stream → throttled partial saves.
+//  • Leaving streaming → final flush so nothing is lost to throttling.
+function persist(rt) {
+  switch (nextSaveAction(rt.chat.status, rt.lastStatus)) {
+    case 'flush': flushSave(rt); break;
+    case 'throttle': throttledSave(rt); break;
+    default: break;
+  }
 }
 
 // Persist the full conversation (pre-load history + live turns) to disk.
 // Combining both is essential for resumed sessions, where chat.messages
 // only contains turns from the current page session — saving live-only
 // would otherwise drop the earlier history.
-function saveSession() {
-  const allMessages = getAllCurrentMessages();
+function saveSession(rt = active) {
+  if (!rt) return;
+  const allMessages = getAllCurrentMessages(rt);
 
   fetch('/api/session/save', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sessionId, messages: allMessages }),
+    body: JSON.stringify({ sessionId: rt.sessionId, messages: allMessages }),
   })
     .then(() => {
       // Refresh the sidebar title (first user message may now be available)
@@ -1638,7 +1740,7 @@ function saveSession() {
       const title = firstUser?.content
         ? (firstUser.content.length > 45 ? firstUser.content.slice(0, 45) + '…' : firstUser.content)
         : 'New conversation';
-      const meta = allSessionsMeta.find((s) => s.session_id === sessionId);
+      const meta = allSessionsMeta.find((s) => s.session_id === rt.sessionId);
       if (meta) { meta.title = title; meta.updated_at = new Date().toISOString(); }
       renderSidebar();
     })
