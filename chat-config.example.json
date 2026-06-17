@@ -6,5 +6,6 @@
     "anthropic/claude-sonnet-4-6",
     "openai/gpt-5"
   ],
-  "systemPromptExtra": "You are assisting students in a Python programming course. Focus all examples, analogies, and exercises on Python. When discussing prompting techniques, always relate them back to coding tasks."
+  "systemPromptExtra": "You are assisting students in a Python programming course. Focus all examples, analogies, and exercises on Python. When discussing prompting techniques, always relate them back to coding tasks.",
+  "verbosity": "detailed"
 }

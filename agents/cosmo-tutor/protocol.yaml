@@ -19,6 +19,11 @@ input:
     optional: true
     default: ""
     description: Additional instructions appended to the system prompt at session creation.
+  VERBOSITY_INSTRUCTIONS:
+    type: string
+    optional: true
+    default: "Be clear, concise, and conversational"
+    description: "Response verbosity directive injected into the system prompt guidelines."
 
 triggers:
   user-message:
@@ -39,6 +44,7 @@ agent:
   system: system
   input:
     EXTRA_INSTRUCTIONS: EXTRA_INSTRUCTIONS
+    VERBOSITY_INSTRUCTIONS: VERBOSITY_INSTRUCTIONS
   temperature: TEMPERATURE
   thinking: THINKING
   webSearch: true
