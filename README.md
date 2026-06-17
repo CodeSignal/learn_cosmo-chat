@@ -50,12 +50,23 @@ npm install
 
 ### 3. Configure environment
 
-Create a `.env` file in the project root:
+Copy the example file and fill in your values:
 
-```env
+```bash
+cp .env.example .env
 ```
 
-> **Never commit `.env`** — it is listed in `.gitignore`.
+```env
+OCTAVUS_API_URL=https://octavus.ai
+OCTAVUS_API_KEY=oct_sk_your_key_here
+AGENT_TARGET=prod
+OCTAVUS_AGENT_ID_DEV=your_dev_agent_id
+OCTAVUS_AGENT_ID_PROD=your_prod_agent_id
+```
+
+> **Never commit `.env`** — it is listed in `.gitignore`. Use `.env.example` as the committed reference.
+
+See [Agent deployment](#agent-deployment-dev-vs-prod) for how `AGENT_TARGET` and the two agent IDs work together.
 
 ## Running
 
@@ -128,6 +139,40 @@ cp chat-config.example.json chat-config.json
 ```
 
 > `chat-config.json` is committed to source control so you can version your configuration alongside the project. `chat-config.example.json` serves as a reference template.
+
+## Agent deployment (dev vs prod)
+
+The Cosmo agent definition lives in `agents/cosmo-tutor/` and is the **single source of truth**. To avoid local experiments leaking into production, the same definition is deployed to two separate agents in Octavus, distinguished by slug:
+
+| Target | Slug | Used by |
+|---|---|---|
+| dev | `cosmo-tutor-dev` | local development / testing (default) |
+| prod | `cosmo-tutor` | real users |
+
+There are **two independent switches**:
+
+1. **Deploy** — which agent the CLI writes your edited files to. The Octavus CLI targets an agent by the `slug` in `settings.json`, so `scripts/deploy-agent.mjs` stages a copy of the definition and rewrites only the slug/name for the chosen target (the prompts and `protocol.yaml` are never duplicated, so dev and prod cannot drift):
+
+   ```bash
+   npm run deploy:agent:dev    # syncs to cosmo-tutor-dev
+   npm run deploy:agent:prod   # syncs to cosmo-tutor (asks for confirmation)
+   npm run validate:agent      # dry-run validation only
+   ```
+
+   `deploy:agent:prod` requires confirmation: answer the interactive prompt, or pass `--yes` for CI (`node scripts/deploy-agent.mjs prod --yes`).
+
+2. **Runtime** — which deployed agent the running server talks to, selected by `AGENT_TARGET` (defaults to `prod`):
+
+   ```bash
+   npm run dev          # talks to the dev agent (the script sets AGENT_TARGET=dev)
+   npm start            # talks to the prod agent (AGENT_TARGET defaults to prod)
+   ```
+
+   The server reads `OCTAVUS_AGENT_ID_DEV` or `OCTAVUS_AGENT_ID_PROD` based on `AGENT_TARGET`. Find the IDs with `npx octavus --env .env list`.
+
+   **Backward compatibility:** the default is `prod`, and when the target-specific ID is missing the server falls back to the legacy `OCTAVUS_AGENT_ID`. So an existing `.env` that only defines `OCTAVUS_AGENT_ID` keeps working unchanged — it continues to talk to that (production) agent.
+
+Typical workflow: edit `agents/cosmo-tutor/*`, run `npm run deploy:agent:dev`, test locally (dev is the default), and only run `npm run deploy:agent:prod` once you're happy.
 
 ## Project Structure
 
