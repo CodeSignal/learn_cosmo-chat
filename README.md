@@ -107,7 +107,7 @@ cp chat-config.example.json chat-config.json
 | `modelDisplayNames` | `object` | `{}` | Map of model ID to display label shown in the dropdown (e.g. `{"openai/gpt-5": "GPT-5"}`). Models without an entry use the default `provider/model` label. |
 | `temperature` | `number` | `0.7` | Controls randomness (0–2). Lower = more focused, higher = more creative. Ignored when thinking is enabled. |
 | `systemPromptExtra` | `string` | `""` | Additional instructions appended to Cosmo's system prompt at session creation. |
-| `verbosity` | `string \| null` | _(none)_ | Controls how verbose responses are. One of `"concise"`, `"normal"`, `"detailed"`, or `"verbose"`. When omitted (or set to `null`), no verbosity instruction is injected and the agent protocol's own default applies. |
+| `verbosity` | `string \| null` | _(none)_ | Controls how verbose responses are. One of `"concise"`, `"normal"`, `"detailed"`, or `"verbose"`. When omitted (or set to `null`), no `VERBOSITY_INSTRUCTIONS` value is sent, so the agent falls back to the protocol default directive defined in `agents/cosmo-tutor/protocol.yaml` (`"Be clear, concise, and conversational"`) rather than leaving the system prompt unchanged. |
 | `title` | `string` | `"ChatCPT"` | Override the app name shown in the sidebar header and browser tab. |
 | `heading` | `string` | `"What's on your mind?"` | Override the empty-state heading shown before the first message. |
 | `placeholder` | `string` | `"Ask me anything..."` | Override the placeholder text in the composer input. |
