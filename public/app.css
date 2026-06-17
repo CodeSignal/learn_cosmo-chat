@@ -459,6 +459,30 @@ body.is-resizing-sidebar {
   color: var(--Colors-Text-Body-Strong);
 }
 
+/* Pulsing dot shown while a session is actively streaming a response. */
+.session-item__streaming-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--Colors-Icon-Brand, #6366f1);
+  animation: session-streaming-pulse 1.2s ease-in-out infinite;
+}
+
+/* Hide the dot on hover so it doesn't collide with the delete button. */
+.session-item:hover .session-item__streaming-dot {
+  display: none;
+}
+
+@keyframes session-streaming-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-item__streaming-dot { animation: none; }
+}
+
 .session-item__delete {
   flex-shrink: 0;
   opacity: 0;
