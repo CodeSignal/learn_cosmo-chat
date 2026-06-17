@@ -199,9 +199,9 @@ describe('buildSessionInput', () => {
     expect(input.TEMPERATURE).toBe(0);
   });
 
-  it('defaults to detailed verbosity when config omits it', () => {
+  it('omits VERBOSITY_INSTRUCTIONS when verbosity is not provided', () => {
     const input = buildSessionInput({}, {});
-    expect(input.VERBOSITY_INSTRUCTIONS).toBe(VERBOSITY_LEVELS.detailed);
+    expect(input).not.toHaveProperty('VERBOSITY_INSTRUCTIONS');
   });
 
   it('uses the configured verbosity directive', () => {
@@ -233,8 +233,8 @@ describe('buildSessionInput', () => {
 // ── resolveVerbosity ──────────────────────────────────────────
 
 describe('resolveVerbosity', () => {
-  it('defaults to "detailed" when neither options nor config specify it', () => {
-    expect(resolveVerbosity({}, {})).toBe('detailed');
+  it('returns undefined when neither options nor config specify it', () => {
+    expect(resolveVerbosity({}, {})).toBeUndefined();
   });
 
   it('falls back to config verbosity', () => {
