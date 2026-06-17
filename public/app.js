@@ -208,6 +208,9 @@ function isChatNearBottom(thPx = 120) {
 //             saveThrottleTimer, streamingStartTime }
 const sessions = new Map();
 let active = null; // the displayed Runtime
+// Id of the most recent switchSession() request; used to ignore the result of
+// an earlier in-flight session fetch that resolves after a newer switch.
+let lastSwitchRequestId = null;
 // Count live streams across all sessions (pure logic lives in lib/stream-registry).
 const streamingCount = () => countStreaming(sessions.values());
 
@@ -349,6 +352,7 @@ function teardownRuntime(sid) {
 async function switchSession(sid) {
   clearAttachment();
   promptInput.value = '';
+  lastSwitchRequestId = sid;
 
   let rt = sessions.get(sid);
   if (!rt) {
@@ -356,6 +360,9 @@ async function switchSession(sid) {
     if (!res.ok) return;
     const data = await res.json();
     rt = getOrCreateRuntime(data.sessionId, data.messages ?? []);
+    // The fetch may resolve out of order; if the user switched again while it
+    // was in flight, drop this stale result so the newest switch wins.
+    if (lastSwitchRequestId !== sid) return;
   }
   active = rt;
   renderActive();
