@@ -26,7 +26,21 @@ const octavus = new OctavusClient({
   apiKey: process.env.OCTAVUS_API_KEY,
 });
 
-const AGENT_ID = process.env.OCTAVUS_AGENT_ID;
+// Which deployed agent the server talks to. Defaults to "prod" so existing
+// deployments that only set the legacy OCTAVUS_AGENT_ID keep hitting their
+// production agent with no .env changes. Local development opts into the dev
+// agent via `npm run dev` (which sets AGENT_TARGET=dev). When a target-specific
+// ID is missing we fall back to the legacy OCTAVUS_AGENT_ID.
+const AGENT_TARGET = (process.env.AGENT_TARGET ?? 'prod').toLowerCase();
+if (AGENT_TARGET !== 'prod' && AGENT_TARGET !== 'dev') {
+  throw new Error(
+    `Invalid AGENT_TARGET "${process.env.AGENT_TARGET}". Expected "prod" or "dev".`,
+  );
+}
+const AGENT_ID =
+  (AGENT_TARGET === 'prod'
+    ? process.env.OCTAVUS_AGENT_ID_PROD
+    : process.env.OCTAVUS_AGENT_ID_DEV) ?? process.env.OCTAVUS_AGENT_ID;
 
 // ── Middleware ────────────────────────────────────────────────
 app.use(express.json());
@@ -273,8 +287,10 @@ app.post('/api/trigger', async (req, res) => {
 if (process.env.NODE_ENV !== 'test') {
   const server = app.listen(PORT, () => {
     console.log(`ChatCPT running at http://localhost:${PORT}`);
+    console.log(`[agent] target=${AGENT_TARGET}${AGENT_ID ? ` (agent ${AGENT_ID})` : ''}`);
     if (!AGENT_ID) {
-      console.warn('[WARN] OCTAVUS_AGENT_ID is not set — chat will not work until it is configured.');
+      const expected = `OCTAVUS_AGENT_ID_${AGENT_TARGET.toUpperCase()}`;
+      console.warn(`[WARN] ${expected} is not set — chat will not work until it is configured.`);
     }
   });
   server.on('error', (err) => {
