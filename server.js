@@ -32,6 +32,11 @@ const octavus = new OctavusClient({
 // agent via `npm run dev` (which sets AGENT_TARGET=dev). When a target-specific
 // ID is missing we fall back to the legacy OCTAVUS_AGENT_ID.
 const AGENT_TARGET = (process.env.AGENT_TARGET ?? 'prod').toLowerCase();
+if (AGENT_TARGET !== 'prod' && AGENT_TARGET !== 'dev') {
+  throw new Error(
+    `Invalid AGENT_TARGET "${process.env.AGENT_TARGET}". Expected "prod" or "dev".`,
+  );
+}
 const AGENT_ID =
   (AGENT_TARGET === 'prod'
     ? process.env.OCTAVUS_AGENT_ID_PROD
