@@ -302,6 +302,12 @@ function attachChat(rt) {
     // runtime's status change can flip it.
     updateSendBtn();
 
+    // Reflect the streaming indicator (dot + ARIA) in the sidebar immediately
+    // on each status transition, independent of the save callbacks (which may
+    // be throttled, delayed, or fail). Only on transitions — not every token —
+    // so a full sidebar re-render here stays cheap.
+    if (status !== rt.lastStatus) renderSidebar();
+
     rt.lastStatus = status;
   });
 }
