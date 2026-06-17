@@ -228,6 +228,13 @@ describe('buildSessionInput', () => {
     const input = buildSessionInput({}, { verbosity: 'whisper' });
     expect(input).not.toHaveProperty('VERBOSITY_INSTRUCTIONS');
   });
+
+  it('does not match inherited prototype keys like "constructor"', () => {
+    for (const key of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+      const input = buildSessionInput({}, { verbosity: key });
+      expect(input).not.toHaveProperty('VERBOSITY_INSTRUCTIONS');
+    }
+  });
 });
 
 // ── resolveVerbosity ──────────────────────────────────────────
