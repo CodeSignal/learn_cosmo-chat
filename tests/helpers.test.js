@@ -7,6 +7,8 @@ import {
   buildSessionInput,
   buildSessionRecord,
   filterModels,
+  resolveVerbosity,
+  VERBOSITY_LEVELS,
 } from '../lib/helpers.js';
 
 vi.mock('fs/promises');
@@ -195,6 +197,60 @@ describe('buildSessionInput', () => {
   it('handles temperature of 0 correctly (falsy but valid)', () => {
     const input = buildSessionInput({ temperature: 0 }, {});
     expect(input.TEMPERATURE).toBe(0);
+  });
+
+  it('defaults to detailed verbosity when config omits it', () => {
+    const input = buildSessionInput({}, {});
+    expect(input.VERBOSITY_INSTRUCTIONS).toBe(VERBOSITY_LEVELS.detailed);
+  });
+
+  it('uses the configured verbosity directive', () => {
+    const input = buildSessionInput({}, { verbosity: 'concise' });
+    expect(input.VERBOSITY_INSTRUCTIONS).toBe(VERBOSITY_LEVELS.concise);
+  });
+
+  it('supports the verbose level', () => {
+    const input = buildSessionInput({}, { verbosity: 'verbose' });
+    expect(input.VERBOSITY_INSTRUCTIONS).toBe(VERBOSITY_LEVELS.verbose);
+  });
+
+  it('lets options.verbosity override config.verbosity', () => {
+    const input = buildSessionInput({ verbosity: 'normal' }, { verbosity: 'concise' });
+    expect(input.VERBOSITY_INSTRUCTIONS).toBe(VERBOSITY_LEVELS.normal);
+  });
+
+  it('omits VERBOSITY_INSTRUCTIONS when verbosity is null (leaves prompt unchanged)', () => {
+    const input = buildSessionInput({}, { verbosity: null });
+    expect(input).not.toHaveProperty('VERBOSITY_INSTRUCTIONS');
+  });
+
+  it('omits VERBOSITY_INSTRUCTIONS for an unknown verbosity value', () => {
+    const input = buildSessionInput({}, { verbosity: 'whisper' });
+    expect(input).not.toHaveProperty('VERBOSITY_INSTRUCTIONS');
+  });
+});
+
+// ── resolveVerbosity ──────────────────────────────────────────
+
+describe('resolveVerbosity', () => {
+  it('defaults to "detailed" when neither options nor config specify it', () => {
+    expect(resolveVerbosity({}, {})).toBe('detailed');
+  });
+
+  it('falls back to config verbosity', () => {
+    expect(resolveVerbosity({}, { verbosity: 'concise' })).toBe('concise');
+  });
+
+  it('prefers options verbosity over config', () => {
+    expect(resolveVerbosity({ verbosity: 'normal' }, { verbosity: 'concise' })).toBe('normal');
+  });
+
+  it('preserves an explicit null from config (no default substitution)', () => {
+    expect(resolveVerbosity({}, { verbosity: null })).toBeNull();
+  });
+
+  it('preserves an explicit null from options', () => {
+    expect(resolveVerbosity({ verbosity: null }, { verbosity: 'detailed' })).toBeNull();
   });
 });
 

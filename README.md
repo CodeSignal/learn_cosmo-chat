@@ -96,6 +96,7 @@ cp chat-config.example.json chat-config.json
 | `modelDisplayNames` | `object` | `{}` | Map of model ID to display label shown in the dropdown (e.g. `{"openai/gpt-5": "GPT-5"}`). Models without an entry use the default `provider/model` label. |
 | `temperature` | `number` | `0.7` | Controls randomness (0–2). Lower = more focused, higher = more creative. Ignored when thinking is enabled. |
 | `systemPromptExtra` | `string` | `""` | Additional instructions appended to Cosmo's system prompt at session creation. |
+| `verbosity` | `string \| null` | `"detailed"` | Controls how verbose responses are. One of `"concise"`, `"normal"`, `"detailed"`, or `"verbose"`. Set to `null` to inject no verbosity instruction and leave the system prompt unchanged. |
 | `title` | `string` | `"ChatCPT"` | Override the app name shown in the sidebar header and browser tab. |
 | `heading` | `string` | `"What's on your mind?"` | Override the empty-state heading shown before the first message. |
 | `placeholder` | `string` | `"Ask me anything..."` | Override the placeholder text in the composer input. |
@@ -118,6 +119,7 @@ cp chat-config.example.json chat-config.json
   },
   "temperature": 0.7,
   "systemPromptExtra": "Focus all examples on Python.",
+  "verbosity": "detailed",
   "title": "My AI Tutor",
   "heading": "How can I help you today?",
   "footer": "AI responses may be inaccurate. Always verify.",
