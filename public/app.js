@@ -463,6 +463,20 @@ function openSettings() {
   if (!settingsModal) {
     const content = document.createElement('div');
     content.className = 'settings-content';
+    // Opt-in: the Custom Instructions field only appears when a practice
+    // explicitly enables it via `showCustomInstructions: true`. Hidden
+    // everywhere else so unrelated practices can't change the system prompt.
+    const customInstructionsSection = chatConfig.showCustomInstructions ? `
+      <section class="settings-section">
+        <h3 class="label-small settings-section__title">System prompt</h3>
+
+        <div class="settings-row">
+          <label class="body-small settings-row__label" for="customInstructionsEl">Custom Instructions</label>
+          <p class="body-xsmall settings-row__desc">Shape Cosmo's tone, style, persona, or expertise. Sent with each message and applied to your next reply. Cosmo's core guidelines and safety guardrails always take precedence.</p>
+          <textarea id="customInstructionsEl" class="settings-textarea body-small" rows="5" placeholder="e.g. You are an expert in Data Science with an IQ of 159. Maintain a positive, helpful style."></textarea>
+        </div>
+      </section>
+    ` : '';
     content.innerHTML = `
       <section class="settings-section">
         <h3 class="label-small settings-section__title">Generation</h3>
@@ -482,16 +496,7 @@ function openSettings() {
           <div class="settings-dropdown-container" id="thinkingDropdownEl"></div>
         </div>
       </section>
-
-      <section class="settings-section">
-        <h3 class="label-small settings-section__title">System prompt</h3>
-
-        <div class="settings-row">
-          <label class="body-small settings-row__label" for="customInstructionsEl">Custom Instructions</label>
-          <p class="body-xsmall settings-row__desc">Shape Cosmo's tone, style, persona, or expertise. Sent with each message and applied to your next reply. Cosmo's core guidelines and safety guardrails always take precedence.</p>
-          <textarea id="customInstructionsEl" class="settings-textarea body-small" rows="5" placeholder="e.g. You are an expert in Data Science with an IQ of 159. Maintain a positive, helpful style."></textarea>
-        </div>
-      </section>
+      ${customInstructionsSection}
     `;
 
     settingsModal = new Modal({

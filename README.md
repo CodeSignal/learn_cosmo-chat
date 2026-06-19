@@ -106,7 +106,8 @@ cp chat-config.example.json chat-config.json
 | `allowedModelFamilies` | `string[]` | `[]` (all) | Filter models by provider prefix (e.g. `["openai", "openrouter/deepseek"]`). Can be combined with `allowedModels`. |
 | `modelDisplayNames` | `object` | `{}` | Map of model ID to display label shown in the dropdown (e.g. `{"openai/gpt-5": "GPT-5"}`). Models without an entry use the default `provider/model` label. |
 | `temperature` | `number` | `0.7` | Controls randomness (0–2). Lower = more focused, higher = more creative. Ignored when thinking is enabled. |
-| `systemPromptExtra` | `string` | `""` | Additional instructions appended to Cosmo's system prompt at session creation. |
+| `systemPromptExtra` | `string` | `""` | Trusted, course-author instructions appended to Cosmo's system prompt at session creation. Always ranks below Cosmo's guardrails. |
+| `showCustomInstructions` | `boolean` | `false` | Opt-in. When `true`, shows a "Custom Instructions" field in the Settings modal that learners can edit. Their text is delivered in the user turn (never the system prompt) so it stays subordinate to Cosmo's guardrails, and is sent with each message rather than persisted. Hidden by default so it never appears in practices that don't need it. |
 | `verbosity` | `string \| null` | _(none)_ | Controls how verbose responses are. One of `"concise"`, `"normal"`, `"detailed"`, or `"verbose"`. When omitted (or set to `null`), no `VERBOSITY_INSTRUCTIONS` value is sent, so the agent falls back to the protocol default directive defined in `agents/cosmo-tutor/protocol.yaml` (`"Be clear, concise, and conversational"`) rather than leaving the system prompt unchanged. |
 | `title` | `string` | `"ChatCPT"` | Override the app name shown in the sidebar header and browser tab. |
 | `heading` | `string` | `"What's on your mind?"` | Override the empty-state heading shown before the first message. |
