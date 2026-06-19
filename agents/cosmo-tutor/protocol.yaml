@@ -30,6 +30,10 @@ triggers:
     input:
       USER_MESSAGE:
         type: string
+      CUSTOM_INSTRUCTIONS:
+        type: string
+        optional: true
+        description: User-provided custom instructions. Delivered in the user turn (NOT the system prompt) so they remain subordinate to the system guardrails.
       FILES:
         type: file[]
         optional: true
@@ -59,7 +63,7 @@ handlers:
       block: add-message
       role: user
       prompt: user-message
-      input: [USER_MESSAGE, FILES]
+      input: [USER_MESSAGE, CUSTOM_INSTRUCTIONS, FILES]
       files: [FILES]
       uiContent: USER_MESSAGE
       display: hidden
