@@ -1021,7 +1021,7 @@ async function sendMessage() {
       'user-message',
       {
         USER_MESSAGE: text,
-        ...(selectedCustomInstructions && { CUSTOM_INSTRUCTIONS: selectedCustomInstructions }),
+        CUSTOM_INSTRUCTIONS: selectedCustomInstructions?.trim() || 'NO CUSTOM INSTRUCTIONS',
         ...(filesToSend.length > 0 && { FILES: filesToSend }),
       },
       {
@@ -1510,7 +1510,7 @@ async function resendOnForkedSession(historyMessages, userText, userFiles) {
     'user-message',
     {
       USER_MESSAGE: userText,
-      ...(selectedCustomInstructions && { CUSTOM_INSTRUCTIONS: selectedCustomInstructions }),
+      CUSTOM_INSTRUCTIONS: selectedCustomInstructions?.trim() || 'NO CUSTOM INSTRUCTIONS',
       ...(filesToSend ? { FILES: filesToSend } : {}),
     },
     { userMessage: { content: userText, ...(filesToSend ? { files: filesToSend } : {}) } },
