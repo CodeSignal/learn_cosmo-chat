@@ -495,7 +495,7 @@ function openSettings() {
     // everywhere else so unrelated practices can't change the system prompt.
     const customInstructionsSection = chatConfig.allowCustomInstructions ? `
       <section class="settings-section">
-        <h3 class="label-small settings-section__title">System prompt</h3>
+        <h3 class="label-small settings-section__title">Response preferences</h3>
 
         <div class="settings-row">
           <label class="body-small settings-row__label" for="customInstructionsEl">Custom Instructions</label>
