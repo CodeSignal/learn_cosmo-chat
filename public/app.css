@@ -1599,6 +1599,30 @@ textarea.input.composer__textarea {
   margin-top: var(--UI-Spacing-spacing-s);
 }
 
+.settings-textarea {
+  margin-top: var(--UI-Spacing-spacing-s);
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 96px;
+  padding: var(--UI-Spacing-spacing-s);
+  border: 1px solid var(--Colors-Border-Default, var(--Colors-Border-Primary, #d0d5dd));
+  border-radius: var(--UI-Radius-radius-s, 8px);
+  background: var(--Colors-Background-Primary, transparent);
+  color: var(--Colors-Text-Body-Primary);
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.settings-textarea:focus {
+  outline: none;
+  border-color: var(--Colors-Border-Active, var(--Colors-Brand-Primary, #6366f1));
+}
+
+.settings-textarea::placeholder {
+  color: var(--Colors-Text-Body-Secondary);
+}
+
 /* Dark mode: drop the DS light hover border on the sidebar model
    selector and the settings thinking dropdown. */
 @media (prefers-color-scheme: dark) {

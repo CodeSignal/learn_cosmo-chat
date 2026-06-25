@@ -54,6 +54,25 @@ app.get('/api/config', async (_req, res) => {
   res.json(await readConfig());
 });
 
+// Persists the user-editable custom instructions back to chat-config.json so
+// they survive a page reload. Only this field is writable from the client.
+app.post('/api/config/custom-instructions', async (req, res) => {
+  const { customInstructions } = req.body;
+  if (typeof customInstructions !== 'string') {
+    return res.status(400).json({ error: 'customInstructions (string) is required' });
+  }
+
+  try {
+    const config = await readConfig();
+    config.customInstructions = customInstructions;
+    await writeJsonFile(CONFIG_FILE, config);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[config/custom-instructions] Error:', err);
+    res.status(500).json({ error: 'Failed to save custom instructions' });
+  }
+});
+
 // ── Models ─────────────────────────────────────────────────────
 app.get('/api/models', async (_req, res) => {
   try {
