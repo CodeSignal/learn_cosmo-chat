@@ -226,6 +226,17 @@ let selectedTemperature = 0.7;
 let selectedThinking = 'off';
 let selectedCustomInstructions = '';
 let settingsModal = null;
+
+// The CUSTOM_INSTRUCTIONS value sent with each user turn. Only honored when the
+// practice opts in via `allowCustomInstructions`; otherwise the agent receives
+// a sentinel telling it there are none.
+function customInstructionsValue() {
+  return (
+    (chatConfig.allowCustomInstructions && selectedCustomInstructions?.trim()) ||
+    'NO CUSTOM INSTRUCTIONS'
+  );
+}
+
 let thinkingDropdownInstance = null;
 let temperatureSliderInstance = null;
 
@@ -459,14 +470,30 @@ function applyChatConfigUI() {
   }
 }
 
+// Writes the custom instructions back to chat-config.json so they're restored
+// on the next page load. Updates the in-memory config to stay in sync.
+async function persistCustomInstructions(value) {
+  selectedCustomInstructions = value;
+  chatConfig.customInstructions = value;
+  try {
+    await fetch('/api/config/custom-instructions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customInstructions: value }),
+    });
+  } catch (err) {
+    console.error('[ChatCPT] Failed to persist custom instructions:', err);
+  }
+}
+
 function openSettings() {
   if (!settingsModal) {
     const content = document.createElement('div');
     content.className = 'settings-content';
     // Opt-in: the Custom Instructions field only appears when a practice
-    // explicitly enables it via `showCustomInstructions: true`. Hidden
+    // explicitly enables it via `allowCustomInstructions: true`. Hidden
     // everywhere else so unrelated practices can't change the system prompt.
-    const customInstructionsSection = chatConfig.showCustomInstructions ? `
+    const customInstructionsSection = chatConfig.allowCustomInstructions ? `
       <section class="settings-section">
         <h3 class="label-small settings-section__title">System prompt</h3>
 
@@ -548,6 +575,9 @@ function openSettings() {
         if (customInstructionsEl) {
           customInstructionsEl.value = selectedCustomInstructions;
           customInstructionsEl.oninput = (e) => { selectedCustomInstructions = e.target.value; };
+          // Persist on blur so the value survives a reload without spamming
+          // the server on every keystroke.
+          customInstructionsEl.onchange = (e) => { persistCustomInstructions(e.target.value); };
         }
       },
       footerButtons: [
@@ -699,6 +729,7 @@ async function init() {
     applyInitialPrompt();
     if (chatConfig.temperature !== undefined) selectedTemperature = chatConfig.temperature;
     if (chatConfig.thinking   !== undefined) selectedThinking    = chatConfig.thinking;
+    if (chatConfig.customInstructions !== undefined) selectedCustomInstructions = chatConfig.customInstructions;
     applyChatConfigUI();
 
     const modelsData = modelsRes.ok ? await modelsRes.json() : { models: [] };
@@ -1021,7 +1052,7 @@ async function sendMessage() {
       'user-message',
       {
         USER_MESSAGE: text,
-        CUSTOM_INSTRUCTIONS: selectedCustomInstructions?.trim() || 'NO CUSTOM INSTRUCTIONS',
+        CUSTOM_INSTRUCTIONS: customInstructionsValue(),
         ...(filesToSend.length > 0 && { FILES: filesToSend }),
       },
       {
@@ -1510,7 +1541,7 @@ async function resendOnForkedSession(historyMessages, userText, userFiles) {
     'user-message',
     {
       USER_MESSAGE: userText,
-      CUSTOM_INSTRUCTIONS: selectedCustomInstructions?.trim() || 'NO CUSTOM INSTRUCTIONS',
+      CUSTOM_INSTRUCTIONS: customInstructionsValue(),
       ...(filesToSend ? { FILES: filesToSend } : {}),
     },
     { userMessage: { content: userText, ...(filesToSend ? { files: filesToSend } : {}) } },
