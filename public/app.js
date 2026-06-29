@@ -1556,6 +1556,58 @@ const REGEN_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
 // Copy to clipboard with a brief checkmark confirmation on the button.
 
 /**
+ * Copy text to the clipboard, with a fallback for restricted contexts.
+ *
+ * The async Clipboard API (`navigator.clipboard.writeText`) is gated by the
+ * `clipboard-write` Permissions Policy. When the app runs inside a (possibly
+ * nested / cross-origin) iframe that delegation can fail to propagate, so the
+ * call is blocked even when the host iframe sets `allow="clipboard-write"`
+ * (see https://crbug.com/414348233). We fall back to the legacy
+ * `document.execCommand('copy')` path, which is not subject to that policy.
+ * @param {string} text
+ * @returns {Promise<boolean>} Whether the copy succeeded.
+ */
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      // Fall through to the legacy path below.
+    }
+  }
+  // Remember what was focused so selecting the temporary textarea doesn't
+  // steal focus from the triggering element (e.g. the copy button).
+  const previouslyFocused = document.activeElement;
+  const textarea = document.createElement('textarea');
+  try {
+    textarea.value = text;
+    // Keep it out of view and non-interactive, but still selectable.
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-9999px';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, text.length);
+    const ok = document.execCommand('copy');
+    if (ok) return true;
+    throw new Error("document.execCommand('copy') returned false");
+  } catch (err) {
+    console.error('[ChatCPT] Copy failed:', err);
+    return false;
+  } finally {
+    // Guaranteed cleanup even if select()/execCommand() throws.
+    if (textarea.parentNode) {
+      textarea.parentNode.removeChild(textarea);
+    }
+    if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+      previouslyFocused.focus();
+    }
+  }
+}
+
+/**
  * Write text to the clipboard and briefly swap the trigger button to a checkmark.
  * @param {HTMLButtonElement} btn - Button that initiated the copy; its icon, title, and aria-label are restored after 1.5s.
  * @param {string} text - Raw text to copy.
@@ -1563,10 +1615,7 @@ const REGEN_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColo
  * @returns {Promise<void>}
  */
 async function copyWithFeedback(btn, text, { ariaLabel = 'Copy', copiedLabel = 'Copied' } = {}) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch (err) {
-    console.error('[ChatCPT] Copy failed:', err);
+  if (!(await copyText(text))) {
     return;
   }
   // Capture the true original state only when no reset is already pending; a
