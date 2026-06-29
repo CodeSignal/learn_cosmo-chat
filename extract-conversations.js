@@ -13,8 +13,9 @@
  *   report     Generate a markdown report file (oldest conversations first).
  *
  * Options:
- *   --latest   Only print the most recent conversation.
- *   --output   Write report to a file instead of stdout.
+ *   --latest          Only print the most recent conversation.
+ *   --output          Write report to a file instead of stdout.
+ *   --print-settings  Print the current chat-config.json settings in the heading.
  */
 
 import { readFileSync, writeFileSync } from 'fs';
@@ -24,6 +25,7 @@ import { deriveTitle } from './lib/helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SESSIONS_FILE = join(__dirname, 'chat-sessions.json');
+const CONFIG_FILE = join(__dirname, 'chat-config.json');
 
 // ── Parse args ────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -38,6 +40,7 @@ Options:
                      report     Generate a markdown report (oldest first)
   --latest         Only include the most recent conversation
   --output <file>  Write report to a file instead of stdout
+  --print-settings Print the current chat-config.json settings in the heading
   -h, --help       Show this help message`);
   process.exit(0);
 }
@@ -46,6 +49,7 @@ const modeIdx = args.indexOf('--mode');
 const VALID_MODES = ['full', 'user-only', 'report'];
 let mode = 'full';
 const latestOnly = args.includes('--latest');
+const printSettings = args.includes('--print-settings');
 const outputIdx = args.indexOf('--output');
 const outputFile = (outputIdx !== -1 && args[outputIdx + 1]) ? args[outputIdx + 1] : null;
 
@@ -79,6 +83,37 @@ if (sessions.length === 0) {
 const toRender = latestOnly ? sessions.slice(0, 1) : sessions;
 
 // ── Helpers ───────────────────────────────────────────────────
+
+// Returns the heading lines for the current chat-config.json settings, or an
+// empty array when --print-settings was not passed. Rendered as a fenced JSON
+// block so it reads cleanly in both plain stdout and the markdown report.
+function settingsHeadingLines() {
+  if (!printSettings) return [];
+  let config;
+  try {
+    config = JSON.parse(readFileSync(CONFIG_FILE, 'utf8'));
+  } catch (err) {
+    return ['# Settings', '', `_Could not read chat-config.json: ${err.message}_`, '', '---', ''];
+  }
+  // Only the settings a user can change in the Settings panel. Defaults mirror
+  // the agent protocol (temperature 0.7, thinking off).
+  const settings = {
+    customInstructions: config.customInstructions ?? '',
+    temperature: config.temperature ?? 0.7,
+    thinking: config.thinking ?? 'off',
+  };
+  return [
+    '# Settings',
+    '',
+    '```json',
+    JSON.stringify(settings, null, 2),
+    '```',
+    '',
+    '---',
+    '',
+  ];
+}
+
 function formatDate(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleString(undefined, {
@@ -109,6 +144,8 @@ function cleanAssistantContent(content) {
 
 function generateReport(reportSessions, outFile) {
   const lines = [];
+
+  lines.push(...settingsHeadingLines());
 
   lines.push('# Chat History Report');
   lines.push('');
@@ -173,6 +210,11 @@ if (mode === 'report') {
 }
 
 // ── Render ────────────────────────────────────────────────────
+const settingsHeading = settingsHeadingLines();
+if (settingsHeading.length > 0) {
+  console.log(settingsHeading.join('\n'));
+}
+
 toRender.forEach((session, idx) => {
   const userMessages = session.messages.filter((m) => m.role === 'user');
   const assistantMessages = session.messages.filter((m) => m.role === 'assistant');
