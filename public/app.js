@@ -498,13 +498,16 @@ function openSettings() {
         <h3 class="label-small settings-section__title">Response preferences</h3>
 
         <div class="settings-row">
-          <label class="body-small settings-row__label" for="customInstructionsEl">Custom Instructions</label>
+          <label class="body-small settings-row__label" for="customInstructionsEl">System Prompt</label>
           <p class="body-xsmall settings-row__desc">Shape Cosmo's tone, style, persona, or expertise. Sent with each message and applied to your next reply. Cosmo's core guidelines and safety guardrails always take precedence.</p>
           <textarea id="customInstructionsEl" class="settings-textarea body-small" rows="5" placeholder="e.g. You are an expert in Data Science with an IQ of 159. Maintain a positive, helpful style."></textarea>
         </div>
       </section>
     ` : '';
-    content.innerHTML = `
+    // The Generation section (Temperature + Thinking) can be hidden entirely
+    // via `hideModelSettings: true` for practices that shouldn't expose
+    // model-tuning controls.
+    const modelSettingsSection = chatConfig.hideModelSettings ? '' : `
       <section class="settings-section">
         <h3 class="label-small settings-section__title">Generation</h3>
 
@@ -523,6 +526,9 @@ function openSettings() {
           <div class="settings-dropdown-container" id="thinkingDropdownEl"></div>
         </div>
       </section>
+    `;
+    content.innerHTML = `
+      ${modelSettingsSection}
       ${customInstructionsSection}
     `;
 
@@ -537,38 +543,41 @@ function openSettings() {
         const dropdownEl  = settingsModal.content.querySelector('#thinkingDropdownEl');
         const tempRow     = settingsModal.content.querySelector('#temperatureRow');
 
-        // Thinking dropdown
-        if (thinkingDropdownInstance) thinkingDropdownInstance.destroy();
-        thinkingDropdownInstance = new Dropdown(dropdownEl, {
-          items: THINKING_OPTIONS,
-          selectedValue: selectedThinking,
-          width: '100%',
-          onSelect: (value) => {
-            selectedThinking = value;
-            // Dim temperature row when thinking is active
-            tempRow.classList.toggle('settings-row--disabled', value !== 'off');
-          },
-        });
+        // Generation controls only exist when `hideModelSettings` is falsy.
+        if (sliderEl && dropdownEl && tempRow) {
+          // Thinking dropdown
+          if (thinkingDropdownInstance) thinkingDropdownInstance.destroy();
+          thinkingDropdownInstance = new Dropdown(dropdownEl, {
+            items: THINKING_OPTIONS,
+            selectedValue: selectedThinking,
+            width: '100%',
+            onSelect: (value) => {
+              selectedThinking = value;
+              // Dim temperature row when thinking is active
+              tempRow.classList.toggle('settings-row--disabled', value !== 'off');
+            },
+          });
 
-        // Temperature slider — reinit each open so it measures the visible DOM
-        const tempValueEl = settingsModal.content.querySelector('#temperatureValue');
-        const updateTempLabel = (v) => { if (tempValueEl) tempValueEl.textContent = Number(v).toFixed(2); };
-        updateTempLabel(selectedTemperature);
+          // Temperature slider — reinit each open so it measures the visible DOM
+          const tempValueEl = settingsModal.content.querySelector('#temperatureValue');
+          const updateTempLabel = (v) => { if (tempValueEl) tempValueEl.textContent = Number(v).toFixed(2); };
+          updateTempLabel(selectedTemperature);
 
-        if (temperatureSliderInstance) temperatureSliderInstance.destroy();
-        temperatureSliderInstance = new NumericSlider(sliderEl, {
-          type: 'single',
-          min: 0,
-          max: 2,
-          step: 0.05,
-          value: selectedTemperature,
-          showInputs: false,
-          continuousUpdates: true,
-          onChange: (value) => { selectedTemperature = value; updateTempLabel(value); },
-        });
+          if (temperatureSliderInstance) temperatureSliderInstance.destroy();
+          temperatureSliderInstance = new NumericSlider(sliderEl, {
+            type: 'single',
+            min: 0,
+            max: 2,
+            step: 0.05,
+            value: selectedTemperature,
+            showInputs: false,
+            continuousUpdates: true,
+            onChange: (value) => { selectedTemperature = value; updateTempLabel(value); },
+          });
 
-        // Reflect current thinking state on open
-        tempRow.classList.toggle('settings-row--disabled', selectedThinking !== 'off');
+          // Reflect current thinking state on open
+          tempRow.classList.toggle('settings-row--disabled', selectedThinking !== 'off');
+        }
 
         // Custom instructions textarea
         const customInstructionsEl = settingsModal.content.querySelector('#customInstructionsEl');
