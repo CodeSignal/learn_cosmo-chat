@@ -115,6 +115,7 @@ cp chat-config.example.json chat-config.json
 | `placeholder` | `string` | `"Ask me anything..."` | Override the placeholder text in the composer input. |
 | `footer` | `string` | `"Cosmo can make mistakes..."` | Override the disclaimer text below the composer. |
 | `hideSettings` | `boolean` | `false` | Hide the settings button from the sidebar. |
+| `hideModelSettings` | `boolean` | `false` | Hide the "Generation" section (Temperature and Thinking controls) in the Settings modal. The configured `temperature` still applies; only the UI controls are hidden. |
 | `hideHistory` | `boolean` | `false` | Hide the conversation history sidebar. Only one chat exists at a time; "New chat" deletes the current conversation (with confirmation). |
 | `hideFileUpload` | `boolean` | `false` | Hide the image and file attachment buttons from the composer. |
 | `hidePromptControls` | `boolean` | `false` | Hide stop, regenerate, and edit controls for a classic chat experience. |
