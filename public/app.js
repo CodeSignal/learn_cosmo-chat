@@ -1576,8 +1576,11 @@ async function copyText(text) {
       // Fall through to the legacy path below.
     }
   }
+  // Remember what was focused so selecting the temporary textarea doesn't
+  // steal focus from the triggering element (e.g. the copy button).
+  const previouslyFocused = document.activeElement;
+  const textarea = document.createElement('textarea');
   try {
-    const textarea = document.createElement('textarea');
     textarea.value = text;
     // Keep it out of view and non-interactive, but still selectable.
     textarea.setAttribute('readonly', '');
@@ -1588,12 +1591,19 @@ async function copyText(text) {
     textarea.select();
     textarea.setSelectionRange(0, text.length);
     const ok = document.execCommand('copy');
-    document.body.removeChild(textarea);
     if (ok) return true;
     throw new Error("document.execCommand('copy') returned false");
   } catch (err) {
     console.error('[ChatCPT] Copy failed:', err);
     return false;
+  } finally {
+    // Guaranteed cleanup even if select()/execCommand() throws.
+    if (textarea.parentNode) {
+      textarea.parentNode.removeChild(textarea);
+    }
+    if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+      previouslyFocused.focus();
+    }
   }
 }
 
