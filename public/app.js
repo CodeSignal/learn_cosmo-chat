@@ -498,7 +498,7 @@ function openSettings() {
         <h3 class="label-small settings-section__title">Response preferences</h3>
 
         <div class="settings-row">
-          <label class="body-small settings-row__label" for="customInstructionsEl">Custom Instructions</label>
+          <label class="body-small settings-row__label" for="customInstructionsEl">System Prompt</label>
           <p class="body-xsmall settings-row__desc">Shape Cosmo's tone, style, persona, or expertise. Sent with each message and applied to your next reply. Cosmo's core guidelines and safety guardrails always take precedence.</p>
           <textarea id="customInstructionsEl" class="settings-textarea body-small" rows="5" placeholder="e.g. You are an expert in Data Science with an IQ of 159. Maintain a positive, helpful style."></textarea>
         </div>
