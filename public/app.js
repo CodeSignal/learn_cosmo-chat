@@ -95,7 +95,7 @@ renderer.code = function ({ text, lang }) {
     <div class="code-block">
       <div class="code-block__header">
         <span class="code-block__lang">${label}</span>
-        <button type="button" class="button-icon code-block__copy" aria-label="Copy code" title="Copy">
+        <button type="button" class="button-icon code-block__copy" aria-label="${t('Copy code')}" title="${t('Copy')}">
           ${COPY_ICON_SVG}
         </button>
       </div>
@@ -221,6 +221,30 @@ let allSessionsMeta = []; // [{session_id, title, updated_at}]
 let loadingIntervalId = null;
 let chatConfig = {};
 let availableModels = [];
+
+/**
+ * Translate a user-facing UI string via the `strings` map in chat-config.json.
+ * The map is keyed by the original English text; when no (non-empty) override is
+ * provided for a key, the original text is used unchanged. Any `{name}` tokens
+ * in the resolved string are replaced with the matching value from `vars`.
+ * @param {string} key - The original English string (with optional {tokens}).
+ * @param {Record<string, string|number>} [vars] - Values for {token} substitution.
+ * @returns {string} The configured translation (or `key`) with tokens filled in.
+ */
+function t(key, vars) {
+  const map = chatConfig.strings;
+  let str = key;
+  if (map && Object.prototype.hasOwnProperty.call(map, key)) {
+    const value = map[key];
+    if (typeof value === 'string' && value.length > 0) str = value;
+  }
+  if (vars) {
+    for (const [name, value] of Object.entries(vars)) {
+      str = str.split(`{${name}}`).join(String(value));
+    }
+  }
+  return str;
+}
 let selectedModel = '';
 let selectedTemperature = 0.7;
 let selectedThinking = 'off';
@@ -442,24 +466,34 @@ const THINKING_OPTIONS = [
 function applyChatConfigUI() {
   if (settingsBtn) settingsBtn.style.display = chatConfig.hideSettings ? 'none' : '';
 
+  // Static labels: a dedicated config key (heading/footer/title/...) wins when
+  // set; otherwise fall back to the `strings` map keyed by the English default.
   const headingEl = document.querySelector('.empty-state__heading');
-  if (headingEl && chatConfig.heading !== undefined) headingEl.textContent = chatConfig.heading;
+  if (headingEl) headingEl.textContent = chatConfig.heading ?? t("What's on your mind?");
 
   const footerEl = document.querySelector('.composer__hint');
-  if (footerEl && chatConfig.footer !== undefined) footerEl.textContent = chatConfig.footer;
+  if (footerEl) footerEl.textContent = chatConfig.footer ?? t('Cosmo can make mistakes. Practice refining your prompts.');
 
-  if (chatConfig.title !== undefined) {
-    document.title = chatConfig.title;
+  {
+    const titleText = chatConfig.title ?? t('ChatCPT');
+    document.title = titleText;
     const titleEl = document.querySelector('.sidebar__title');
-    if (titleEl) titleEl.textContent = chatConfig.title;
+    if (titleEl) titleEl.textContent = titleText;
   }
 
-  if (chatConfig.placeholder !== undefined) promptInput.placeholder = chatConfig.placeholder;
+  if (promptInput) promptInput.placeholder = chatConfig.placeholder ?? t('Ask me anything...');
 
-  if (newChatBtn && chatConfig.newChatLabel !== undefined) {
+  if (newChatBtn) {
     const newChatLabelEl = newChatBtn.querySelector('.sidebar__nav-label');
-    if (newChatLabelEl) newChatLabelEl.textContent = chatConfig.newChatLabel;
+    if (newChatLabelEl) newChatLabelEl.textContent = chatConfig.newChatLabel ?? t('New chat');
   }
+
+  if (settingsBtn) {
+    const settingsLabelEl = settingsBtn.querySelector('.sidebar__nav-label');
+    if (settingsLabelEl) settingsLabelEl.textContent = t('Settings');
+  }
+
+  if (historyHeading) historyHeading.textContent = t('History');
 
   const attachIcons = document.getElementById('attachIcons');
   if (attachIcons) attachIcons.style.display = chatConfig.hideFileUpload ? 'none' : '';
@@ -500,12 +534,12 @@ function openSettings() {
     // everywhere else so unrelated practices can't change the system prompt.
     const customInstructionsSection = chatConfig.allowCustomInstructions ? `
       <section class="settings-section">
-        <h3 class="label-small settings-section__title">Response preferences</h3>
+        <h3 class="label-small settings-section__title">${t('Response preferences')}</h3>
 
         <div class="settings-row">
-          <label class="body-small settings-row__label" for="customInstructionsEl">System Prompt</label>
-          <p class="body-xsmall settings-row__desc">Shape Cosmo's tone, style, persona, or expertise. Sent with each message and applied to your next reply. Cosmo's core guidelines and safety guardrails always take precedence.</p>
-          <textarea id="customInstructionsEl" class="settings-textarea body-small" rows="5" placeholder="e.g. You are an expert in Data Science with an IQ of 159. Maintain a positive, helpful style."></textarea>
+          <label class="body-small settings-row__label" for="customInstructionsEl">${t('System Prompt')}</label>
+          <p class="body-xsmall settings-row__desc">${t("Shape Cosmo's tone, style, persona, or expertise. Sent with each message and applied to your next reply. Cosmo's core guidelines and safety guardrails always take precedence.")}</p>
+          <textarea id="customInstructionsEl" class="settings-textarea body-small" rows="5" placeholder="${t('e.g. You are an expert in Data Science with an IQ of 159. Maintain a positive, helpful style.')}"></textarea>
         </div>
       </section>
     ` : '';
@@ -514,20 +548,20 @@ function openSettings() {
     // model-tuning controls.
     const modelSettingsSection = chatConfig.hideModelSettings ? '' : `
       <section class="settings-section">
-        <h3 class="label-small settings-section__title">Generation</h3>
+        <h3 class="label-small settings-section__title">${t('Generation')}</h3>
 
         <div class="settings-row" id="temperatureRow">
           <div class="settings-row__label-line">
-            <label class="body-small settings-row__label">Temperature</label>
+            <label class="body-small settings-row__label">${t('Temperature')}</label>
             <span class="body-small settings-row__value" id="temperatureValue"></span>
           </div>
-          <p class="body-xsmall settings-row__desc">Controls randomness (0–2). Lower = more focused, higher = more creative. Disabled when Thinking is on.</p>
+          <p class="body-xsmall settings-row__desc">${t('Controls randomness (0–2). Lower = more focused, higher = more creative. Disabled when Thinking is on.')}</p>
           <div class="settings-slider-container" id="temperatureSliderEl"></div>
         </div>
 
         <div class="settings-row">
-          <label class="body-small settings-row__label">Thinking</label>
-          <p class="body-xsmall settings-row__desc">Extended reasoning depth. When enabled, temperature is ignored by the model.</p>
+          <label class="body-small settings-row__label">${t('Thinking')}</label>
+          <p class="body-xsmall settings-row__desc">${t('Extended reasoning depth. When enabled, temperature is ignored by the model.')}</p>
           <div class="settings-dropdown-container" id="thinkingDropdownEl"></div>
         </div>
       </section>
@@ -539,7 +573,7 @@ function openSettings() {
 
     settingsModal = new Modal({
       size: 'medium',
-      title: 'Settings',
+      title: t('Settings'),
       content,
       closeOnOverlayClick: true,
       closeOnEscape: true,
@@ -553,7 +587,7 @@ function openSettings() {
           // Thinking dropdown
           if (thinkingDropdownInstance) thinkingDropdownInstance.destroy();
           thinkingDropdownInstance = new Dropdown(dropdownEl, {
-            items: THINKING_OPTIONS,
+            items: THINKING_OPTIONS.map((o) => ({ ...o, label: t(o.label) })),
             selectedValue: selectedThinking,
             width: '100%',
             onSelect: (value) => {
@@ -595,8 +629,8 @@ function openSettings() {
         }
       },
       footerButtons: [
-        { label: 'Close', type: 'secondary', onClick: () => settingsModal.close() },
-        { label: 'Apply & New Chat', type: 'primary', onClick: () => { settingsModal.close(); startNewChat(); } },
+        { label: t('Close'), type: 'secondary', onClick: () => settingsModal.close() },
+        { label: t('Apply & New Chat'), type: 'primary', onClick: () => { settingsModal.close(); startNewChat(); } },
       ],
     });
   }
@@ -711,7 +745,7 @@ async function init() {
     if (!sessionRes.ok) {
       if (sessionRes.status === 503) {
         showBootError(
-          'Chat cannot start: the server is missing Octavus configuration. Create a .env in the project root with OCTAVUS_API_URL, OCTAVUS_API_KEY, and OCTAVUS_AGENT_ID, then stop the dev server completely and run npm run dev again (environment variables load only at startup).',
+          t('Chat cannot start: the server is missing Octavus configuration. Create a .env in the project root with OCTAVUS_API_URL, OCTAVUS_API_KEY, and OCTAVUS_AGENT_ID, then stop the dev server completely and run npm run dev again (environment variables load only at startup).'),
         );
       } else {
         const raw = await sessionRes.text();
@@ -734,7 +768,7 @@ async function init() {
     if (!allSessionsMeta.some((s) => s.session_id === active.sessionId)) {
       allSessionsMeta.unshift({
         session_id: active.sessionId,
-        title: 'New conversation',
+        title: t('New conversation'),
         updated_at: new Date().toISOString(),
       });
     }
@@ -761,7 +795,7 @@ async function init() {
     const el = document.getElementById('bootError');
     if (el && el.hidden) {
       showBootError(
-        'Could not start the app. Make sure npm run dev is running and check the browser console for details.',
+        t('Could not start the app. Make sure npm run dev is running and check the browser console for details.'),
       );
     }
   }
@@ -829,7 +863,7 @@ function getStreamingStatus(parts = []) {
   if (toolName === 'octavus_generate_image') {
     const stage = IMAGE_STAGES.filter((s) => elapsed >= s.after).pop();
     const label = stage?.label ?? IMAGE_STAGES[0].label;
-    return { label, icon: null, isImage: true };
+    return { label: t(label), icon: null, isImage: true };
   }
 
   let stages;
@@ -843,7 +877,7 @@ function getStreamingStatus(parts = []) {
 
   const stage = stages.filter((s) => elapsed >= s.after).pop();
   const label = stage?.label ?? stages[0].label;
-  return { label, icon: null, isImage: false };
+  return { label: t(label), icon: null, isImage: false };
 }
 
 // ── Render messages ───────────────────────────────────────────
@@ -931,7 +965,7 @@ function renderMessages(liveMessages, status) {
       if (msg.stopped) {
         const stoppedEl = document.createElement('div');
         stoppedEl.className = 'message__stopped body-xsmall';
-        stoppedEl.textContent = 'Response stopped';
+        stoppedEl.textContent = t('Response stopped');
         row.querySelector('.message__body').appendChild(stoppedEl);
       }
 
@@ -946,8 +980,8 @@ function renderMessages(liveMessages, status) {
         const regenBtn = document.createElement('button');
         regenBtn.type = 'button';
         regenBtn.className = 'button-icon message__hover-btn';
-        regenBtn.setAttribute('aria-label', 'Regenerate response');
-        regenBtn.title = 'Regenerate';
+        regenBtn.setAttribute('aria-label', t('Regenerate response'));
+        regenBtn.title = t('Regenerate');
         regenBtn.innerHTML = REGEN_ICON_SVG;
         const capturedIdx = userAssistantIdx;
         regenBtn.addEventListener('click', () => regenerateResponse(capturedIdx));
@@ -957,8 +991,8 @@ function renderMessages(liveMessages, status) {
           const copyBtn = document.createElement('button');
           copyBtn.type = 'button';
           copyBtn.className = 'button-icon message__hover-btn';
-          copyBtn.setAttribute('aria-label', 'Copy as Markdown');
-          copyBtn.title = 'Copy';
+          copyBtn.setAttribute('aria-label', t('Copy as Markdown'));
+          copyBtn.title = t('Copy');
           copyBtn.innerHTML = COPY_ICON_SVG;
           const markdown = text;
           copyBtn.addEventListener('click', () => copyMessageMarkdown(copyBtn, markdown));
@@ -994,8 +1028,8 @@ function renderMessages(liveMessages, status) {
         const editBtn = document.createElement('button');
         editBtn.type = 'button';
         editBtn.className = 'button-icon';
-        editBtn.setAttribute('aria-label', 'Edit message');
-        editBtn.title = 'Edit';
+        editBtn.setAttribute('aria-label', t('Edit message'));
+        editBtn.title = t('Edit');
         // Edit icon (local inline SVG) — inherits currentColor. A matching
         // stroke fattens the otherwise-thin fill paths.
         editBtn.innerHTML = `<svg viewBox="0 0 32 32" fill="currentColor" stroke="currentColor" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -1198,7 +1232,7 @@ function renderAttachmentPreview() {
     if (item.status === 'error') {
       const err = document.createElement('div');
       err.className = 'composer__thumb-error';
-      err.textContent = 'Upload failed';
+      err.textContent = t('Upload failed');
       inner.appendChild(err);
     }
 
@@ -1313,7 +1347,7 @@ function updateSendBtn() {
 
   if (showStop) {
     sendBtn.disabled = false;
-    sendBtn.setAttribute('aria-label', 'Stop generation');
+    sendBtn.setAttribute('aria-label', t('Stop generation'));
     if (sendSvg) sendSvg.style.display = 'none';
     if (stopSvg) stopSvg.style.display = '';
   } else {
@@ -1323,9 +1357,11 @@ function updateSendBtn() {
     const atCap = !streaming && streamingCount() >= MAX_CONCURRENT_STREAMS;
     sendBtn.setAttribute(
       'aria-label',
-      atCap ? `Waiting for a response to finish (max ${MAX_CONCURRENT_STREAMS} at once)` : 'Send prompt',
+      atCap
+        ? t('Waiting for a response to finish (max {max} at once)', { max: MAX_CONCURRENT_STREAMS })
+        : t('Send prompt'),
     );
-    sendBtn.title = atCap ? `Up to ${MAX_CONCURRENT_STREAMS} chats can respond at once` : '';
+    sendBtn.title = atCap ? t('Up to {max} chats can respond at once', { max: MAX_CONCURRENT_STREAMS }) : '';
     if (sendSvg) sendSvg.style.display = '';
     if (stopSvg) stopSvg.style.display = 'none';
   }
@@ -1344,7 +1380,7 @@ function renderSidebar() {
       + (isStreaming ? ' session-item--streaming' : '');
     item.setAttribute('role', 'button');
     item.setAttribute('tabindex', '0');
-    item.setAttribute('aria-label', isStreaming ? `${s.title} (responding)` : s.title);
+    item.setAttribute('aria-label', isStreaming ? t('{title} (responding)', { title: s.title }) : s.title);
 
     const title = document.createElement('span');
     title.className = 'session-item__title';
@@ -1353,15 +1389,15 @@ function renderSidebar() {
       const dot = document.createElement('span');
       dot.className = 'session-item__streaming-dot';
       dot.setAttribute('aria-hidden', 'true');
-      dot.title = 'Responding…';
+      dot.title = t('Responding…');
       item.appendChild(dot);
     }
 
     const del = document.createElement('button');
     del.type = 'button';
     del.className = 'session-item__delete';
-    del.setAttribute('aria-label', 'Delete conversation');
-    del.title = 'Delete';
+    del.setAttribute('aria-label', t('Delete conversation'));
+    del.title = t('Delete');
     del.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
       <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
     </svg>`;
@@ -1430,17 +1466,17 @@ function confirmAndReplaceChat() {
   }
 
   const content = document.createElement('div');
-  content.innerHTML = `<p class="body-medium">Starting a new chat will <strong>permanently delete</strong> your current conversation. This cannot be undone.</p>`;
+  content.innerHTML = `<p class="body-medium">${t('Starting a new chat will <strong>permanently delete</strong> your current conversation. This cannot be undone.')}</p>`;
 
   const confirmModal = new Modal({
     size: 'small',
-    title: 'Start new chat?',
+    title: t('Start new chat?'),
     content,
     closeOnOverlayClick: true,
     closeOnEscape: true,
     footerButtons: [
-      { label: 'Cancel', type: 'secondary', onClick: () => confirmModal.close() },
-      { label: 'Delete & Start New', type: 'primary', onClick: async () => {
+      { label: t('Cancel'), type: 'secondary', onClick: () => confirmModal.close() },
+      { label: t('Delete & Start New'), type: 'primary', onClick: async () => {
         confirmModal.close();
         await replaceCurrentChat();
       }},
@@ -1474,9 +1510,9 @@ async function startNewChat() {
   active = getOrCreateRuntime(data.sessionId, []);
 
   if (chatConfig.hideHistory) {
-    allSessionsMeta = [{ session_id: active.sessionId, title: 'New conversation', updated_at: new Date().toISOString() }];
+    allSessionsMeta = [{ session_id: active.sessionId, title: t('New conversation'), updated_at: new Date().toISOString() }];
   } else {
-    allSessionsMeta.unshift({ session_id: active.sessionId, title: 'New conversation', updated_at: new Date().toISOString() });
+    allSessionsMeta.unshift({ session_id: active.sessionId, title: t('New conversation'), updated_at: new Date().toISOString() });
   }
 
   renderActive();
@@ -1542,7 +1578,7 @@ async function resendOnForkedSession(historyMessages, userText, userFiles) {
   } else {
     allSessionsMeta.unshift({
       session_id: active.sessionId,
-      title: deriveTitle(historyMessages) || 'New conversation',
+      title: deriveTitle(historyMessages) || t('New conversation'),
       updated_at: new Date().toISOString(),
     });
   }
@@ -1628,7 +1664,7 @@ async function copyText(text) {
  * @param {{ ariaLabel?: string, copiedLabel?: string }} [options] - Labels restored/applied on the button.
  * @returns {Promise<void>}
  */
-async function copyWithFeedback(btn, text, { ariaLabel = 'Copy', copiedLabel = 'Copied' } = {}) {
+async function copyWithFeedback(btn, text, { ariaLabel = t('Copy'), copiedLabel = t('Copied') } = {}) {
   if (!(await copyText(text))) {
     return;
   }
@@ -1659,7 +1695,7 @@ async function copyWithFeedback(btn, text, { ariaLabel = 'Copy', copiedLabel = '
  * @returns {Promise<void>}
  */
 async function copyMessageMarkdown(btn, markdown) {
-  await copyWithFeedback(btn, markdown, { ariaLabel: 'Copy as Markdown' });
+  await copyWithFeedback(btn, markdown, { ariaLabel: t('Copy as Markdown') });
 }
 
 /**
@@ -1669,7 +1705,7 @@ async function copyMessageMarkdown(btn, markdown) {
  * @returns {Promise<void>}
  */
 async function copyCodeBlock(btn, code) {
-  await copyWithFeedback(btn, code, { ariaLabel: 'Copy code' });
+  await copyWithFeedback(btn, code, { ariaLabel: t('Copy code') });
 }
 
 // Regenerate a specific assistant response: re-run the user turn that
@@ -1731,12 +1767,12 @@ function startEditingMessage(row, msgIndex, originalText) {
   const cancelBtn = document.createElement('button');
   cancelBtn.type = 'button';
   cancelBtn.className = 'button button-tertiary button-xsmall';
-  cancelBtn.textContent = 'Cancel';
+  cancelBtn.textContent = t('Cancel');
 
   const submitBtn = document.createElement('button');
   submitBtn.type = 'button';
   submitBtn.className = 'button button-primary button-xsmall';
-  submitBtn.textContent = 'Save';
+  submitBtn.textContent = t('Save');
 
   actions.append(cancelBtn, submitBtn);
   box.append(textarea, actions);
@@ -1874,7 +1910,7 @@ function saveSession(rt = active) {
       const firstUser = allMessages.find((m) => m.role === 'user');
       const title = firstUser?.content
         ? (firstUser.content.length > 45 ? firstUser.content.slice(0, 45) + '…' : firstUser.content)
-        : 'New conversation';
+        : t('New conversation');
       const meta = allSessionsMeta.find((s) => s.session_id === rt.sessionId);
       if (meta) { meta.title = title; meta.updated_at = new Date().toISOString(); }
       renderSidebar();

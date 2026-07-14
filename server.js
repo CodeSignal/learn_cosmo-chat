@@ -11,12 +11,15 @@ import {
   buildSessionInput,
   buildSessionRecord,
   filterModels,
+  matchLocaleStrings,
+  mergeStrings,
 } from './lib/helpers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SESSIONS_FILE = path.join(__dirname, 'chat-sessions.json');
 const CONFIG_FILE   = path.join(__dirname, 'chat-config.json');
 const MODELS_FILE   = path.join(__dirname, 'current-models.txt');
+const I18N_DIR      = path.join(__dirname, 'i18n');
 const app = express();
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
 
@@ -50,8 +53,41 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ── Config ────────────────────────────────────────────────────
 const readConfig = () => readJsonFile(CONFIG_FILE);
 
+// Loads every i18n/*.json locale catalog. Each file is
+// { languageNames: string[], strings: { [english]: translation } }.
+// Malformed files are skipped so one bad catalog can't break config loading.
+async function readLocales() {
+  let files;
+  try {
+    files = await fs.readdir(I18N_DIR);
+  } catch {
+    return [];
+  }
+  const locales = [];
+  for (const file of files) {
+    if (!file.endsWith('.json')) continue;
+    const parsed = await readJsonFile(path.join(I18N_DIR, file), null);
+    if (parsed) locales.push(parsed);
+  }
+  return locales;
+}
+
+// Resolves the effective UI strings for the config's `language`: the matching
+// i18n catalog is the base, and any `strings` in chat-config.json override it
+// per-key. This way translations live in i18n/*.json ahead of time, and the
+// config map is reserved for one-off overrides.
+async function resolveConfigStrings(config) {
+  const locales = await readLocales();
+  const base = matchLocaleStrings(config.language, locales);
+  return mergeStrings(base, config.strings);
+}
+
 app.get('/api/config', async (_req, res) => {
-  res.json(await readConfig());
+  const config = await readConfig();
+  const strings = await resolveConfigStrings(config);
+  // Only attach `strings` when something resolved so the response stays a clean
+  // passthrough when no i18n catalog matches and no overrides are configured.
+  res.json(Object.keys(strings).length > 0 ? { ...config, strings } : config);
 });
 
 // Persists the user-editable custom instructions back to chat-config.json so
