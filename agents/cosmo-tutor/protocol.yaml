@@ -24,6 +24,11 @@ input:
     optional: true
     default: "Be clear, concise, and conversational"
     description: "Response verbosity directive injected into the system prompt guidelines."
+  LANGUAGE:
+    type: string
+    optional: true
+    default: "English"
+    description: "The language Cosmo should speak in when responding to the user."
 
 triggers:
   user-message:
@@ -49,6 +54,7 @@ agent:
   input:
     EXTRA_INSTRUCTIONS: EXTRA_INSTRUCTIONS
     VERBOSITY_INSTRUCTIONS: VERBOSITY_INSTRUCTIONS
+    LANGUAGE: LANGUAGE
   temperature: TEMPERATURE
   thinking: THINKING
   webSearch: true

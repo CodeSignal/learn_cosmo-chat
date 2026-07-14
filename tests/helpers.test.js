@@ -235,6 +235,46 @@ describe('buildSessionInput', () => {
       expect(input).not.toHaveProperty('VERBOSITY_INSTRUCTIONS');
     }
   });
+
+  it('defaults LANGUAGE to "English" when neither options nor config provide one', () => {
+    const input = buildSessionInput({}, {});
+    expect(input.LANGUAGE).toBe('English');
+  });
+
+  it('uses LANGUAGE from config', () => {
+    const input = buildSessionInput({}, { language: 'Spanish' });
+    expect(input.LANGUAGE).toBe('Spanish');
+  });
+
+  it('lets options.language override config.language', () => {
+    const input = buildSessionInput({ language: 'French' }, { language: 'Spanish' });
+    expect(input.LANGUAGE).toBe('French');
+  });
+
+  it('trims surrounding whitespace from the resolved language', () => {
+    const input = buildSessionInput({}, { language: '  Spanish  ' });
+    expect(input.LANGUAGE).toBe('Spanish');
+  });
+
+  it('treats an empty-string options.language as missing and falls back to config', () => {
+    const input = buildSessionInput({ language: '' }, { language: 'Spanish' });
+    expect(input.LANGUAGE).toBe('Spanish');
+  });
+
+  it('treats a whitespace-only options.language as missing and falls back to config', () => {
+    const input = buildSessionInput({ language: '   ' }, { language: 'Spanish' });
+    expect(input.LANGUAGE).toBe('Spanish');
+  });
+
+  it('defaults to "English" when both language values are empty/whitespace', () => {
+    const input = buildSessionInput({ language: '   ' }, { language: '' });
+    expect(input.LANGUAGE).toBe('English');
+  });
+
+  it('defaults to "English" for non-string language values', () => {
+    const input = buildSessionInput({ language: 123 }, { language: null });
+    expect(input.LANGUAGE).toBe('English');
+  });
 });
 
 // ── resolveVerbosity ──────────────────────────────────────────
