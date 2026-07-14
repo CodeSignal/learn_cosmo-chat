@@ -9,6 +9,9 @@ import {
   filterModels,
   resolveVerbosity,
   VERBOSITY_LEVELS,
+  normalizeLanguageName,
+  matchLocaleStrings,
+  mergeStrings,
 } from '../lib/helpers.js';
 
 vi.mock('fs/promises');
@@ -273,6 +276,77 @@ describe('resolveVerbosity', () => {
 
   it('preserves an explicit null from options', () => {
     expect(resolveVerbosity({ verbosity: null }, { verbosity: 'detailed' })).toBeNull();
+  });
+});
+
+// ── normalizeLanguageName ─────────────────────────────────────
+
+describe('normalizeLanguageName', () => {
+  it('lowercases and trims', () => {
+    expect(normalizeLanguageName('  Spanish ')).toBe('spanish');
+  });
+
+  it('returns empty string for null/undefined', () => {
+    expect(normalizeLanguageName(null)).toBe('');
+    expect(normalizeLanguageName(undefined)).toBe('');
+  });
+});
+
+// ── matchLocaleStrings ────────────────────────────────────────
+
+describe('matchLocaleStrings', () => {
+  const locales = [
+    { languageNames: ['en', 'english'], strings: { Hello: 'Hello' } },
+    { languageNames: ['es', 'spanish', 'español'], strings: { Hello: 'Hola' } },
+  ];
+
+  it('matches a language name case-insensitively', () => {
+    expect(matchLocaleStrings('Spanish', locales)).toEqual({ Hello: 'Hola' });
+  });
+
+  it('matches alternate names in the same locale', () => {
+    expect(matchLocaleStrings('español', locales)).toEqual({ Hello: 'Hola' });
+  });
+
+  it('returns {} when no locale matches', () => {
+    expect(matchLocaleStrings('French', locales)).toEqual({});
+  });
+
+  it('returns {} when language is blank or missing', () => {
+    expect(matchLocaleStrings('', locales)).toEqual({});
+    expect(matchLocaleStrings(undefined, locales)).toEqual({});
+  });
+
+  it('returns {} when there are no locales', () => {
+    expect(matchLocaleStrings('Spanish', [])).toEqual({});
+    expect(matchLocaleStrings('Spanish')).toEqual({});
+  });
+
+  it('ignores malformed locale entries', () => {
+    const messy = [null, {}, { languageNames: 'es' }, { languageNames: ['es'], strings: { Hi: 'Hola' } }];
+    expect(matchLocaleStrings('es', messy)).toEqual({ Hi: 'Hola' });
+  });
+
+  it('returns {} when the matched locale has no strings object', () => {
+    expect(matchLocaleStrings('es', [{ languageNames: ['es'] }])).toEqual({});
+  });
+});
+
+// ── mergeStrings ──────────────────────────────────────────────
+
+describe('mergeStrings', () => {
+  it('overrides base strings with config strings per key', () => {
+    const base = { a: 'A', b: 'B' };
+    const overrides = { b: 'B2', c: 'C' };
+    expect(mergeStrings(base, overrides)).toEqual({ a: 'A', b: 'B2', c: 'C' });
+  });
+
+  it('returns base when overrides are absent', () => {
+    expect(mergeStrings({ a: 'A' })).toEqual({ a: 'A' });
+  });
+
+  it('returns {} when both are absent', () => {
+    expect(mergeStrings()).toEqual({});
   });
 });
 
