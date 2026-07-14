@@ -8,5 +8,8 @@
   ],
   "systemPromptExtra": "You are assisting students in a Python programming course. Focus all examples, analogies, and exercises on Python. When discussing prompting techniques, always relate them back to coding tasks.",
   "verbosity": "detailed",
-  "language": "English"
+  "language": "Spanish",
+  "strings": {
+    "New chat": "Empezar de nuevo"
+  }
 }

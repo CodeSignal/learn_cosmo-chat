@@ -115,6 +115,7 @@ cp chat-config.example.json chat-config.json
 | `heading` | `string` | `"What's on your mind?"` | Override the empty-state heading shown before the first message. |
 | `placeholder` | `string` | `"Ask me anything..."` | Override the placeholder text in the composer input. |
 | `newChatLabel` | `string` | `"New chat"` | Override the label on the "New chat" button in the sidebar. |
+| `strings` | `object` | `{}` | Per-key **overrides** for UI strings, layered on top of the i18n catalog selected by `language` (see [UI translations (i18n)](#ui-translations-i18n)). Each **key is the original English text** and the value is the replacement. Anything not overridden here falls back to the i18n catalog, then to the original English text. Reserve this for one-off tweaks; put full translations in `i18n/*.json`. |
 | `footer` | `string` | `"Cosmo can make mistakes..."` | Override the disclaimer text below the composer. |
 | `hideSettings` | `boolean` | `false` | Hide the settings button from the sidebar. |
 | `hideModelSettings` | `boolean` | `false` | Hide the "Generation" section (Temperature and Thinking controls) in the Settings modal. The configured `temperature` still applies; only the UI controls are hidden. |
@@ -136,7 +137,10 @@ cp chat-config.example.json chat-config.json
   "temperature": 0.7,
   "systemPromptExtra": "Focus all examples on Python.",
   "verbosity": "detailed",
-  "language": "English",
+  "language": "Spanish",
+  "strings": {
+    "New chat": "Empezar de nuevo"
+  },
   "title": "My AI Tutor",
   "heading": "How can I help you today?",
   "footer": "AI responses may be inaccurate. Always verify.",
@@ -147,6 +151,37 @@ cp chat-config.example.json chat-config.json
 ```
 
 > `chat-config.json` is committed to source control so you can version your configuration alongside the project. `chat-config.example.json` serves as a reference template.
+
+## UI translations (i18n)
+
+UI strings are translated ahead of time via locale catalogs in the `i18n/` folder, selected by the `language` config value. This keeps translations out of `chat-config.json` — the config `strings` map is reserved for per-key overrides.
+
+### How it works
+
+1. Each file in `i18n/` (e.g. `en.json`, `es.json`) is a locale catalog:
+
+```json
+{
+  "languageNames": ["es", "spanish", "español", "españa"],
+  "strings": {
+    "New chat": "Nueva conversación",
+    "Settings": "Configuración"
+  }
+}
+```
+
+2. On each request to `/api/config`, the server reads `language` from `chat-config.json` and finds the catalog whose `languageNames` contains it (case-insensitive, whitespace-trimmed). So `"language": "Spanish"` loads `i18n/es.json`.
+3. The matched catalog's `strings` become the base, and `chat-config.json`'s `strings` map is merged on top (config wins per key).
+4. In the client, every UI string is resolved through a `t()` helper keyed by the **original English text**. Resolution order for any string is: **config `strings` override → matched i18n catalog → original English text**. So a missing translation simply falls back to English; nothing breaks.
+
+### Adding a language
+
+1. Copy `i18n/en.json` to `i18n/<code>.json` (it's the canonical catalog of every translatable string).
+2. Set `languageNames` to the names you want to match against `language` (include synonyms/spellings, e.g. `["fr", "french", "français"]`).
+3. Translate the values (keep the keys and any `{token}` placeholders — e.g. `"{title} (responding)"` — unchanged).
+4. Set `"language": "<one of the languageNames>"` in `chat-config.json`.
+
+> Note: `language` also controls the language Cosmo *responds in* (via the system prompt), so setting it once drives both the UI and the assistant.
 
 ## Agent deployment (dev vs prod)
 
