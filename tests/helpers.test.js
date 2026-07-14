@@ -250,6 +250,31 @@ describe('buildSessionInput', () => {
     const input = buildSessionInput({ language: 'French' }, { language: 'Spanish' });
     expect(input.LANGUAGE).toBe('French');
   });
+
+  it('trims surrounding whitespace from the resolved language', () => {
+    const input = buildSessionInput({}, { language: '  Spanish  ' });
+    expect(input.LANGUAGE).toBe('Spanish');
+  });
+
+  it('treats an empty-string options.language as missing and falls back to config', () => {
+    const input = buildSessionInput({ language: '' }, { language: 'Spanish' });
+    expect(input.LANGUAGE).toBe('Spanish');
+  });
+
+  it('treats a whitespace-only options.language as missing and falls back to config', () => {
+    const input = buildSessionInput({ language: '   ' }, { language: 'Spanish' });
+    expect(input.LANGUAGE).toBe('Spanish');
+  });
+
+  it('defaults to "English" when both language values are empty/whitespace', () => {
+    const input = buildSessionInput({ language: '   ' }, { language: '' });
+    expect(input.LANGUAGE).toBe('English');
+  });
+
+  it('defaults to "English" for non-string language values', () => {
+    const input = buildSessionInput({ language: 123 }, { language: null });
+    expect(input.LANGUAGE).toBe('English');
+  });
 });
 
 // ── resolveVerbosity ──────────────────────────────────────────
