@@ -456,6 +456,11 @@ function applyChatConfigUI() {
 
   if (chatConfig.placeholder !== undefined) promptInput.placeholder = chatConfig.placeholder;
 
+  if (newChatBtn && chatConfig.newChatLabel !== undefined) {
+    const newChatLabelEl = newChatBtn.querySelector('.sidebar__nav-label');
+    if (newChatLabelEl) newChatLabelEl.textContent = chatConfig.newChatLabel;
+  }
+
   const attachIcons = document.getElementById('attachIcons');
   if (attachIcons) attachIcons.style.display = chatConfig.hideFileUpload ? 'none' : '';
 

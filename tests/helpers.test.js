@@ -235,6 +235,21 @@ describe('buildSessionInput', () => {
       expect(input).not.toHaveProperty('VERBOSITY_INSTRUCTIONS');
     }
   });
+
+  it('defaults LANGUAGE to "English" when neither options nor config provide one', () => {
+    const input = buildSessionInput({}, {});
+    expect(input.LANGUAGE).toBe('English');
+  });
+
+  it('uses LANGUAGE from config', () => {
+    const input = buildSessionInput({}, { language: 'Spanish' });
+    expect(input.LANGUAGE).toBe('Spanish');
+  });
+
+  it('lets options.language override config.language', () => {
+    const input = buildSessionInput({ language: 'French' }, { language: 'Spanish' });
+    expect(input.LANGUAGE).toBe('French');
+  });
 });
 
 // ── resolveVerbosity ──────────────────────────────────────────

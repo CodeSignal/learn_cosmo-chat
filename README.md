@@ -110,9 +110,11 @@ cp chat-config.example.json chat-config.json
 | `allowCustomInstructions` | `boolean` | `false` | Opt-in. When `true`, shows a "Custom Instructions" field in the Settings modal that learners can edit. Their text is delivered in the user turn (never the system prompt) so it stays subordinate to Cosmo's guardrails. The value is persisted to `customInstructions` in `chat-config.json` and restored on reload. Hidden by default so it never appears in practices that don't need it. |
 | `customInstructions` | `string` | `""` | The learner's saved custom instructions. Populated automatically when `allowCustomInstructions` is `true` and the user edits the field; sent with each message only while `allowCustomInstructions` is `true`. |
 | `verbosity` | `string \| null` | _(none)_ | Controls how verbose responses are. One of `"concise"`, `"normal"`, `"detailed"`, or `"verbose"`. When omitted (or set to `null`), no `VERBOSITY_INSTRUCTIONS` value is sent, so the agent falls back to the protocol default directive defined in `agents/cosmo-tutor/protocol.yaml` (`"Be clear, concise, and conversational"`) rather than leaving the system prompt unchanged. |
+| `language` | `string` | `"English"` | The language Cosmo speaks in when responding. Sent as `LANGUAGE` into the system prompt at session creation. Any language name works (e.g. `"Spanish"`, `"French"`, `"Japanese"`). When omitted, defaults to `"English"`. |
 | `title` | `string` | `"ChatCPT"` | Override the app name shown in the sidebar header and browser tab. |
 | `heading` | `string` | `"What's on your mind?"` | Override the empty-state heading shown before the first message. |
 | `placeholder` | `string` | `"Ask me anything..."` | Override the placeholder text in the composer input. |
+| `newChatLabel` | `string` | `"New chat"` | Override the label on the "New chat" button in the sidebar. |
 | `footer` | `string` | `"Cosmo can make mistakes..."` | Override the disclaimer text below the composer. |
 | `hideSettings` | `boolean` | `false` | Hide the settings button from the sidebar. |
 | `hideModelSettings` | `boolean` | `false` | Hide the "Generation" section (Temperature and Thinking controls) in the Settings modal. The configured `temperature` still applies; only the UI controls are hidden. |
@@ -134,6 +136,7 @@ cp chat-config.example.json chat-config.json
   "temperature": 0.7,
   "systemPromptExtra": "Focus all examples on Python.",
   "verbosity": "detailed",
+  "language": "English",
   "title": "My AI Tutor",
   "heading": "How can I help you today?",
   "footer": "AI responses may be inaccurate. Always verify.",
