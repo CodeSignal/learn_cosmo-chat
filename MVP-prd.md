@@ -168,7 +168,7 @@ Each exercise is driven by a configuration file.
 
 ### **6.1 Overview**
 
-The system uses **Octopus.ai (Octavus)** as the orchestration layer for all LLM interactions.
+The system calls **Amazon Bedrock** (`ConverseStream`) directly for all LLM interactions.
 
 **Frontend → Backend → Octopus → LLM → Response → Frontend**
 

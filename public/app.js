@@ -1,9 +1,9 @@
 /**
  * ChatCPT – app.js
- * Connects to the backend via @octavus/client-sdk (HTTP/SSE transport).
+ * Streams assistant turns from the backend's Amazon Bedrock endpoint over SSE.
  */
 
-import { OctavusChat, createHttpTransport } from '@octavus/client-sdk';
+import { ChatStore } from './lib/chat-store.js';
 import {
   MAX_CONCURRENT_STREAMS,
   streamingCount as countStreaming,
@@ -104,10 +104,8 @@ renderer.code = function ({ text, lang }) {
   `;
 };
 
-// Octavus returns generated images both as a markdown reference in the text
-// AND as a file part. Rendering both causes duplicates. Apply the constrained
-// CSS class here so markdown-embedded images obey the same size limits, and
-// skip the separate file-parts pass for assistant messages.
+// Apply the constrained CSS class here so markdown-embedded images obey the
+// same size limits as images rendered from file parts.
 renderer.image = function ({ href, text }) {
   return `<img class="message__file-image" src="${href}" alt="${text}" />`;
 };
@@ -203,7 +201,7 @@ function isChatNearBottom(thPx = 120) {
 // Each chat session gets its own Runtime so several can stream at once.
 // Only `active` is rendered, but every runtime persists itself independently
 // so a backgrounded stream never loses its tail when you switch away.
-// Runtime = { sessionId, chat, unsubscribe, abortController,
+// Runtime = { sessionId, chat, unsubscribe,
 //             restoredMessages, lastStatus, lastSaveTime,
 //             saveThrottleTimer, streamingStartTime }
 const sessions = new Map();
@@ -239,7 +237,6 @@ function getOrCreateRuntime(sid, restored = []) {
     sessionId: sid,
     chat: null,
     unsubscribe: null,
-    abortController: null,
     restoredMessages: restored,
     lastStatus: null,
     lastSaveTime: 0,
@@ -251,33 +248,17 @@ function getOrCreateRuntime(sid, restored = []) {
   return rt;
 }
 
-// (Re)build the OctavusChat for a runtime and wire its subscription. Used on
+// (Re)build the chat store for a runtime and wire its subscription. Used on
 // creation and by stopGeneration() to clear live messages.
 function attachChat(rt) {
   if (rt.unsubscribe) { rt.unsubscribe(); rt.unsubscribe = null; }
 
-  const transport = createHttpTransport({
-    request: (payload, options) => {
-      rt.abortController = new AbortController();
-      return fetch('/api/trigger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: rt.sessionId, ...payload }),
-        signal: rt.abortController.signal,
-      });
-    },
+  rt.chat = new ChatStore({
+    sessionId: rt.sessionId,
+    // Bedrock keeps no conversation state, so each turn replays the transcript
+    // this runtime is displaying: resumed/forked history plus live turns.
+    getHistory: () => getAllCurrentMessages(rt),
   });
-
-  const requestUploadUrls = async (files) => {
-    const r = await fetch('/api/upload-urls', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId: rt.sessionId, files }),
-    });
-    return r.json();
-  };
-
-  rt.chat = new OctavusChat({ transport, requestUploadUrls });
   rt.unsubscribe = rt.chat.subscribe(() => {
     const status = rt.chat.status;
 
@@ -340,7 +321,7 @@ function syncStreamingLoop() {
 function teardownRuntime(sid) {
   const rt = sessions.get(sid);
   if (!rt) return;
-  if (rt.abortController) { rt.abortController.abort(); rt.abortController = null; }
+  rt.chat?.abort();
   clearSaveTimer(rt);
   if (rt.unsubscribe) { rt.unsubscribe(); rt.unsubscribe = null; }
   sessions.delete(sid);
@@ -644,7 +625,7 @@ async function init() {
     if (!sessionRes.ok) {
       if (sessionRes.status === 503) {
         showBootError(
-          'Chat cannot start: the server is missing Octavus configuration. Create a .env in the project root with OCTAVUS_API_URL, OCTAVUS_API_KEY, and OCTAVUS_AGENT_ID, then stop the dev server completely and run npm run dev again (environment variables load only at startup).',
+          'Chat cannot start: the server is missing AWS Bedrock credentials. Create a .env in the project root with BEDROCK_AWS_ACCESS_KEY_ID, BEDROCK_AWS_SECRET_ACCESS_KEY, and BEDROCK_AWS_REGION, then stop the dev server completely and run npm run dev again (environment variables load only at startup).',
         );
       } else {
         const raw = await sessionRes.text();
@@ -707,23 +688,7 @@ const THINKING_STAGES = [
   { after: 30, label: 'This might take a moment…' },
 ];
 
-const IMAGE_STAGES = [
-  { after:  0, label: 'Creating image…' },
-  { after: 10, label: 'Polishing details…' },
-  { after: 25, label: 'Finishing up…' },
-  { after: 45, label: 'Almost there…' },
-];
-
 const THINKING_BORDER_DURATION_SEC = 1.5;
-
-function activeToolNameFromParts(parts = []) {
-  const active = parts.find((p) => p.type === 'tool-call' && (p.status === 'pending' || p.status === 'running'));
-  return active?.toolName ?? '';
-}
-
-function isImageGenerationLoading(parts) {
-  return activeToolNameFromParts(parts) === 'octavus_generate_image';
-}
 
 /** Keeps conic border phase continuous across renderMessages() DOM rebuilds (matches animation duration in app.css). */
 function thinkingBorderAnimationDelayAttr() {
@@ -734,52 +699,19 @@ function thinkingBorderAnimationDelayAttr() {
   return ` style="animation-delay: -${wrapped.toFixed(3)}s"`;
 }
 
-/** Image-generation canvas + shimmer only (status text lives in .message__ai-trailing). */
-function renderImagePlaceholderBody() {
-  return `
-      <div class="image-placeholder image-placeholder--body" style="list-style:none">
-        <div class="image-placeholder__canvas">
-          <svg class="image-placeholder__icon" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <circle cx="8.5" cy="8.5" r="1.5"/>
-            <polyline points="21 15 16 10 5 21"/>
-          </svg>
-        </div>
-      </div>
-    `;
-}
-
 /**
  * Label shown next to the avatar while streaming (no three-dot animation).
- * @returns {{ label: string, icon: string | null, isImage: boolean }}
+ * @returns {{ label: string, icon: string | null }}
  */
-function getStreamingStatus(parts = []) {
+function getStreamingStatus() {
   const streamingStartTime = active?.streamingStartTime;
   const elapsed = streamingStartTime ? (Date.now() - streamingStartTime) / 1000 : 0;
-  const toolName = activeToolNameFromParts(parts);
-
-  if (toolName === 'octavus_generate_image') {
-    const stage = IMAGE_STAGES.filter((s) => elapsed >= s.after).pop();
-    const label = stage?.label ?? IMAGE_STAGES[0].label;
-    return { label, icon: null, isImage: true };
-  }
-
-  let stages;
-  if (toolName === 'octavus_web_search') {
-    stages = [{ after: 0, label: 'Searching the web…' }];
-  } else if (toolName.startsWith('octavus_skill')) {
-    stages = [{ after: 0, label: 'Running tool…' }, { after: 10, label: 'Still running…' }];
-  } else {
-    stages = THINKING_STAGES;
-  }
-
-  const stage = stages.filter((s) => elapsed >= s.after).pop();
-  const label = stage?.label ?? stages[0].label;
-  return { label, icon: null, isImage: false };
+  const stage = THINKING_STAGES.filter((s) => elapsed >= s.after).pop();
+  return { label: stage?.label ?? THINKING_STAGES[0].label, icon: null };
 }
 
 // ── Render messages ───────────────────────────────────────────
-// `liveMessages` comes from OctavusChat; `restoredMessages` are pre-loaded from disk.
+// `liveMessages` comes from the chat store; `restoredMessages` are pre-loaded from disk.
 // We display restored first, then live so the conversation reads continuously.
 function renderMessages(liveMessages, status) {
   const wasPinnedToBottom = isChatNearBottom();
@@ -817,12 +749,8 @@ function renderMessages(liveMessages, status) {
       );
       const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
 
-      const isImageGen = isImageGenerationLoading(msg.parts);
-
       let bodyContent;
-      if (streaming && !hasText && fileParts.length === 0 && isImageGen) {
-        bodyContent = renderImagePlaceholderBody();
-      } else if (streaming && !hasText && fileParts.length === 0 && !isImageGen) {
+      if (streaming && !hasText && fileParts.length === 0) {
         bodyContent = '';
       } else if (streaming && fileParts.length === 0) {
         bodyContent = `${renderedHtml}<span class="cursor" aria-hidden="true"></span>`;
@@ -830,7 +758,7 @@ function renderMessages(liveMessages, status) {
         bodyContent = `${renderedHtml}${filesHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}`;
       }
 
-      const streamingStatus = streaming && fileParts.length === 0 ? getStreamingStatus(msg.parts) : null;
+      const streamingStatus = streaming && fileParts.length === 0 ? getStreamingStatus() : null;
       const statusHtml = streamingStatus
         ? `<div class="message__ai-status body-xsmall" aria-live="polite">${streamingStatus.icon ? `${streamingStatus.icon} ` : ''}${streamingStatus.label}</div>`
         : '';
@@ -994,19 +922,7 @@ async function sendMessage() {
   updateSendBtn();
 
   try {
-    await active.chat.send(
-      'user-message',
-      {
-        USER_MESSAGE: text,
-        ...(filesToSend.length > 0 && { FILES: filesToSend }),
-      },
-      {
-        userMessage: {
-          content: text,
-          ...(filesToSend.length > 0 && { files: filesToSend }),
-        },
-      },
-    );
+    await active.chat.send({ text, files: filesToSend });
   } catch (err) {
     console.error('[ChatCPT] Send error:', err);
   }
@@ -1202,10 +1118,7 @@ function stopGeneration() {
   if (!rt) return;
 
   clearSaveTimer(rt);
-  if (rt.abortController) {
-    rt.abortController.abort();
-    rt.abortController = null;
-  }
+  rt.chat?.abort();
   rt.streamingStartTime = null;
 
   const partialMessages = rt.chat?.messages ?? [];
@@ -1418,9 +1331,9 @@ async function startNewChat() {
 
 // ── Regenerate / Edit ─────────────────────────────────────────
 
-// Serialise live OctavusChat messages into the on-disk storage shape.
-// OctavusChat only holds messages produced in the current page session,
-// so this never includes the pre-load `restoredMessages` history.
+// Serialise live chat-store messages into the on-disk storage shape. The store
+// only holds messages produced in the current page session, so this never
+// includes the pre-load `restoredMessages` history.
 function serializeLiveMessages(liveMessages) {
   return liveMessages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
@@ -1481,12 +1394,7 @@ async function resendOnForkedSession(historyMessages, userText, userFiles) {
   renderActive();
 
   const rt = active;
-  const filesToSend = userFiles?.length > 0 ? userFiles : undefined;
-  await rt.chat.send(
-    'user-message',
-    { USER_MESSAGE: userText, ...(filesToSend ? { FILES: filesToSend } : {}) },
-    { userMessage: { content: userText, ...(filesToSend ? { files: filesToSend } : {}) } },
-  );
+  await rt.chat.send({ text: userText, files: userFiles ?? [] });
 }
 
 // Icons for the message hover actions (inline SVG, inherit currentColor).
@@ -1677,7 +1585,7 @@ function deriveTitle(messages) {
 // ── Session persistence ───────────────────────────────────────
 
 // Convert a stored plain-object message back into the shape renderMessages expects
-// (mirrors the OctavusChat message structure just enough for rendering).
+// (mirrors the chat-store message structure just enough for rendering).
 function storedToDisplayMsg(m) {
   return {
     role: m.role,

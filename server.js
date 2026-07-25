@@ -2,8 +2,8 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import fs from 'fs/promises';
+import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
-import { OctavusClient, toSSEStream } from '@octavus/server-sdk';
 import {
   deriveTitle,
   readJsonFile,
@@ -12,39 +12,43 @@ import {
   buildSessionRecord,
   filterModels,
 } from './lib/helpers.js';
+import {
+  createBedrockClient,
+  isBedrockConfigured,
+  bedrockRegion,
+} from './lib/bedrock-client.js';
+import {
+  toConverseMessages,
+  buildInferenceConfig,
+  buildAdditionalModelRequestFields,
+} from './lib/bedrock-messages.js';
+import { streamAssistantReply, describeBedrockError } from './lib/bedrock-stream.js';
+import { loadSystemPrompt } from './lib/system-prompt.js';
+import {
+  saveAttachment,
+  readAttachmentBytes,
+  deleteSessionAttachments,
+  UPLOADS_URL_PREFIX,
+} from './lib/attachments.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SESSIONS_FILE = path.join(__dirname, 'chat-sessions.json');
 const CONFIG_FILE   = path.join(__dirname, 'chat-config.json');
 const MODELS_FILE   = path.join(__dirname, 'current-models.txt');
+const PROMPT_FILE   = path.join(__dirname, 'prompts', 'system.md');
+const UPLOADS_DIR   = path.join(__dirname, 'uploads');
 const app = express();
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
 
-// ── Octavus client ────────────────────────────────────────────
-const octavus = new OctavusClient({
-  baseUrl: process.env.OCTAVUS_API_URL,
-  apiKey: process.env.OCTAVUS_API_KEY,
-});
-
-// Which deployed agent the server talks to. Defaults to "prod" so existing
-// deployments that only set the legacy OCTAVUS_AGENT_ID keep hitting their
-// production agent with no .env changes. Local development opts into the dev
-// agent via `npm run dev` (which sets AGENT_TARGET=dev). When a target-specific
-// ID is missing we fall back to the legacy OCTAVUS_AGENT_ID.
-const AGENT_TARGET = (process.env.AGENT_TARGET ?? 'prod').toLowerCase();
-if (AGENT_TARGET !== 'prod' && AGENT_TARGET !== 'dev') {
-  throw new Error(
-    `Invalid AGENT_TARGET "${process.env.AGENT_TARGET}". Expected "prod" or "dev".`,
-  );
-}
-const AGENT_ID =
-  (AGENT_TARGET === 'prod'
-    ? process.env.OCTAVUS_AGENT_ID_PROD
-    : process.env.OCTAVUS_AGENT_ID_DEV) ?? process.env.OCTAVUS_AGENT_ID;
+// ── Bedrock client ────────────────────────────────────────────
+const bedrock = createBedrockClient();
 
 // ── Middleware ────────────────────────────────────────────────
-app.use(express.json());
+// Attachments arrive base64-encoded in the JSON body, so the limit has to allow
+// for roughly 4/3 of the raw file size.
+app.use(express.json({ limit: '32mb' }));
 app.use('/design-system', express.static(path.join(__dirname, 'design-system')));
+app.use(UPLOADS_URL_PREFIX, express.static(UPLOADS_DIR));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Config ────────────────────────────────────────────────────
@@ -68,15 +72,21 @@ app.get('/api/models', async (_req, res) => {
 });
 
 // ── Session file helpers ──────────────────────────────────────
-const readSessionsFile = () => readJsonFile(SESSIONS_FILE, { sessions: [] });
+// readJsonFile only falls back when the read or parse fails, so a file that
+// parses to something without a `sessions` array still needs normalizing.
+async function readSessionsFile() {
+  const data = await readJsonFile(SESSIONS_FILE, { sessions: [] });
+  if (!Array.isArray(data.sessions)) data.sessions = [];
+  return data;
+}
 const writeSessionsFile = (data) => writeJsonFile(SESSIONS_FILE, data);
 
+// Sessions are local records now: there is no remote session to create, so the
+// id is minted here and the generation settings ride along on the record.
 async function createNewSession(options = {}) {
   const config = await readConfig();
-  const input = buildSessionInput(options, config);
-  console.log('[session] Creating with input:', JSON.stringify(input));
-  const sessionId = await octavus.agentSessions.create(AGENT_ID, input);
-  const record = buildSessionRecord(sessionId);
+  const settings = buildSessionInput(options, config);
+  const record = buildSessionRecord(randomUUID(), settings);
   const data = await readSessionsFile();
   // With history hidden there is only ever one conversation; drop the rest.
   data.sessions = config.hideHistory ? [record] : [...data.sessions, record];
@@ -102,8 +112,8 @@ app.get('/api/sessions', async (req, res) => {
 // ── GET /api/session ──────────────────────────────────────────
 // Returns a specific session by ?id=, the most recently updated, or creates one.
 app.get('/api/session', async (req, res) => {
-  if (!AGENT_ID) {
-    return res.status(503).json({ error: 'OCTAVUS_AGENT_ID is not configured' });
+  if (!isBedrockConfigured()) {
+    return res.status(503).json({ error: 'Bedrock credentials are not configured' });
   }
 
   const data = await readSessionsFile();
@@ -140,10 +150,10 @@ app.get('/api/session', async (req, res) => {
 });
 
 // ── POST /api/sessions ────────────────────────────────────────
-// Creates a brand-new Octavus session and adds it to the file.
+// Creates a brand-new local session record and adds it to the file.
 app.post('/api/sessions', async (req, res) => {
-  if (!AGENT_ID) {
-    return res.status(503).json({ error: 'OCTAVUS_AGENT_ID is not configured' });
+  if (!isBedrockConfigured()) {
+    return res.status(503).json({ error: 'Bedrock credentials are not configured' });
   }
   try {
     const record = await createNewSession({
@@ -164,12 +174,15 @@ app.delete('/api/sessions/:sessionId', async (req, res) => {
   const data = await readSessionsFile();
   data.sessions = data.sessions.filter((s) => s.session_id !== sessionId);
   await writeSessionsFile(data);
+  await deleteSessionAttachments(UPLOADS_DIR, sessionId).catch((err) =>
+    console.warn('[sessions] Could not remove uploads:', err?.message),
+  );
   res.json({ ok: true });
 });
 
 // ── POST /api/session/fork ────────────────────────────────────
-// Creates a new Octavus session, seeds it with the supplied messages, and
-// removes the old session record.  Used by regenerate / edit-and-resend.
+// Creates a new session, seeds it with the supplied messages, and removes the
+// old session record. Used by regenerate / edit-and-resend.
 app.post('/api/session/fork', async (req, res) => {
   const { oldSessionId, messages, model, temperature, thinking } = req.body;
   if (!oldSessionId || !Array.isArray(messages)) {
@@ -235,51 +248,118 @@ app.post('/api/session/save', async (req, res) => {
   }
 });
 
-// ── POST /api/upload-urls ─────────────────────────────────────
-// Proxies presigned S3 upload URL requests to Octavus.
-app.post('/api/upload-urls', async (req, res) => {
+// ── POST /api/upload ──────────────────────────────────────────
+// Stores base64 attachments on disk and returns the refs the client keeps in
+// the transcript. Their bytes are re-read and inlined on every Converse turn.
+app.post('/api/upload', async (req, res) => {
   const { sessionId, files } = req.body;
   if (!sessionId || !Array.isArray(files)) {
     return res.status(400).json({ error: 'sessionId and files[] are required' });
   }
   try {
-    const result = await octavus.files.getUploadUrls(sessionId, files);
-    res.json(result);
+    const refs = [];
+    for (const file of files) {
+      refs.push(await saveAttachment(UPLOADS_DIR, sessionId, file));
+    }
+    res.json({ files: refs });
   } catch (err) {
-    console.error('[upload-urls] Error:', err);
-    res.status(500).json({ error: 'Failed to get upload URLs' });
+    console.error('[upload] Error:', err);
+    res.status(500).json({ error: err.message || 'Failed to store attachments' });
   }
 });
 
 // ── POST /api/trigger ─────────────────────────────────────────
-// Attaches to an existing session and streams the agent response as SSE.
+// Streams one assistant turn from Bedrock as SSE.
+//
+// The client sends the conversation it is displaying rather than the server
+// reading it back from disk: transcript writes are throttled, so the on-disk
+// copy can lag the newest turn, and regenerate/edit need to replay a
+// deliberately truncated history.
 app.post('/api/trigger', async (req, res) => {
-  const { sessionId, ...payload } = req.body;
+  const { sessionId, text = '', files = [], history = [] } = req.body;
 
   if (!sessionId) {
     return res.status(400).json({ error: 'sessionId is required' });
   }
+  if (!isBedrockConfigured()) {
+    return res.status(503).json({ error: 'Bedrock credentials are not configured' });
+  }
 
-  const session = octavus.agentSessions.attach(sessionId);
-  const events = session.execute(payload);
-  const stream = toSSEStream(events);
+  const config = await readConfig();
+  const data = await readSessionsFile();
+  const session = data.sessions.find((s) => s.session_id === sessionId);
+  // A session created before this request should always be on disk; falling back
+  // to config defaults keeps a stale client from failing outright.
+  const settings = session?.settings ?? buildSessionInput({}, config);
+
+  const modelId = settings.MODEL || config.model;
+  if (!modelId) {
+    return res.status(500).json({ error: 'No model configured' });
+  }
+
+  const system = await loadSystemPrompt(PROMPT_FILE, {
+    EXTRA_INSTRUCTIONS: settings.EXTRA_INSTRUCTIONS,
+    VERBOSITY_INSTRUCTIONS: settings.VERBOSITY_INSTRUCTIONS,
+  });
+
+  const messages = await toConverseMessages(
+    [...history, { role: 'user', content: text, files }],
+    (file) => readAttachmentBytes(UPLOADS_DIR, file),
+  );
+
+  if (messages.length === 0) {
+    return res.status(400).json({ error: 'Nothing to send' });
+  }
+
+  // Stop paying for tokens the moment the browser goes away (tab closed, or the
+  // user pressed stop, which aborts the fetch).
+  const controller = new AbortController();
+  res.on('close', () => controller.abort());
+
+  const events = streamAssistantReply(bedrock, {
+    modelId,
+    messages,
+    system,
+    inferenceConfig: buildInferenceConfig({
+      temperature: settings.TEMPERATURE,
+      thinking: settings.THINKING,
+    }),
+    additionalModelRequestFields: buildAdditionalModelRequestFields(settings.THINKING),
+    abortSignal: controller.signal,
+  })[Symbol.asyncIterator]();
+
+  // Pull the first event before committing to a 200 + event-stream response.
+  // The setup failures that matter most — bad credentials, model access not
+  // granted, unknown model id, a malformed request — all surface here, and
+  // they deserve a real status code rather than an error buried in the stream.
+  let first;
+  try {
+    first = await events.next();
+  } catch (err) {
+    if (controller.signal.aborted) return res.end();
+    console.error('[trigger] Bedrock error:', err);
+    return res.status(500).json({ error: describeBedrockError(err) });
+  }
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders?.();
 
-  const reader = stream.getReader();
+  const send = (event) => res.write(`data: ${JSON.stringify(event)}\n\n`);
+
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(value);
+    if (!first.done) {
+      send(first.value);
+      for await (const event of { [Symbol.asyncIterator]: () => events }) send(event);
     }
   } catch (err) {
-    console.error('[trigger] Stream error:', err);
+    if (!controller.signal.aborted) {
+      console.error('[trigger] Bedrock stream error:', err);
+      send({ type: 'error', message: describeBedrockError(err) });
+    }
   } finally {
-    reader.releaseLock();
     res.end();
   }
 });
@@ -287,10 +367,11 @@ app.post('/api/trigger', async (req, res) => {
 if (process.env.NODE_ENV !== 'test') {
   const server = app.listen(PORT, () => {
     console.log(`ChatCPT running at http://localhost:${PORT}`);
-    console.log(`[agent] target=${AGENT_TARGET}${AGENT_ID ? ` (agent ${AGENT_ID})` : ''}`);
-    if (!AGENT_ID) {
-      const expected = `OCTAVUS_AGENT_ID_${AGENT_TARGET.toUpperCase()}`;
-      console.warn(`[WARN] ${expected} is not set — chat will not work until it is configured.`);
+    console.log(`[bedrock] region=${bedrockRegion()}`);
+    if (!isBedrockConfigured()) {
+      console.warn(
+        '[WARN] BEDROCK_AWS_ACCESS_KEY_ID / BEDROCK_AWS_SECRET_ACCESS_KEY are not set — chat will not work until they are configured (or set BEDROCK_AWS_USE_DEFAULT_CREDENTIALS=true to use an IAM role).',
+      );
     }
   });
   server.on('error', (err) => {

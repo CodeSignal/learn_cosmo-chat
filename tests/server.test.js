@@ -9,20 +9,14 @@ vi.mock('fs/promises', () => ({
   },
 }));
 
-vi.mock('@octavus/server-sdk', () => {
-  return {
-    OctavusClient: function () {
-      this.agentSessions = {
-        create: vi.fn().mockResolvedValue('new-session-id'),
-        attach: vi.fn().mockReturnValue({ execute: vi.fn() }),
-      };
-      this.files = {
-        getUploadUrls: vi.fn().mockResolvedValue({ urls: [] }),
-      };
-    },
-    toSSEStream: vi.fn(),
-  };
-});
+vi.mock('@aws-sdk/client-bedrock-runtime', () => ({
+  BedrockRuntimeClient: function () {
+    this.send = vi.fn();
+  },
+  ConverseStreamCommand: function (input) {
+    this.input = input;
+  },
+}));
 
 vi.mock('dotenv/config', () => ({}));
 
@@ -30,9 +24,9 @@ const fs = (await import('fs/promises')).default;
 
 // Set env vars before importing server
 process.env.NODE_ENV = 'test';
-process.env.OCTAVUS_API_URL = 'https://test.api';
-process.env.OCTAVUS_API_KEY = 'test-key';
-process.env.OCTAVUS_AGENT_ID = 'test-agent-id';
+process.env.BEDROCK_AWS_ACCESS_KEY_ID = 'test-access-key-id';
+process.env.BEDROCK_AWS_SECRET_ACCESS_KEY = 'test-secret-access-key';
+process.env.BEDROCK_AWS_REGION = 'us-east-1';
 
 const { app } = await import('../server.js');
 
@@ -247,19 +241,19 @@ describe('POST /api/session/save', () => {
   });
 });
 
-// ── POST /api/upload-urls ─────────────────────────────────────
+// ── POST /api/upload ──────────────────────────────────────────
 
-describe('POST /api/upload-urls', () => {
+describe('POST /api/upload', () => {
   it('returns 400 when sessionId is missing', async () => {
     const res = await request(app)
-      .post('/api/upload-urls')
+      .post('/api/upload')
       .send({ files: [] });
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when files is missing', async () => {
     const res = await request(app)
-      .post('/api/upload-urls')
+      .post('/api/upload')
       .send({ sessionId: 's1' });
     expect(res.status).toBe(400);
   });
@@ -268,10 +262,34 @@ describe('POST /api/upload-urls', () => {
 // ── POST /api/trigger ─────────────────────────────────────────
 
 describe('POST /api/trigger', () => {
+  beforeEach(() => vi.resetAllMocks());
+
   it('returns 400 when sessionId is missing', async () => {
     const res = await request(app)
       .post('/api/trigger')
-      .send({ message: 'hello' });
+      .send({ text: 'hello' });
     expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when there is nothing to send', async () => {
+    fs.readFile.mockImplementation((path) => {
+      if (path.includes('chat-config')) {
+        return Promise.resolve(JSON.stringify({ model: 'us.anthropic.claude-sonnet-4-6' }));
+      }
+      if (path.includes('chat-sessions')) return Promise.resolve(JSON.stringify({ sessions: [] }));
+      return Promise.resolve('system prompt');
+    });
+    const res = await request(app)
+      .post('/api/trigger')
+      .send({ sessionId: 's1', text: '   ', files: [], history: [] });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 500 when no model is configured', async () => {
+    fs.readFile.mockResolvedValue('{}');
+    const res = await request(app)
+      .post('/api/trigger')
+      .send({ sessionId: 's1', text: 'hello', history: [] });
+    expect(res.status).toBe(500);
   });
 });

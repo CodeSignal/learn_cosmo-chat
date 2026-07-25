@@ -129,7 +129,7 @@ body {
   height: auto;
 }
 
-/* Shown when /api/session fails (e.g. Octavus env missing) */
+/* Shown when /api/session fails (e.g. Bedrock credentials missing) */
 .boot-error {
   flex-shrink: 0;
   margin: 0;
