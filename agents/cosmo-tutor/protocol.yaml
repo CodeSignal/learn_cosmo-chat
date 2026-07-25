@@ -1,0 +1,69 @@
+input:
+  MODEL:
+    type: string
+    optional: true
+    default: "anthropic/claude-opus-4-7"
+    description: LLM model to use for this session (provider/model-id format).
+  TEMPERATURE:
+    type: number
+    optional: true
+    default: 0.7
+    description: "Sampling temperature (0-2). Lower = more focused, higher = more creative."
+  THINKING:
+    type: string
+    optional: true
+    default: "off"
+    description: "Extended reasoning level. Values: off, low, medium, high, max."
+  EXTRA_INSTRUCTIONS:
+    type: string
+    optional: true
+    default: ""
+    description: Additional instructions appended to the system prompt at session creation.
+  VERBOSITY_INSTRUCTIONS:
+    type: string
+    optional: true
+    default: "Be clear, concise, and conversational"
+    description: "Response verbosity directive injected into the system prompt guidelines."
+
+triggers:
+  user-message:
+    input:
+      USER_MESSAGE:
+        type: string
+      FILES:
+        type: file[]
+        optional: true
+
+
+skills:
+  crawl-urls:
+    display: description
+
+agent:
+  model: MODEL
+  system: system
+  input:
+    EXTRA_INSTRUCTIONS: EXTRA_INSTRUCTIONS
+    VERBOSITY_INSTRUCTIONS: VERBOSITY_INSTRUCTIONS
+  temperature: TEMPERATURE
+  thinking: THINKING
+  webSearch: true
+  agentic: true
+  imageModel: openai/gpt-image-1
+  skills:
+    - crawl-urls
+
+handlers:
+  user-message:
+    Add user message:
+      block: add-message
+      role: user
+      prompt: user-message
+      input: [USER_MESSAGE, FILES]
+      files: [FILES]
+      uiContent: USER_MESSAGE
+      display: hidden
+
+    Respond:
+      block: next-message
+
