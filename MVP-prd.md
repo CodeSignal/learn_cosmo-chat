@@ -168,7 +168,7 @@ Each exercise is driven by a configuration file.
 
 ### **6.1 Overview**
 
-The system calls **Amazon Bedrock** (`ConverseStream`) directly for all LLM interactions.
+The system uses **Octavus** as the default orchestration layer for LLM interactions. Courses that set `"useBedrock": true` in `chat-config.json` call **Amazon Bedrock** (`ConverseStream`) directly instead.
 
 **Frontend → Backend → Octopus → LLM → Response → Frontend**
 

@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
+import { OctavusClient, toSSEStream } from '@octavus/server-sdk';
 import {
   deriveTitle,
   readJsonFile,
@@ -12,6 +13,7 @@ import {
   buildSessionRecord,
   filterModels,
 } from './lib/helpers.js';
+import { usesBedrock } from './lib/provider.js';
 import {
   createBedrockClient,
   isBedrockConfigured,
@@ -35,17 +37,41 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SESSIONS_FILE = path.join(__dirname, 'chat-sessions.json');
 const CONFIG_FILE   = path.join(__dirname, 'chat-config.json');
 const MODELS_FILE   = path.join(__dirname, 'current-models.txt');
+const BEDROCK_MODELS_FILE = path.join(__dirname, 'current-models.bedrock.txt');
 const PROMPT_FILE   = path.join(__dirname, 'prompts', 'system.md');
 const UPLOADS_DIR   = path.join(__dirname, 'uploads');
 const app = express();
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
 
-// ── Bedrock client ────────────────────────────────────────────
+// ── Octavus client ────────────────────────────────────────────
+const octavus = new OctavusClient({
+  baseUrl: process.env.OCTAVUS_API_URL,
+  apiKey: process.env.OCTAVUS_API_KEY,
+});
+
+// Which deployed agent the server talks to. Defaults to "prod" so existing
+// deployments that only set the legacy OCTAVUS_AGENT_ID keep hitting their
+// production agent with no .env changes. Local development opts into the dev
+// agent via `npm run dev` (which sets AGENT_TARGET=dev). When a target-specific
+// ID is missing we fall back to the legacy OCTAVUS_AGENT_ID.
+const AGENT_TARGET = (process.env.AGENT_TARGET ?? 'prod').toLowerCase();
+if (AGENT_TARGET !== 'prod' && AGENT_TARGET !== 'dev') {
+  throw new Error(
+    `Invalid AGENT_TARGET "${process.env.AGENT_TARGET}". Expected "prod" or "dev".`,
+  );
+}
+const AGENT_ID =
+  (AGENT_TARGET === 'prod'
+    ? process.env.OCTAVUS_AGENT_ID_PROD
+    : process.env.OCTAVUS_AGENT_ID_DEV) ?? process.env.OCTAVUS_AGENT_ID;
+
+// ── Bedrock client (only used when chat-config has useBedrock: true) ──
 const bedrock = createBedrockClient();
 
 // ── Middleware ────────────────────────────────────────────────
-// Attachments arrive base64-encoded in the JSON body, so the limit has to allow
-// for roughly 4/3 of the raw file size.
+// Attachments for Bedrock arrive base64-encoded in the JSON body, so the limit
+// has to allow for roughly 4/3 of the raw file size. Octavus uploads use
+// presigned URLs and never hit this ceiling.
 app.use(express.json({ limit: '32mb' }));
 app.use('/design-system', express.static(path.join(__dirname, 'design-system')));
 app.use(UPLOADS_URL_PREFIX, express.static(UPLOADS_DIR));
@@ -55,16 +81,25 @@ app.use(express.static(path.join(__dirname, 'public')));
 const readConfig = () => readJsonFile(CONFIG_FILE);
 
 app.get('/api/config', async (_req, res) => {
-  res.json(await readConfig());
+  const config = await readConfig();
+  // Echo the resolved flag so the client can pick OctavusChat vs ChatStore
+  // without re-deriving truthiness rules.
+  res.json({ ...config, useBedrock: usesBedrock(config) });
 });
 
 // ── Models ─────────────────────────────────────────────────────
 app.get('/api/models', async (_req, res) => {
   try {
-    const [raw, config] = await Promise.all([
-      fs.readFile(MODELS_FILE, 'utf8'),
-      readConfig(),
-    ]);
+    const config = await readConfig();
+    const modelsPath = usesBedrock(config) ? BEDROCK_MODELS_FILE : MODELS_FILE;
+    let raw;
+    try {
+      raw = await fs.readFile(modelsPath, 'utf8');
+    } catch {
+      // Bedrock courses without a synced list can still fall back to the
+      // Octavus file; filterModels + allowedModels then decide what shows.
+      raw = await fs.readFile(MODELS_FILE, 'utf8');
+    }
     res.json({ models: filterModels(raw, config.allowedModels, config.allowedModelFamilies) });
   } catch {
     res.json({ models: [] });
@@ -72,8 +107,6 @@ app.get('/api/models', async (_req, res) => {
 });
 
 // ── Session file helpers ──────────────────────────────────────
-// readJsonFile only falls back when the read or parse fails, so a file that
-// parses to something without a `sessions` array still needs normalizing.
 async function readSessionsFile() {
   const data = await readJsonFile(SESSIONS_FILE, { sessions: [] });
   if (!Array.isArray(data.sessions)) data.sessions = [];
@@ -81,12 +114,24 @@ async function readSessionsFile() {
 }
 const writeSessionsFile = (data) => writeJsonFile(SESSIONS_FILE, data);
 
-// Sessions are local records now: there is no remote session to create, so the
-// id is minted here and the generation settings ride along on the record.
 async function createNewSession(options = {}) {
   const config = await readConfig();
-  const settings = buildSessionInput(options, config);
-  const record = buildSessionRecord(randomUUID(), settings);
+  const input = buildSessionInput(options, config);
+
+  let sessionId;
+  if (usesBedrock(config)) {
+    // Bedrock is stateless — mint a local id and persist generation settings
+    // on the record so later turns can rebuild the Converse request.
+    sessionId = randomUUID();
+    console.log('[session] Creating Bedrock session with settings:', JSON.stringify(input));
+  } else {
+    console.log('[session] Creating Octavus session with input:', JSON.stringify(input));
+    sessionId = await octavus.agentSessions.create(AGENT_ID, input);
+  }
+
+  const record = usesBedrock(config)
+    ? buildSessionRecord(sessionId, input)
+    : buildSessionRecord(sessionId);
   const data = await readSessionsFile();
   // With history hidden there is only ever one conversation; drop the rest.
   data.sessions = config.hideHistory ? [record] : [...data.sessions, record];
@@ -94,9 +139,19 @@ async function createNewSession(options = {}) {
   return record;
 }
 
+function providerReady(config) {
+  if (usesBedrock(config)) {
+    return isBedrockConfigured()
+      ? { ok: true }
+      : { ok: false, error: 'Bedrock credentials are not configured' };
+  }
+  return AGENT_ID
+    ? { ok: true }
+    : { ok: false, error: 'OCTAVUS_AGENT_ID is not configured' };
+}
+
 // ── GET /api/sessions ─────────────────────────────────────────
-// Lists all sessions (id, title, timestamps) sorted newest first.
-app.get('/api/sessions', async (req, res) => {
+app.get('/api/sessions', async (_req, res) => {
   const data = await readSessionsFile();
   const list = data.sessions
     .map((s) => ({
@@ -110,28 +165,23 @@ app.get('/api/sessions', async (req, res) => {
 });
 
 // ── GET /api/session ──────────────────────────────────────────
-// Returns a specific session by ?id=, the most recently updated, or creates one.
 app.get('/api/session', async (req, res) => {
-  if (!isBedrockConfigured()) {
-    return res.status(503).json({ error: 'Bedrock credentials are not configured' });
-  }
+  const config = await readConfig();
+  const ready = providerReady(config);
+  if (!ready.ok) return res.status(503).json({ error: ready.error });
 
   const data = await readSessionsFile();
-  const config = await readConfig();
 
-  // Load a specific session when ?id= is provided
   if (req.query.id) {
     const session = data.sessions.find((s) => s.session_id === req.query.id);
     if (!session) return res.status(404).json({ error: 'Session not found' });
     return res.json({ sessionId: session.session_id, messages: session.messages });
   }
 
-  // Resume the most recently updated session
   if (data.sessions.length > 0) {
     const latest = data.sessions.reduce((a, b) =>
       (a.updated_at || a.created_at) > (b.updated_at || b.created_at) ? a : b,
     );
-    // With history hidden, keep only the resumed session; discard any others.
     if (config.hideHistory && data.sessions.length > 1) {
       data.sessions = [latest];
       await writeSessionsFile(data);
@@ -139,7 +189,6 @@ app.get('/api/session', async (req, res) => {
     return res.json({ sessionId: latest.session_id, messages: latest.messages });
   }
 
-  // No stored session — create one
   try {
     const record = await createNewSession();
     res.json({ sessionId: record.session_id, messages: [] });
@@ -150,11 +199,11 @@ app.get('/api/session', async (req, res) => {
 });
 
 // ── POST /api/sessions ────────────────────────────────────────
-// Creates a brand-new local session record and adds it to the file.
 app.post('/api/sessions', async (req, res) => {
-  if (!isBedrockConfigured()) {
-    return res.status(503).json({ error: 'Bedrock credentials are not configured' });
-  }
+  const config = await readConfig();
+  const ready = providerReady(config);
+  if (!ready.ok) return res.status(503).json({ error: ready.error });
+
   try {
     const record = await createNewSession({
       model: req.body.model,
@@ -174,6 +223,7 @@ app.delete('/api/sessions/:sessionId', async (req, res) => {
   const data = await readSessionsFile();
   data.sessions = data.sessions.filter((s) => s.session_id !== sessionId);
   await writeSessionsFile(data);
+  // Local uploads only exist in Bedrock mode; force:true makes this a no-op otherwise.
   await deleteSessionAttachments(UPLOADS_DIR, sessionId).catch((err) =>
     console.warn('[sessions] Could not remove uploads:', err?.message),
   );
@@ -181,8 +231,6 @@ app.delete('/api/sessions/:sessionId', async (req, res) => {
 });
 
 // ── POST /api/session/fork ────────────────────────────────────
-// Creates a new session, seeds it with the supplied messages, and removes the
-// old session record. Used by regenerate / edit-and-resend.
 app.post('/api/session/fork', async (req, res) => {
   const { oldSessionId, messages, model, temperature, thinking } = req.body;
   if (!oldSessionId || !Array.isArray(messages)) {
@@ -209,7 +257,6 @@ app.post('/api/session/fork', async (req, res) => {
 });
 
 // ── POST /api/session/save ────────────────────────────────────
-// Receives the full serialised message list and writes it into chat-sessions.json.
 app.post('/api/session/save', async (req, res) => {
   const { sessionId, messages } = req.body;
   if (!sessionId || !Array.isArray(messages)) {
@@ -235,7 +282,6 @@ app.post('/api/session/save', async (req, res) => {
       });
     }
 
-    // With history hidden, only the current conversation is ever persisted.
     if (config.hideHistory) {
       data.sessions = data.sessions.filter((s) => s.session_id === sessionId);
     }
@@ -248,9 +294,22 @@ app.post('/api/session/save', async (req, res) => {
   }
 });
 
-// ── POST /api/upload ──────────────────────────────────────────
-// Stores base64 attachments on disk and returns the refs the client keeps in
-// the transcript. Their bytes are re-read and inlined on every Converse turn.
+// ── POST /api/upload-urls (Octavus) ───────────────────────────
+app.post('/api/upload-urls', async (req, res) => {
+  const { sessionId, files } = req.body;
+  if (!sessionId || !Array.isArray(files)) {
+    return res.status(400).json({ error: 'sessionId and files[] are required' });
+  }
+  try {
+    const result = await octavus.files.getUploadUrls(sessionId, files);
+    res.json(result);
+  } catch (err) {
+    console.error('[upload-urls] Error:', err);
+    res.status(500).json({ error: 'Failed to get upload URLs' });
+  }
+});
+
+// ── POST /api/upload (Bedrock) ────────────────────────────────
 app.post('/api/upload', async (req, res) => {
   const { sessionId, files } = req.body;
   if (!sessionId || !Array.isArray(files)) {
@@ -269,13 +328,46 @@ app.post('/api/upload', async (req, res) => {
 });
 
 // ── POST /api/trigger ─────────────────────────────────────────
-// Streams one assistant turn from Bedrock as SSE.
-//
-// The client sends the conversation it is displaying rather than the server
-// reading it back from disk: transcript writes are throttled, so the on-disk
-// copy can lag the newest turn, and regenerate/edit need to replay a
-// deliberately truncated history.
 app.post('/api/trigger', async (req, res) => {
+  const config = await readConfig();
+  if (usesBedrock(config)) {
+    return triggerBedrock(req, res, config);
+  }
+  return triggerOctavus(req, res);
+});
+
+async function triggerOctavus(req, res) {
+  const { sessionId, ...payload } = req.body;
+
+  if (!sessionId) {
+    return res.status(400).json({ error: 'sessionId is required' });
+  }
+
+  const session = octavus.agentSessions.attach(sessionId);
+  const events = session.execute(payload);
+  const stream = toSSEStream(events);
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+
+  const reader = stream.getReader();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(value);
+    }
+  } catch (err) {
+    console.error('[trigger] Stream error:', err);
+  } finally {
+    reader.releaseLock();
+    res.end();
+  }
+}
+
+async function triggerBedrock(req, res, config) {
   const { sessionId, text = '', files = [], history = [] } = req.body;
 
   if (!sessionId) {
@@ -285,11 +377,8 @@ app.post('/api/trigger', async (req, res) => {
     return res.status(503).json({ error: 'Bedrock credentials are not configured' });
   }
 
-  const config = await readConfig();
   const data = await readSessionsFile();
   const session = data.sessions.find((s) => s.session_id === sessionId);
-  // A session created before this request should always be on disk; falling back
-  // to config defaults keeps a stale client from failing outright.
   const settings = session?.settings ?? buildSessionInput({}, config);
 
   const modelId = settings.MODEL || config.model;
@@ -311,8 +400,6 @@ app.post('/api/trigger', async (req, res) => {
     return res.status(400).json({ error: 'Nothing to send' });
   }
 
-  // Stop paying for tokens the moment the browser goes away (tab closed, or the
-  // user pressed stop, which aborts the fetch).
   const controller = new AbortController();
   res.on('close', () => controller.abort());
 
@@ -328,10 +415,6 @@ app.post('/api/trigger', async (req, res) => {
     abortSignal: controller.signal,
   })[Symbol.asyncIterator]();
 
-  // Pull the first event before committing to a 200 + event-stream response.
-  // The setup failures that matter most — bad credentials, model access not
-  // granted, unknown model id, a malformed request — all surface here, and
-  // they deserve a real status code rather than an error buried in the stream.
   let first;
   try {
     first = await events.next();
@@ -362,16 +445,25 @@ app.post('/api/trigger', async (req, res) => {
   } finally {
     res.end();
   }
-});
+}
 
 if (process.env.NODE_ENV !== 'test') {
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, async () => {
     console.log(`ChatCPT running at http://localhost:${PORT}`);
-    console.log(`[bedrock] region=${bedrockRegion()}`);
-    if (!isBedrockConfigured()) {
-      console.warn(
-        '[WARN] BEDROCK_AWS_ACCESS_KEY_ID / BEDROCK_AWS_SECRET_ACCESS_KEY are not set — chat will not work until they are configured (or set BEDROCK_AWS_USE_DEFAULT_CREDENTIALS=true to use an IAM role).',
-      );
+    const config = await readConfig();
+    if (usesBedrock(config)) {
+      console.log(`[provider] bedrock (region=${bedrockRegion()})`);
+      if (!isBedrockConfigured()) {
+        console.warn(
+          '[WARN] useBedrock is true but BEDROCK_AWS_ACCESS_KEY_ID / BEDROCK_AWS_SECRET_ACCESS_KEY are not set — chat will not work until they are configured (or set BEDROCK_AWS_USE_DEFAULT_CREDENTIALS=true).',
+        );
+      }
+    } else {
+      console.log(`[provider] octavus target=${AGENT_TARGET}${AGENT_ID ? ` (agent ${AGENT_ID})` : ''}`);
+      if (!AGENT_ID) {
+        const expected = `OCTAVUS_AGENT_ID_${AGENT_TARGET.toUpperCase()}`;
+        console.warn(`[WARN] ${expected} is not set — chat will not work until it is configured.`);
+      }
     }
   });
   server.on('error', (err) => {

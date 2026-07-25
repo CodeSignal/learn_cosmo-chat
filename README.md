@@ -19,14 +19,15 @@ A lightweight, hands-on chat interface for teaching effective AI prompting. Stud
 | Frontend | Vanilla JS, HTML, CSS — no framework |
 | Design system | [CodeSignal Bespoke Design System](https://github.com/CodeSignal/learn_bespoke-design-system) (git submodule) |
 | Backend | Node.js + Express |
-| Model inference | Amazon Bedrock (`ConverseStream`) via `@aws-sdk/client-bedrock-runtime` |
+| AI orchestration | Octavus (default) or Amazon Bedrock when `useBedrock: true` |
 | Markdown | `marked` + `highlight.js` |
 | Bundler | `esbuild` |
 
 ## Prerequisites
 
 - Node.js 18+
-- An AWS account with Amazon Bedrock access in your chosen region
+- For the default (Octavus) path: an Octavus API key and deployed agent
+- For AWS courses (`useBedrock: true`): an AWS account with Amazon Bedrock access in your chosen region
 
 ## Setup
 
@@ -51,11 +52,23 @@ npm install
 
 ### 3. Configure environment
 
-Copy the example file and fill in your values:
+Copy the example file and fill in the credentials for the backend this course uses:
 
 ```bash
 cp .env.example .env
 ```
+
+**Octavus (default — existing courses):**
+
+```env
+OCTAVUS_API_URL=https://octavus.ai
+OCTAVUS_API_KEY=oct_sk_your_key_here
+AGENT_TARGET=prod
+OCTAVUS_AGENT_ID_DEV=your_dev_agent_id
+OCTAVUS_AGENT_ID_PROD=your_prod_agent_id
+```
+
+**Amazon Bedrock (only when `chat-config.json` has `"useBedrock": true`):**
 
 ```env
 BEDROCK_AWS_ACCESS_KEY_ID=AKIA...
@@ -63,21 +76,11 @@ BEDROCK_AWS_SECRET_ACCESS_KEY=your_secret_here
 BEDROCK_AWS_REGION=us-east-1
 ```
 
-The variables are `BEDROCK_`-prefixed rather than the standard `AWS_` names so this app can use a dedicated Bedrock principal without interfering with other AWS tooling on the same machine. They are passed to the SDK explicitly, which also prevents an unrelated `~/.aws` profile from being picked up silently.
+The Bedrock variables are `BEDROCK_`-prefixed rather than the standard `AWS_` names so this app can use a dedicated Bedrock principal without interfering with other AWS tooling on the same machine.
 
 > **Never commit `.env`** — it is listed in `.gitignore`. Use `.env.example` as the committed reference.
 
-See [Amazon Bedrock setup](#amazon-bedrock-setup) for IAM permissions and model access.
-
-### 4. Choose your models
-
-`current-models.txt` ships with a small starter list. Replace it with the models your own account can actually invoke:
-
-```bash
-npm run sync:models
-```
-
-Then set `model` and `allowedModels` in `chat-config.json` to ids from that list.
+See [Agent deployment](#agent-deployment-dev-vs-prod) for Octavus agent targets, and [Amazon Bedrock setup](#amazon-bedrock-setup) for IAM / model access.
 
 ## Running
 
@@ -111,11 +114,12 @@ cp chat-config.example.json chat-config.json
 
 | Key | Type | Default | Description |
 |---|---|---|---|
+| `useBedrock` | `boolean` | `false` | When `true`, the course uses Amazon Bedrock instead of Octavus. **Omit this (or set `false`) on existing courses** so they keep working unchanged. Only AWS courses should turn it on. |
 | `initialPrompt` | `string` | `""` | Text pre-populated in the composer on every page load and new chat. |
-| `model` | `string` | first available | Default model ID used when creating new sessions. |
-| `allowedModels` | `string[]` | `[]` (all) | Whitelist of exact model IDs for the picker. Empty means all models from `current-models.txt`. |
+| `model` | `string` | first available | Default model ID used when creating new sessions. Use Octavus ids (`anthropic/...`) unless `useBedrock` is true, then use Bedrock inference-profile ids (`us.anthropic...`). |
+| `allowedModels` | `string[]` | `[]` (all) | Whitelist of exact model IDs for the picker. Empty means all models from the active models file (`current-models.txt`, or `current-models.bedrock.txt` when `useBedrock` is true). |
 | `allowedModelFamilies` | `string[]` | `[]` (all) | Filter models by provider (e.g. `["anthropic", "amazon"]`). Matches both `provider/model` and Bedrock's dotted `us.provider.model` ids. Can be combined with `allowedModels`. |
-| `modelDisplayNames` | `object` | `{}` | Map of model ID to display label shown in the dropdown (e.g. `{"us.anthropic.claude-sonnet-4-6": "Claude Sonnet 4.6"}`). Models without an entry show the raw id. |
+| `modelDisplayNames` | `object` | `{}` | Map of model ID to display label shown in the dropdown (e.g. `{"anthropic/claude-sonnet-4-6": "Claude Sonnet 4.6"}`). Models without an entry show the raw id. |
 | `temperature` | `number` | `0.7` | Controls randomness (0–2). Lower = more focused, higher = more creative. Ignored when thinking is enabled. |
 | `systemPromptExtra` | `string` | `""` | Additional instructions appended to Cosmo's system prompt at session creation. |
 | `verbosity` | `string \| null` | _(none)_ | Controls how verbose responses are. One of `"concise"`, `"normal"`, `"detailed"`, or `"verbose"`. When omitted (or set to `null`), the `{{VERBOSITY_INSTRUCTIONS}}` placeholder in `prompts/system.md` falls back to its built-in default (`"Be clear, concise, and conversational"`) rather than being left in the prompt verbatim. |
@@ -128,30 +132,69 @@ cp chat-config.example.json chat-config.json
 | `hideFileUpload` | `boolean` | `false` | Hide the image and file attachment buttons from the composer. |
 | `hidePromptControls` | `boolean` | `false` | Hide stop, regenerate, and edit controls for a classic chat experience. |
 
-**Example `chat-config.json`:**
+**Example `chat-config.json` (existing / Octavus courses — no new fields required):**
 
 ```json
 {
   "initialPrompt": "Write a prompt that asks Cosmo to explain what a large language model is.",
-  "model": "us.anthropic.claude-sonnet-4-6",
-  "allowedModels": ["us.anthropic.claude-sonnet-4-6", "us.amazon.nova-2-lite-v1:0"],
-  "modelDisplayNames": {
-    "us.anthropic.claude-sonnet-4-6": "Claude Sonnet 4.6",
-    "us.amazon.nova-2-lite-v1:0": "Nova 2 Lite"
-  },
+  "model": "anthropic/claude-sonnet-4-6",
+  "allowedModels": ["anthropic/claude-sonnet-4-6", "openai/gpt-5"],
   "temperature": 0.7,
   "systemPromptExtra": "Focus all examples on Python.",
-  "verbosity": "detailed",
-  "title": "My AI Tutor",
-  "heading": "How can I help you today?",
-  "footer": "AI responses may be inaccurate. Always verify.",
-  "hideSettings": true,
-  "hideHistory": true,
-  "hideFileUpload": false
+  "verbosity": "detailed"
 }
 ```
 
+**AWS course example** — copy `chat-config.bedrock.example.json`, or start from:
+
+```json
+{
+  "useBedrock": true,
+  "model": "us.amazon.nova-2-lite-v1:0",
+  "allowedModels": [
+    "us.amazon.nova-2-lite-v1:0",
+    "us.anthropic.claude-sonnet-4-6"
+  ]
+}
+```
+
+Then run `npm run sync:models` to refresh `current-models.bedrock.txt` from your AWS account.
+
 > `chat-config.json` is committed to source control so you can version your configuration alongside the project. `chat-config.example.json` serves as a reference template.
+
+## Agent deployment (dev vs prod)
+
+The Cosmo agent definition lives in `agents/cosmo-tutor/` and is the **single source of truth**. To avoid local experiments leaking into production, the same definition is deployed to two separate agents in Octavus, distinguished by slug:
+
+| Target | Slug | Used by |
+|---|---|---|
+| dev | `cosmo-tutor-dev` | local development / testing (default) |
+| prod | `cosmo-tutor` | real users |
+
+There are **two independent switches**:
+
+1. **Deploy** — which agent the CLI writes your edited files to. The Octavus CLI targets an agent by the `slug` in `settings.json`, so `scripts/deploy-agent.mjs` stages a copy of the definition and rewrites only the slug/name for the chosen target (the prompts and `protocol.yaml` are never duplicated, so dev and prod cannot drift):
+
+   ```bash
+   npm run deploy:agent:dev    # syncs to cosmo-tutor-dev
+   npm run deploy:agent:prod   # syncs to cosmo-tutor (asks for confirmation)
+   npm run validate:agent      # dry-run validation only
+   ```
+
+   `deploy:agent:prod` requires confirmation: answer the interactive prompt, or pass `--yes` for CI (`node scripts/deploy-agent.mjs prod --yes`).
+
+2. **Runtime** — which deployed agent the running server talks to, selected by `AGENT_TARGET` (defaults to `prod`):
+
+   ```bash
+   npm run dev          # talks to the dev agent (the script sets AGENT_TARGET=dev)
+   npm start            # talks to the prod agent (AGENT_TARGET defaults to prod)
+   ```
+
+   The server reads `OCTAVUS_AGENT_ID_DEV` or `OCTAVUS_AGENT_ID_PROD` based on `AGENT_TARGET`. Find the IDs with `npx octavus --env .env list`.
+
+   **Backward compatibility:** the default is `prod`, and when the target-specific ID is missing the server falls back to the legacy `OCTAVUS_AGENT_ID`. So an existing `.env` that only defines `OCTAVUS_AGENT_ID` keeps working unchanged — it continues to talk to that (production) agent.
+
+Typical workflow: edit `agents/cosmo-tutor/*`, run `npm run deploy:agent:dev`, test locally (dev is the default), and only run `npm run deploy:agent:prod` once you're happy.
 
 ## Amazon Bedrock setup
 
@@ -218,47 +261,42 @@ Model inference is all Bedrock provides, so these capabilities are not available
 
 ```
 chat-cpt/
+├── agents/
+│   └── cosmo-tutor/          # Octavus agent definition (default backend)
 ├── prompts/
-│   └── system.md             # Cosmo's persona + instructions (Converse system prompt)
+│   └── system.md             # System prompt used when useBedrock is true
 ├── lib/
-│   ├── bedrock-client.js     # Credential resolution + client construction
-│   ├── bedrock-messages.js   # Stored transcript ⇄ Converse request mapping
-│   ├── bedrock-stream.js     # ConverseStream events → flat SSE events
-│   ├── system-prompt.js      # Prompt template rendering
-│   ├── attachments.js        # Local upload storage
-│   ├── helpers.js            # Session records, model filtering, verbosity
-│   └── stream-registry.js    # Concurrent-stream gating (shared with frontend)
+│   ├── provider.js           # useBedrock flag → backend selection
+│   ├── bedrock-*.js          # Bedrock client / messages / stream
+│   ├── attachments.js        # Local upload storage (Bedrock)
+│   ├── helpers.js
+│   └── stream-registry.js
 ├── design-system/            # Git submodule (CodeSignal Bespoke DS)
 ├── public/
-│   ├── index.html
-│   ├── app.js                # Frontend source (bundled by esbuild)
-│   ├── app.bundle.js         # Generated — do not edit directly
-│   ├── app.css
-│   └── lib/
-│       └── chat-store.js     # Observable message list + SSE consumer
+│   ├── app.js                # Frontend (OctavusChat or ChatStore)
+│   └── lib/chat-store.js     # Bedrock SSE consumer
 ├── scripts/
-│   └── sync-models.mjs       # Regenerates current-models.txt from your account
-├── server.js                 # Express server + Bedrock streaming endpoint
-├── current-models.txt        # Model ids offered in the picker
-├── chat-config.json          # Runtime configuration (see Configuration section)
-├── chat-config.example.json  # Reference template for chat-config.json
-├── chat-sessions.json        # Auto-generated session storage (gitignored)
-├── uploads/                  # Attachment storage (gitignored)
-├── .env                      # Secret credentials (gitignored)
+│   ├── deploy-agent.mjs      # Octavus agent deploy
+│   └── sync-models.mjs       # Regenerates current-models.bedrock.txt
+├── server.js                 # Shared Express routes; branches on useBedrock
+├── current-models.txt        # Octavus model ids
+├── current-models.bedrock.txt
+├── chat-config.example.json          # Default / Octavus template
+├── chat-config.bedrock.example.json  # AWS course template
 └── package.json
 ```
 
 ## How a turn works
 
-Bedrock is stateless — it has no concept of a conversation — so the full transcript is rebuilt and re-sent on every turn:
+**Octavus (default):** the browser uses `OctavusChat`, uploads go through `/api/upload-urls`, and `/api/trigger` proxies the agent SSE stream from Octavus.
+
+**Bedrock (`useBedrock: true`):** Bedrock is stateless — the full transcript is rebuilt and re-sent on every turn:
 
 1. The browser store appends the user message, then `POST /api/trigger` with `{ sessionId, text, files, history }`.
 2. The server renders `prompts/system.md`, maps the transcript to Converse content blocks (inlining attachment bytes from `uploads/`), and calls `ConverseStream`.
-3. The first stream event is awaited **before** response headers are sent, so credential and model-access failures return a real HTTP status instead of an error buried in the stream.
-4. Remaining events are forwarded as SSE frames (`text-delta`, `reasoning-delta`, `done`) and folded into the message list by `public/lib/chat-store.js`.
-5. The client persists the transcript to `chat-sessions.json` through `POST /api/session/save`, throttled during streaming and flushed at the end.
-
-The client sends the history rather than the server reading it from disk because transcript writes are throttled — the on-disk copy can lag the newest turn — and because regenerate/edit deliberately replay a truncated history.
+3. The first stream event is awaited **before** response headers are sent, so credential and model-access failures return a real status code.
+4. Remaining events are forwarded as SSE frames and folded into the message list by `public/lib/chat-store.js`.
+5. The client persists the transcript to `chat-sessions.json` through `POST /api/session/save`.
 
 ## Session Persistence
 
@@ -269,11 +307,6 @@ Conversations are stored in `chat-sessions.json` at the project root. This file 
   "session_id": "...",
   "created_at": "...",
   "updated_at": "...",
-  "settings": {
-    "MODEL": "us.anthropic.claude-sonnet-4-6",
-    "THINKING": "off",
-    "TEMPERATURE": 0.7
-  },
   "messages": [
     { "role": "user", "content": "...", "files": [], "timestamp": "..." },
     { "role": "assistant", "content": "...", "files": [], "timestamp": "..." }
@@ -282,9 +315,7 @@ Conversations are stored in `chat-sessions.json` at the project root. This file 
 }
 ```
 
-`settings` records the model, temperature, and reasoning level chosen when the session was created. Because Bedrock is stateless, these are re-sent on every turn and so must survive a page reload.
-
-Attachments are stored as files under `uploads/<session-id>/` and referenced from `messages[].files` by URL. Their bytes are re-read and inlined into each Converse request; deleting a conversation removes its upload directory too.
+When `useBedrock` is true, sessions also store a `settings` object (model / temperature / thinking) so those values survive a reload and can be re-sent on every Converse turn. Bedrock attachments live under `uploads/<session-id>/`.
 
 ## License
 

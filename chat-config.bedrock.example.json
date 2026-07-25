@@ -1,11 +1,17 @@
 {
+  "useBedrock": true,
   "initialPrompt": "Write a prompt that asks Cosmo to explain what a large language model is,\nusing simple analogies that a 10-year-old could understand.\n\nThen, iterate on the prompt until the explanation is both accurate and engaging.",
-  "model": "anthropic/claude-opus-4-7",
+  "model": "us.amazon.nova-2-lite-v1:0",
   "allowedModels": [
-    "anthropic/claude-opus-4-7",
-    "anthropic/claude-sonnet-4-6",
-    "openai/gpt-5"
+    "us.amazon.nova-2-lite-v1:0",
+    "us.anthropic.claude-sonnet-4-6",
+    "us.anthropic.claude-opus-4-6-v1"
   ],
+  "modelDisplayNames": {
+    "us.amazon.nova-2-lite-v1:0": "Nova 2 Lite",
+    "us.anthropic.claude-sonnet-4-6": "Claude Sonnet 4.6",
+    "us.anthropic.claude-opus-4-6-v1": "Claude Opus 4.6"
+  },
   "systemPromptExtra": "You are assisting students in a Python programming course. Focus all examples, analogies, and exercises on Python. When discussing prompting techniques, always relate them back to coding tasks.",
   "verbosity": "detailed"
 }

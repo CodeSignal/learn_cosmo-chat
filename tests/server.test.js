@@ -6,8 +6,25 @@ vi.mock('fs/promises', () => ({
   default: {
     readFile: vi.fn(),
     writeFile: vi.fn(),
+    mkdir: vi.fn(),
+    rm: vi.fn(),
   },
 }));
+
+vi.mock('@octavus/server-sdk', () => {
+  return {
+    OctavusClient: function () {
+      this.agentSessions = {
+        create: vi.fn().mockResolvedValue('new-session-id'),
+        attach: vi.fn().mockReturnValue({ execute: vi.fn() }),
+      };
+      this.files = {
+        getUploadUrls: vi.fn().mockResolvedValue({ urls: [] }),
+      };
+    },
+    toSSEStream: vi.fn(),
+  };
+});
 
 vi.mock('@aws-sdk/client-bedrock-runtime', () => ({
   BedrockRuntimeClient: function () {
@@ -22,31 +39,55 @@ vi.mock('dotenv/config', () => ({}));
 
 const fs = (await import('fs/promises')).default;
 
-// Set env vars before importing server
 process.env.NODE_ENV = 'test';
+process.env.OCTAVUS_API_URL = 'https://test.api';
+process.env.OCTAVUS_API_KEY = 'test-key';
+process.env.OCTAVUS_AGENT_ID = 'test-agent-id';
 process.env.BEDROCK_AWS_ACCESS_KEY_ID = 'test-access-key-id';
 process.env.BEDROCK_AWS_SECRET_ACCESS_KEY = 'test-secret-access-key';
 process.env.BEDROCK_AWS_REGION = 'us-east-1';
 
 const { app } = await import('../server.js');
 
+/** Default course config: Octavus (useBedrock omitted). */
+function mockOctavusConfig(extra = {}) {
+  fs.readFile.mockImplementation((path) => {
+    if (path.includes('chat-config')) {
+      return Promise.resolve(JSON.stringify({ model: 'anthropic/claude-3', ...extra }));
+    }
+    if (path.includes('current-models')) {
+      return Promise.resolve('openai/gpt-4o\nanthropic/claude-3\n');
+    }
+    if (path.includes('chat-sessions')) {
+      return Promise.resolve(JSON.stringify({ sessions: [] }));
+    }
+    return Promise.reject(new Error('ENOENT'));
+  });
+}
+
 // ── GET /api/config ───────────────────────────────────────────
 
 describe('GET /api/config', () => {
   beforeEach(() => vi.resetAllMocks());
 
-  it('returns parsed config from chat-config.json', async () => {
+  it('returns parsed config and useBedrock: false by default', async () => {
     fs.readFile.mockResolvedValue(JSON.stringify({ model: 'openai/gpt-4o', temperature: 0.5 }));
     const res = await request(app).get('/api/config');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ model: 'openai/gpt-4o', temperature: 0.5 });
+    expect(res.body).toEqual({ model: 'openai/gpt-4o', temperature: 0.5, useBedrock: false });
   });
 
-  it('returns empty object when config file is missing', async () => {
+  it('echoes useBedrock: true when the course opts in', async () => {
+    fs.readFile.mockResolvedValue(JSON.stringify({ useBedrock: true, model: 'us.amazon.nova-2-lite-v1:0' }));
+    const res = await request(app).get('/api/config');
+    expect(res.body.useBedrock).toBe(true);
+  });
+
+  it('returns useBedrock: false when config file is missing', async () => {
     fs.readFile.mockRejectedValue(new Error('ENOENT'));
     const res = await request(app).get('/api/config');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({});
+    expect(res.body).toEqual({ useBedrock: false });
   });
 });
 
@@ -56,22 +97,14 @@ describe('GET /api/models', () => {
   beforeEach(() => vi.resetAllMocks());
 
   it('returns parsed models from text file', async () => {
-    fs.readFile.mockImplementation((path) => {
-      if (path.includes('current-models')) return Promise.resolve('openai/gpt-4o\nanthropic/claude-3\n');
-      if (path.includes('chat-config')) return Promise.resolve('{}');
-      return Promise.reject(new Error('ENOENT'));
-    });
+    mockOctavusConfig();
     const res = await request(app).get('/api/models');
     expect(res.status).toBe(200);
     expect(res.body.models).toEqual(['openai/gpt-4o', 'anthropic/claude-3']);
   });
 
   it('filters models by allowedModels config', async () => {
-    fs.readFile.mockImplementation((path) => {
-      if (path.includes('current-models')) return Promise.resolve('openai/gpt-4o\nanthropic/claude-3\n');
-      if (path.includes('chat-config')) return Promise.resolve(JSON.stringify({ allowedModels: ['openai/gpt-4o'] }));
-      return Promise.reject(new Error('ENOENT'));
-    });
+    mockOctavusConfig({ allowedModels: ['openai/gpt-4o'] });
     const res = await request(app).get('/api/models');
     expect(res.status).toBe(200);
     expect(res.body.models).toEqual(['openai/gpt-4o']);
@@ -135,7 +168,10 @@ describe('GET /api/session', () => {
         { session_id: 'target', messages: [{ role: 'user', content: 'Hello' }] },
       ],
     };
-    fs.readFile.mockResolvedValue(JSON.stringify(sessions));
+    fs.readFile.mockImplementation((path) => {
+      if (path.includes('chat-config')) return Promise.resolve('{}');
+      return Promise.resolve(JSON.stringify(sessions));
+    });
     const res = await request(app).get('/api/session?id=target');
     expect(res.status).toBe(200);
     expect(res.body.sessionId).toBe('target');
@@ -143,7 +179,10 @@ describe('GET /api/session', () => {
   });
 
   it('returns 404 when requested session id is not found', async () => {
-    fs.readFile.mockResolvedValue(JSON.stringify({ sessions: [] }));
+    fs.readFile.mockImplementation((path) => {
+      if (path.includes('chat-config')) return Promise.resolve('{}');
+      return Promise.resolve(JSON.stringify({ sessions: [] }));
+    });
     const res = await request(app).get('/api/session?id=nonexistent');
     expect(res.status).toBe(404);
   });
@@ -155,7 +194,10 @@ describe('GET /api/session', () => {
         { session_id: 'newer', created_at: '2026-06-01', updated_at: '2026-06-01', messages: [] },
       ],
     };
-    fs.readFile.mockResolvedValue(JSON.stringify(sessions));
+    fs.readFile.mockImplementation((path) => {
+      if (path.includes('chat-config')) return Promise.resolve('{}');
+      return Promise.resolve(JSON.stringify(sessions));
+    });
     const res = await request(app).get('/api/session');
     expect(res.status).toBe(200);
     expect(res.body.sessionId).toBe('newer');
@@ -241,6 +283,24 @@ describe('POST /api/session/save', () => {
   });
 });
 
+// ── POST /api/upload-urls ─────────────────────────────────────
+
+describe('POST /api/upload-urls', () => {
+  it('returns 400 when sessionId is missing', async () => {
+    const res = await request(app)
+      .post('/api/upload-urls')
+      .send({ files: [] });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when files is missing', async () => {
+    const res = await request(app)
+      .post('/api/upload-urls')
+      .send({ sessionId: 's1' });
+    expect(res.status).toBe(400);
+  });
+});
+
 // ── POST /api/upload ──────────────────────────────────────────
 
 describe('POST /api/upload', () => {
@@ -265,16 +325,20 @@ describe('POST /api/trigger', () => {
   beforeEach(() => vi.resetAllMocks());
 
   it('returns 400 when sessionId is missing', async () => {
+    fs.readFile.mockResolvedValue('{}');
     const res = await request(app)
       .post('/api/trigger')
-      .send({ text: 'hello' });
+      .send({ message: 'hello' });
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 when there is nothing to send', async () => {
+  it('returns 400 when Bedrock mode has nothing to send', async () => {
     fs.readFile.mockImplementation((path) => {
       if (path.includes('chat-config')) {
-        return Promise.resolve(JSON.stringify({ model: 'us.anthropic.claude-sonnet-4-6' }));
+        return Promise.resolve(JSON.stringify({
+          useBedrock: true,
+          model: 'us.anthropic.claude-sonnet-4-6',
+        }));
       }
       if (path.includes('chat-sessions')) return Promise.resolve(JSON.stringify({ sessions: [] }));
       return Promise.resolve('system prompt');
@@ -283,13 +347,5 @@ describe('POST /api/trigger', () => {
       .post('/api/trigger')
       .send({ sessionId: 's1', text: '   ', files: [], history: [] });
     expect(res.status).toBe(400);
-  });
-
-  it('returns 500 when no model is configured', async () => {
-    fs.readFile.mockResolvedValue('{}');
-    const res = await request(app)
-      .post('/api/trigger')
-      .send({ sessionId: 's1', text: 'hello', history: [] });
-    expect(res.status).toBe(500);
   });
 });

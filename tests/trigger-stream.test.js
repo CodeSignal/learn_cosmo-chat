@@ -21,6 +21,17 @@ vi.mock('@aws-sdk/client-bedrock-runtime', () => ({
   },
 }));
 
+vi.mock('@octavus/server-sdk', () => ({
+  OctavusClient: function () {
+    this.agentSessions = {
+      create: vi.fn(),
+      attach: vi.fn().mockReturnValue({ execute: vi.fn() }),
+    };
+    this.files = { getUploadUrls: vi.fn() };
+  },
+  toSSEStream: vi.fn(),
+}));
+
 vi.mock('fs/promises', () => ({
   default: { readFile: vi.fn(), writeFile: vi.fn(), mkdir: vi.fn(), rm: vi.fn() },
 }));
@@ -30,6 +41,9 @@ vi.mock('dotenv/config', () => ({}));
 const fs = (await import('fs/promises')).default;
 
 process.env.NODE_ENV = 'test';
+process.env.OCTAVUS_API_URL = 'https://test.api';
+process.env.OCTAVUS_API_KEY = 'test-key';
+process.env.OCTAVUS_AGENT_ID = 'test-agent-id';
 process.env.BEDROCK_AWS_ACCESS_KEY_ID = 'test-access-key-id';
 process.env.BEDROCK_AWS_SECRET_ACCESS_KEY = 'test-secret-access-key';
 
@@ -60,7 +74,7 @@ const SESSION = {
   messages: [],
 };
 
-function mockFiles({ session = SESSION, config = {} } = {}) {
+function mockFiles({ session = SESSION, config = { useBedrock: true } } = {}) {
   fs.readFile.mockImplementation((p) => {
     if (p.includes('chat-config')) return Promise.resolve(JSON.stringify(config));
     if (p.includes('chat-sessions')) {
@@ -202,7 +216,10 @@ describe('POST /api/trigger streaming', () => {
   });
 
   it('falls back to the configured model when the session is unknown', async () => {
-    mockFiles({ session: null, config: { model: 'us.amazon.nova-2-lite-v1:0' } });
+    mockFiles({
+      session: null,
+      config: { useBedrock: true, model: 'us.amazon.nova-2-lite-v1:0' },
+    });
     bedrockSend.mockResolvedValue(fakeStream([{ messageStop: { stopReason: 'end_turn' } }]));
 
     await request(app).post('/api/trigger').send({ sessionId: 'gone', text: 'hi', history: [] });

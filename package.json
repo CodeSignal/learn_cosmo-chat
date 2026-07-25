@@ -8,7 +8,11 @@
     "build": "esbuild public/app.js --bundle --outfile=public/app.bundle.js --format=esm --platform=browser",
     "build:watch": "esbuild public/app.js --bundle --outfile=public/app.bundle.js --format=esm --platform=browser --watch",
     "start": "npm run build && node server.js",
-    "dev": "npm run build && concurrently -k -n client,server -c blue,green \"npm:build:watch\" \"node --watch server.js\"",
+    "start:prod": "npm run build && cross-env AGENT_TARGET=prod node server.js",
+    "dev": "npm run build && concurrently -k -n client,server -c blue,green \"npm:build:watch\" \"cross-env AGENT_TARGET=dev node --watch server.js\"",
+    "validate:agent": "octavus --env .env validate ./agents/cosmo-tutor",
+    "deploy:agent:dev": "node scripts/deploy-agent.mjs dev",
+    "deploy:agent:prod": "node scripts/deploy-agent.mjs prod",
     "sync:models": "node scripts/sync-models.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -16,6 +20,8 @@
   "dependencies": {
     "@aws-sdk/client-bedrock": "^3.1095.0",
     "@aws-sdk/client-bedrock-runtime": "^3.1095.0",
+    "@octavus/client-sdk": "^3.7.0",
+    "@octavus/server-sdk": "^3.7.0",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "highlight.js": "^11.11.1",
@@ -23,6 +29,7 @@
     "marked-highlight": "^2.2.4"
   },
   "devDependencies": {
+    "@octavus/cli": "^3.7.0",
     "concurrently": "^10.0.1",
     "cross-env": "^7.0.3",
     "esbuild": "^0.28.0",

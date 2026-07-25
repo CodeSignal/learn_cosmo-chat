@@ -1,6 +1,7 @@
 /**
- * Regenerates current-models.txt from the models your AWS account can actually
- * invoke in BEDROCK_AWS_REGION.
+ * Regenerates current-models.bedrock.txt from the models your AWS account can
+ * actually invoke in BEDROCK_AWS_REGION. The Octavus list in current-models.txt
+ * is left alone — Bedrock courses opt in via `"useBedrock": true`.
  *
  * Model ids and regional availability change often, and some models cannot be
  * invoked by their base id at all (they require an inference profile), so the
@@ -21,7 +22,7 @@ import {
 import { readBedrockCredentials, bedrockRegion } from '../lib/bedrock-client.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUTPUT_FILE = path.join(__dirname, '..', 'current-models.txt');
+const OUTPUT_FILE = path.join(__dirname, '..', 'current-models.bedrock.txt');
 
 const region = bedrockRegion();
 const credentials = readBedrockCredentials();
@@ -81,5 +82,5 @@ const lines = [
 
 await fs.writeFile(OUTPUT_FILE, lines.join('\n'));
 console.log(
-  `Wrote ${profiles.length + standalone.length} models to current-models.txt (region ${region}).`,
+  `Wrote ${profiles.length + standalone.length} models to current-models.bedrock.txt (region ${region}).`,
 );
