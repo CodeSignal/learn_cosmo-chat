@@ -750,6 +750,68 @@ body.is-resizing-sidebar {
   gap: var(--UI-Spacing-spacing-xs);
 }
 
+/* Model reasoning / chain-of-thought (shown when Thinking is on and the model emits it) */
+.message__thoughts {
+  flex: 0 1 auto;
+  width: 100%;
+  min-width: 0;
+  margin-bottom: var(--UI-Spacing-spacing-xs);
+  border-left: 2px solid var(--Colors-Border-Default, rgba(0, 0, 0, 0.12));
+  padding-left: var(--UI-Spacing-spacing-ms);
+}
+
+.message__thoughts-summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--UI-Spacing-spacing-xxs);
+  color: var(--Colors-Text-Body-Secondary);
+  user-select: none;
+  width: fit-content;
+}
+
+.message__thoughts-summary::-webkit-details-marker {
+  display: none;
+}
+
+.message__thoughts-summary::before {
+  content: '';
+  display: inline-block;
+  width: 0.4em;
+  height: 0.4em;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+  margin-top: -0.1em;
+}
+
+.message__thoughts[open] > .message__thoughts-summary::before {
+  transform: rotate(45deg);
+}
+
+.message__thoughts-summary-label {
+  font-weight: 500;
+}
+
+.message__thoughts-body {
+  margin-top: var(--UI-Spacing-spacing-xs);
+  color: var(--Colors-Text-Body-Secondary);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message__thoughts-summary::before {
+    transition: none;
+  }
+}
+
 .message__body p { margin: 0 0 var(--UI-Spacing-spacing-xs); }
 .message__body p:last-child { margin-bottom: 0; }
 .message__body ul,

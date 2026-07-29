@@ -851,6 +851,42 @@ function renderImagePlaceholderBody() {
     `;
 }
 
+/** Escape text for safe insertion into HTML attribute/text contexts. */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Whether to surface model reasoning/thoughts in the UI.
+ * Course authors can opt out with `showReasoning: false`. When thinking is off,
+ * models typically won't emit reasoning — but historical thoughts still show if present.
+ */
+function shouldShowReasoning() {
+  return chatConfig.showReasoning !== false;
+}
+
+/**
+ * Collapsible "Thoughts" block for assistant reasoning parts.
+ * Open while streaming so learners can watch the chain of thought; collapsed when done.
+ */
+function renderThoughtsBlock(reasoningText, { streaming = false } = {}) {
+  const openAttr = streaming ? ' open' : '';
+  const summaryLabel = streaming ? t('Thinking…') : t('Thoughts');
+  const body = escapeHtml(reasoningText).replace(/\n/g, '<br>');
+  return `
+    <details class="message__thoughts"${openAttr}>
+      <summary class="message__thoughts-summary body-xsmall">
+        <span class="message__thoughts-summary-label">${escapeHtml(summaryLabel)}</span>
+      </summary>
+      <div class="message__thoughts-body body-small">${body}</div>
+    </details>
+  `;
+}
+
 /**
  * Label shown next to the avatar while streaming (no three-dot animation).
  * @returns {{ label: string, icon: string | null, isImage: boolean }}
@@ -912,12 +948,22 @@ function renderMessages(liveMessages, status) {
     if (msg.role === 'assistant') {
       const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
       const fileParts = msg.parts.filter((p) => p.type === 'file');
+      const reasoningParts = msg.parts.filter((p) => p.type === 'reasoning');
+      const reasoningText = reasoningParts.map((p) => p.text).join('');
+      const reasoningStreaming = reasoningParts.some(
+        (p) => p.status === 'streaming' || p.status === 'pending',
+      );
       const streaming = msg.status === 'streaming';
       const hasText = text.trim().length > 0;
+      const hasReasoning = reasoningText.trim().length > 0 || reasoningStreaming;
+      const showThoughts = shouldShowReasoning() && hasReasoning;
       const renderedHtml = stripEmojisFromHtml(
         stripHeadingLeadDecorationsFromHtml(marked.parse(text)),
       );
       const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
+      const thoughtsHtml = showThoughts
+        ? renderThoughtsBlock(reasoningText, { streaming: streaming && (reasoningStreaming || !hasText) })
+        : '';
 
       const isImageGen = isImageGenerationLoading(msg.parts);
 
@@ -956,6 +1002,7 @@ function renderMessages(liveMessages, status) {
 
       row.className = streaming ? 'message message--ai message--ai--streaming' : 'message message--ai';
       row.innerHTML = `
+        ${thoughtsHtml}
         <div class="message__body body-medium markdown">
           ${bodyContent}
         </div>
@@ -1529,14 +1576,21 @@ async function startNewChat() {
 function serializeLiveMessages(liveMessages) {
   return liveMessages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({
-      role: m.role,
-      content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
-      files: m.parts
-        .filter((p) => p.type === 'file')
-        .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
-      timestamp: new Date().toISOString(),
-    }));
+    .map((m) => {
+      const reasoning = m.parts
+        .filter((p) => p.type === 'reasoning')
+        .map((p) => p.text)
+        .join('');
+      return {
+        role: m.role,
+        content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
+        ...(reasoning ? { reasoning } : {}),
+        files: m.parts
+          .filter((p) => p.type === 'file')
+          .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
+        timestamp: new Date().toISOString(),
+      };
+    });
 }
 
 // The full conversation in storage shape: pre-load history followed by
@@ -1842,6 +1896,7 @@ function storedToDisplayMsg(m) {
     status: 'done',
     stopped: m.stopped || false,
     parts: [
+      ...(m.reasoning ? [{ type: 'reasoning', text: m.reasoning, status: 'done' }] : []),
       ...(m.content ? [{ type: 'text', text: m.content }] : []),
       ...(m.files ?? []).map((f) => ({ type: 'file', ...f })),
     ],

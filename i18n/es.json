@@ -27,6 +27,7 @@
     "Chat cannot start: the server is missing Octavus configuration. Create a .env in the project root with OCTAVUS_API_URL, OCTAVUS_API_KEY, and OCTAVUS_AGENT_ID, then stop the dev server completely and run npm run dev again (environment variables load only at startup).": "El chat no puede iniciarse: al servidor le falta la configuración de Octavus. Crea un archivo .env en la raíz del proyecto con OCTAVUS_API_URL, OCTAVUS_API_KEY y OCTAVUS_AGENT_ID, luego detén por completo el servidor de desarrollo y ejecuta npm run dev de nuevo (las variables de entorno se cargan solo al iniciar).",
     "Could not start the app. Make sure npm run dev is running and check the browser console for details.": "No se pudo iniciar la aplicación. Asegúrate de que npm run dev esté en ejecución y revisa la consola del navegador para más detalles.",
     "Thinking…": "Pensando…",
+    "Thoughts": "Pensamientos",
     "Working on it…": "Trabajando en ello…",
     "Still working…": "Aún trabajando…",
     "This might take a moment…": "Esto puede tardar un momento…",

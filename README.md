@@ -122,6 +122,8 @@ cp chat-config.example.json chat-config.json
 | `hideHistory` | `boolean` | `false` | Hide the conversation history sidebar. Only one chat exists at a time; "New chat" deletes the current conversation (with confirmation). |
 | `hideFileUpload` | `boolean` | `false` | Hide the image and file attachment buttons from the composer. |
 | `hidePromptControls` | `boolean` | `false` | Hide stop, regenerate, and edit controls for a classic chat experience. |
+| `thinking` | `string` | `"off"` | Default extended-reasoning level: `"off"`, `"low"`, `"medium"`, `"high"`, or `"max"`. When not `"off"`, temperature is ignored. |
+| `showReasoning` | `boolean` | `true` | When the model streams reasoning (Thinking is on), show a collapsible **Thoughts** block above the reply. Set to `false` to hide chain-of-thought even if the model emits it. |
 
 **Example `chat-config.json`:**
 
