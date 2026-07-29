@@ -10,6 +10,7 @@ import {
   canSendMessage,
   nextSaveAction,
 } from '../lib/stream-registry.js';
+import { extractEmbeddedThinking } from '../lib/thinking.js';
 import Dropdown from '../design-system/components/dropdown/dropdown.js';
 import Modal from '../design-system/components/modal/modal.js';
 import NumericSlider from '../design-system/components/numeric-slider/numeric-slider.js';
@@ -946,16 +947,22 @@ function renderMessages(liveMessages, status) {
     const row = document.createElement('div');
 
     if (msg.role === 'assistant') {
-      const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
+      const rawText = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
       const fileParts = msg.parts.filter((p) => p.type === 'file');
-      const reasoningParts = msg.parts.filter((p) => p.type === 'reasoning');
-      const reasoningText = reasoningParts.map((p) => p.text).join('');
-      const reasoningStreaming = reasoningParts.some(
-        (p) => p.status === 'streaming' || p.status === 'pending',
+      const reasoningFromParts = msg.parts
+        .filter((p) => p.type === 'reasoning')
+        .map((p) => p.text)
+        .join('');
+      const reasoningStreaming = msg.parts.some(
+        (p) => p.type === 'reasoning' && (p.status === 'streaming' || p.status === 'pending'),
       );
+      const embedded = extractEmbeddedThinking(rawText);
+      const text = embedded.answer;
+      const reasoningText = [reasoningFromParts, embedded.reasoning].filter(Boolean).join('\n\n');
       const streaming = msg.status === 'streaming';
       const hasText = text.trim().length > 0;
-      const hasReasoning = reasoningText.trim().length > 0 || reasoningStreaming;
+      const hasReasoning =
+        reasoningText.trim().length > 0 || reasoningStreaming || embedded.thinkingOpen;
       const showThoughts = shouldShowReasoning() && hasReasoning;
       const renderedHtml = stripEmojisFromHtml(
         stripHeadingLeadDecorationsFromHtml(marked.parse(text)),
@@ -1577,13 +1584,16 @@ function serializeLiveMessages(liveMessages) {
   return liveMessages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => {
-      const reasoning = m.parts
+      const rawText = m.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
+      const embedded = extractEmbeddedThinking(rawText);
+      const reasoningFromParts = m.parts
         .filter((p) => p.type === 'reasoning')
         .map((p) => p.text)
         .join('');
+      const reasoning = [reasoningFromParts, embedded.reasoning].filter(Boolean).join('\n\n');
       return {
         role: m.role,
-        content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
+        content: m.role === 'assistant' ? embedded.answer : rawText,
         ...(reasoning ? { reasoning } : {}),
         files: m.parts
           .filter((p) => p.type === 'file')

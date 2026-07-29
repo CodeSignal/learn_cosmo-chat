@@ -755,7 +755,7 @@ body.is-resizing-sidebar {
   flex: 0 1 auto;
   width: 100%;
   min-width: 0;
-  margin-bottom: var(--UI-Spacing-spacing-xs);
+  margin-bottom: var(--UI-Spacing-spacing-ms);
   border-left: 2px solid var(--Colors-Border-Default, rgba(0, 0, 0, 0.12));
   padding-left: var(--UI-Spacing-spacing-ms);
 }
@@ -800,6 +800,7 @@ body.is-resizing-sidebar {
   margin-top: var(--UI-Spacing-spacing-xs);
   color: var(--Colors-Text-Body-Secondary);
   line-height: 1.55;
+  font-style: italic;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   max-height: 40vh;
