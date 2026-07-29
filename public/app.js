@@ -962,7 +962,7 @@ function renderMessages(liveMessages, status) {
       );
       const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
       const thoughtsHtml = showThoughts
-        ? renderThoughtsBlock(reasoningText, { streaming: streaming && (reasoningStreaming || !hasText) })
+        ? renderThoughtsBlock(reasoningText, { streaming })
         : '';
 
       const isImageGen = isImageGenerationLoading(msg.parts);

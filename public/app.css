@@ -780,8 +780,8 @@ body.is-resizing-sidebar {
   display: inline-block;
   width: 0.4em;
   height: 0.4em;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
   transform: rotate(-45deg);
   transition: transform 0.15s ease;
   flex-shrink: 0;
@@ -801,7 +801,7 @@ body.is-resizing-sidebar {
   color: var(--Colors-Text-Body-Secondary);
   line-height: 1.55;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
   max-height: 40vh;
   overflow-y: auto;
 }
