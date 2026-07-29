@@ -750,14 +750,14 @@ body.is-resizing-sidebar {
   gap: var(--UI-Spacing-spacing-xs);
 }
 
-/* Model reasoning / chain-of-thought (shown when Thinking is on and the model emits it) */
+/* Model reasoning / chain-of-thought (Octavus `reasoning` parts when Thinking is on) */
 .message__thoughts {
   flex: 0 1 auto;
   width: 100%;
   min-width: 0;
   margin-bottom: var(--UI-Spacing-spacing-ms);
   border-left: 2px solid var(--Colors-Border-Default, rgba(0, 0, 0, 0.12));
-  padding-left: var(--UI-Spacing-spacing-ms);
+  padding: var(--UI-Spacing-spacing-xs) 0 var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
 }
 
 .message__thoughts-summary {
@@ -765,7 +765,8 @@ body.is-resizing-sidebar {
   list-style: none;
   display: flex;
   align-items: center;
-  gap: var(--UI-Spacing-spacing-xxs);
+  gap: var(--UI-Spacing-spacing-xs);
+  padding: var(--UI-Spacing-spacing-xxs) 0;
   color: var(--Colors-Text-Body-Secondary);
   user-select: none;
   width: fit-content;
@@ -778,8 +779,8 @@ body.is-resizing-sidebar {
 .message__thoughts-summary::before {
   content: '';
   display: inline-block;
-  width: 0.4em;
-  height: 0.4em;
+  width: 0.45em;
+  height: 0.45em;
   border-right: 1.5px solid currentcolor;
   border-bottom: 1.5px solid currentcolor;
   transform: rotate(-45deg);
@@ -798,6 +799,7 @@ body.is-resizing-sidebar {
 
 .message__thoughts-body {
   margin-top: var(--UI-Spacing-spacing-xs);
+  padding: var(--UI-Spacing-spacing-xxs) 0 var(--UI-Spacing-spacing-xs);
   color: var(--Colors-Text-Body-Secondary);
   line-height: 1.55;
   font-style: italic;
@@ -1638,6 +1640,16 @@ textarea.input.composer__textarea {
 .settings-row--disabled {
   opacity: 0.4;
   pointer-events: none;
+}
+
+.settings-row__note {
+  margin: var(--UI-Spacing-spacing-xs) 0 0;
+  color: var(--Colors-Text-Body-Secondary);
+  font-style: italic;
+}
+
+.settings-row--thinking-locked .settings-dropdown-container {
+  opacity: 0.85;
 }
 
 .settings-row__desc {

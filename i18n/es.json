@@ -17,6 +17,7 @@
     "Controls randomness (0–2). Lower = more focused, higher = more creative. Disabled when Thinking is on.": "Controla la aleatoriedad (0–2). Menor = más enfocado, mayor = más creativo. Se desactiva cuando el Razonamiento está activado.",
     "Thinking": "Razonamiento",
     "Extended reasoning depth. When enabled, temperature is ignored by the model.": "Profundidad de razonamiento extendido. Cuando está activado, el modelo ignora la temperatura.",
+    "This model does not support Thinking. Switch to a model that does, then update Thinking.": "Este modelo no admite Razonamiento. Cambia a un modelo que sí lo admita y luego actualiza el Razonamiento.",
     "Close": "Cerrar",
     "Apply & New Chat": "Aplicar y nuevo chat",
     "Off": "Desactivado",

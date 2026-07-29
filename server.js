@@ -14,11 +14,16 @@ import {
   matchLocaleStrings,
   mergeStrings,
 } from './lib/helpers.js';
+import {
+  buildCapabilitiesPayload,
+  loadCapabilities,
+} from './lib/model-capabilities.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SESSIONS_FILE = path.join(__dirname, 'chat-sessions.json');
 const CONFIG_FILE   = path.join(__dirname, 'chat-config.json');
 const MODELS_FILE   = path.join(__dirname, 'current-models.txt');
+const CAPABILITIES_FILE = path.join(__dirname, 'model-capabilities.json');
 const I18N_DIR      = path.join(__dirname, 'i18n');
 const app = express();
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
@@ -112,13 +117,16 @@ app.post('/api/config/custom-instructions', async (req, res) => {
 // ── Models ─────────────────────────────────────────────────────
 app.get('/api/models', async (_req, res) => {
   try {
-    const [raw, config] = await Promise.all([
+    const [raw, config, capsFile] = await Promise.all([
       fs.readFile(MODELS_FILE, 'utf8'),
       readConfig(),
+      loadCapabilities(CAPABILITIES_FILE, fs),
     ]);
-    res.json({ models: filterModels(raw, config.allowedModels, config.allowedModelFamilies) });
+    const models = filterModels(raw, config.allowedModels, config.allowedModelFamilies);
+    const capabilities = buildCapabilitiesPayload(models, config, capsFile.models);
+    res.json({ models, capabilities });
   } catch {
-    res.json({ models: [] });
+    res.json({ models: [], capabilities: {} });
   }
 });
 

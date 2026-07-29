@@ -122,8 +122,28 @@ cp chat-config.example.json chat-config.json
 | `hideHistory` | `boolean` | `false` | Hide the conversation history sidebar. Only one chat exists at a time; "New chat" deletes the current conversation (with confirmation). |
 | `hideFileUpload` | `boolean` | `false` | Hide the image and file attachment buttons from the composer. |
 | `hidePromptControls` | `boolean` | `false` | Hide stop, regenerate, and edit controls for a classic chat experience. |
-| `thinking` | `string` | `"off"` | Default extended-reasoning level: `"off"`, `"low"`, `"medium"`, `"high"`, or `"max"`. When not `"off"`, temperature is ignored. |
+| `thinking` | `string` | `"off"` | Default extended-reasoning level: `"off"`, `"low"`, `"medium"`, `"high"`, or `"max"`. When not `"off"`, temperature is ignored. Forced to `"off"` in the UI for models that do not support Thinking. |
 | `showReasoning` | `boolean` | `true` | When the model streams reasoning (Thinking is on), show a collapsible **Thoughts** block above the reply. Set to `false` to hide chain-of-thought even if the model emits it. |
+| `thinkingModels` | `string[]` | `[]` | Force-enable Thinking for these model IDs. Use when OpenRouter under-reports a model that still produces chain-of-thought (e.g. Amazon Nova Premier via tagged `<thinking>`). Applied after the denylist; does not disable other models. |
+| `noThinkingModels` | `string[]` | `[]` | Force-disable Thinking for these model IDs (wins over allowlist, capabilities map, and heuristics). |
+
+### Thinking capability detection
+
+The Settings **Thinking** control is enabled per model. Capability resolution order:
+
+1. `noThinkingModels` denylist → off
+2. `thinkingModels` allowlist → on
+3. Snapshot in `model-capabilities.json` (served via `GET /api/models` as `capabilities`)
+4. Provider heuristics aligned with Octavus docs (`anthropic/claude*`, `openai/(o1|o3|o4|gpt-5)*`, `google/gemini-(2.5|3)*`)
+
+Refresh the snapshot from OpenRouter (plus those heuristics):
+
+```bash
+node scripts/refresh-model-capabilities.mjs
+# or: npm run refresh:model-capabilities
+```
+
+OpenRouter's `GET /api/v1/models` exposes `supported_parameters` (`reasoning` / `include_reasoning`) and a `reasoning` object — that is the primary signal for OpenRouter-routed models. Some models still produce CoT without those flags (notably Amazon Nova when Octavus `THINKING` is on). Those stay `supportsThinking: false` in the generated file; add them to `thinkingModels` in `chat-config.json`. Octavus has no per-model Thinking capability API, so provider heuristics cover direct Anthropic / OpenAI / Google ids.
 
 **Example `chat-config.json`:**
 
@@ -237,6 +257,8 @@ chat-cpt/
 │   ├── app.bundle.js         # Generated — do not edit directly
 │   └── app.css
 ├── server.js                 # Express server + orchestration proxy
+├── current-models.txt        # Model catalog for the picker
+├── model-capabilities.json   # Generated Thinking capability snapshot (refresh via npm script)
 ├── chat-config.json          # Runtime configuration (see Configuration section)
 ├── chat-config.example.json  # Reference template for chat-config.json
 ├── chat-sessions.json        # Auto-generated session storage (gitignored)

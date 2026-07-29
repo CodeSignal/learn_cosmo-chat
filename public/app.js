@@ -10,7 +10,8 @@ import {
   canSendMessage,
   nextSaveAction,
 } from '../lib/stream-registry.js';
-import { extractEmbeddedThinking } from '../lib/thinking.js';
+import { resolveAssistantContent } from '../lib/thinking.js';
+import { supportsThinking } from '../lib/model-capabilities.js';
 import Dropdown from '../design-system/components/dropdown/dropdown.js';
 import Modal from '../design-system/components/modal/modal.js';
 import NumericSlider from '../design-system/components/numeric-slider/numeric-slider.js';
@@ -222,6 +223,8 @@ let allSessionsMeta = []; // [{session_id, title, updated_at}]
 let loadingIntervalId = null;
 let chatConfig = {};
 let availableModels = [];
+/** @type {Record<string, { supportsThinking?: boolean }>} */
+let modelCapabilities = {};
 
 /**
  * Translate a user-facing UI string via the `strings` map in chat-config.json.
@@ -447,9 +450,22 @@ function renderModelSelector() {
     width: '100%',
     onSelect: (value) => {
       selectedModel = value;
+      syncThinkingForSelectedModel();
       startNewChat();
     },
   });
+}
+
+/** Prefer server `/api/models` capabilities; fall back to local heuristics. */
+function modelSupportsThinking(modelId = selectedModel) {
+  return supportsThinking(modelId, chatConfig, modelCapabilities);
+}
+
+/** Force Thinking to Off when the current model does not support it. */
+function syncThinkingForSelectedModel() {
+  if (!modelSupportsThinking(selectedModel)) {
+    selectedThinking = 'off';
+  }
 }
 
 // ── Settings modal ────────────────────────────────────────────
@@ -560,10 +576,11 @@ function openSettings() {
           <div class="settings-slider-container" id="temperatureSliderEl"></div>
         </div>
 
-        <div class="settings-row">
+        <div class="settings-row" id="thinkingRow">
           <label class="body-small settings-row__label">${t('Thinking')}</label>
           <p class="body-xsmall settings-row__desc">${t('Extended reasoning depth. When enabled, temperature is ignored by the model.')}</p>
           <div class="settings-dropdown-container" id="thinkingDropdownEl"></div>
+          <p class="body-xsmall settings-row__note" id="thinkingUnsupportedNote" hidden></p>
         </div>
       </section>
     `;
@@ -585,6 +602,11 @@ function openSettings() {
 
         // Generation controls only exist when `hideModelSettings` is falsy.
         if (sliderEl && dropdownEl && tempRow) {
+          const thinkingRow = settingsModal.content.querySelector('#thinkingRow');
+          const thinkingNote = settingsModal.content.querySelector('#thinkingUnsupportedNote');
+          const canThink = modelSupportsThinking(selectedModel);
+          if (!canThink) selectedThinking = 'off';
+
           // Thinking dropdown
           if (thinkingDropdownInstance) thinkingDropdownInstance.destroy();
           thinkingDropdownInstance = new Dropdown(dropdownEl, {
@@ -592,11 +614,51 @@ function openSettings() {
             selectedValue: selectedThinking,
             width: '100%',
             onSelect: (value) => {
+              const canThinkNow = modelSupportsThinking(selectedModel);
+              if (!canThinkNow && value !== 'off') {
+                if (thinkingNote) {
+                  thinkingNote.hidden = false;
+                  thinkingNote.textContent = t(
+                    "This model does not support Thinking. Switch to a model that does, then update Thinking.",
+                  );
+                }
+                // Snap back to Off without leaving a non-supported level selected.
+                if (thinkingDropdownInstance.getValue() !== 'off') {
+                  thinkingDropdownInstance.setValue('off');
+                }
+                selectedThinking = 'off';
+                tempRow.classList.remove('settings-row--disabled');
+                return;
+              }
               selectedThinking = value;
+              if (thinkingNote) {
+                if (canThinkNow) {
+                  thinkingNote.hidden = true;
+                  thinkingNote.textContent = '';
+                } else {
+                  thinkingNote.hidden = false;
+                  thinkingNote.textContent = t(
+                    "This model does not support Thinking. Switch to a model that does, then update Thinking.",
+                  );
+                }
+              }
               // Dim temperature row when thinking is active
               tempRow.classList.toggle('settings-row--disabled', value !== 'off');
             },
           });
+
+          if (thinkingNote) {
+            if (canThink) {
+              thinkingNote.hidden = true;
+              thinkingNote.textContent = '';
+            } else {
+              thinkingNote.hidden = false;
+              thinkingNote.textContent = t(
+                "This model does not support Thinking. Switch to a model that does, then update Thinking.",
+              );
+            }
+          }
+          thinkingRow?.classList.toggle('settings-row--thinking-locked', !canThink);
 
           // Temperature slider — reinit each open so it measures the visible DOM
           const tempValueEl = settingsModal.content.querySelector('#temperatureValue');
@@ -782,8 +844,13 @@ async function init() {
     applyChatConfigUI();
 
     const modelsData = modelsRes.ok ? await modelsRes.json() : { models: [] };
-    availableModels = modelsData.models;
+    availableModels = modelsData.models ?? [];
+    modelCapabilities =
+      modelsData.capabilities && typeof modelsData.capabilities === 'object'
+        ? modelsData.capabilities
+        : {};
     selectedModel = chatConfig.model || availableModels[0] || '';
+    syncThinkingForSelectedModel();
     renderModelSelector();
 
     renderActive();
@@ -956,13 +1023,17 @@ function renderMessages(liveMessages, status) {
       const reasoningStreaming = msg.parts.some(
         (p) => p.type === 'reasoning' && (p.status === 'streaming' || p.status === 'pending'),
       );
-      const embedded = extractEmbeddedThinking(rawText);
-      const text = embedded.answer;
-      const reasoningText = [reasoningFromParts, embedded.reasoning].filter(Boolean).join('\n\n');
+      const resolved = resolveAssistantContent({
+        text: rawText,
+        reasoningFromParts,
+        reasoningStreaming,
+      });
+      const text = resolved.answer;
+      const reasoningText = resolved.reasoning;
       const streaming = msg.status === 'streaming';
       const hasText = text.trim().length > 0;
       const hasReasoning =
-        reasoningText.trim().length > 0 || reasoningStreaming || embedded.thinkingOpen;
+        reasoningText.trim().length > 0 || reasoningStreaming || resolved.thinkingOpen;
       const showThoughts = shouldShowReasoning() && hasReasoning;
       const renderedHtml = stripEmojisFromHtml(
         stripHeadingLeadDecorationsFromHtml(marked.parse(text)),
@@ -1585,15 +1656,18 @@ function serializeLiveMessages(liveMessages) {
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => {
       const rawText = m.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
-      const embedded = extractEmbeddedThinking(rawText);
       const reasoningFromParts = m.parts
         .filter((p) => p.type === 'reasoning')
         .map((p) => p.text)
         .join('');
-      const reasoning = [reasoningFromParts, embedded.reasoning].filter(Boolean).join('\n\n');
+      const resolved = resolveAssistantContent({
+        text: rawText,
+        reasoningFromParts,
+      });
+      const reasoning = resolved.reasoning;
       return {
         role: m.role,
-        content: m.role === 'assistant' ? embedded.answer : rawText,
+        content: m.role === 'assistant' ? resolved.answer : rawText,
         ...(reasoning ? { reasoning } : {}),
         files: m.parts
           .filter((p) => p.type === 'file')
