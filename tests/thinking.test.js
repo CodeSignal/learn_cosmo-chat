@@ -14,6 +14,15 @@ describe('splitMarkdownCodeSegments', () => {
       '```xml\n<thinking>demo</thinking>\n```',
     ]);
   });
+
+  it('treats an unterminated fence as code through EOF (streaming)', () => {
+    const text = 'Intro\n\n```\n<thinking>example';
+    const segs = splitMarkdownCodeSegments(text);
+    expect(segs).toEqual([
+      { type: 'text', value: 'Intro\n\n' },
+      { type: 'code', value: '```\n<thinking>example' },
+    ]);
+  });
 });
 
 describe('extractEmbeddedThinking', () => {
@@ -83,6 +92,14 @@ Then the real answer.`;
     expect(result.answer).toContain('internal plan');
     expect(result.answer).toContain('`<think>secret</think>`');
     expect(result.answer).toContain('Then the real answer.');
+  });
+
+  it('does not peel tags inside an unfinished fenced block while streaming', () => {
+    const text = 'Example:\n\n```\n<thinking>example';
+    const result = extractEmbeddedThinking(text);
+    expect(result.reasoning).toBe('');
+    expect(result.thinkingOpen).toBe(false);
+    expect(result.answer).toBe(text);
   });
 
   it('peels leading tags but keeps tags that only appear inside code later', () => {

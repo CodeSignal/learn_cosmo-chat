@@ -6,8 +6,8 @@
  *   node scripts/refresh-model-capabilities.mjs
  *
  * Reads current-models.txt, fetches https://openrouter.ai/api/v1/models, and
- * writes model-capabilities.json. On network failure, falls back to provider
- * heuristics only (with a console warning).
+ * writes model-capabilities.json. On OpenRouter failure, exits non-zero and
+ * leaves the existing snapshot untouched (do not overwrite with heuristics-only).
  *
  * Note: OpenRouter under-reports some models (e.g. Amazon Nova Premier has no
  * `reasoning` flag but still emits tagged <thinking> CoT when Octavus THINKING
@@ -64,19 +64,18 @@ async function main() {
   const raw = await fs.readFile(MODELS_FILE, 'utf8');
   const modelIds = parseModelIds(raw);
 
-  let openRouterById = null;
-  let source = 'openrouter+octavus-provider-rules';
+  let openRouterById;
   try {
     openRouterById = await fetchOpenRouterModels();
     console.log(`Fetched ${openRouterById.size} OpenRouter models`);
   } catch (err) {
-    console.warn(
-      `[refresh-model-capabilities] OpenRouter fetch failed (${err.message}); falling back to provider heuristics only`,
+    console.error(
+      `[refresh-model-capabilities] OpenRouter fetch failed (${err.message}); leaving ${OUT_FILE} unchanged`,
     );
-    source = 'octavus-provider-rules-fallback';
-    openRouterById = new Map();
+    process.exit(1);
   }
 
+  const source = 'openrouter+octavus-provider-rules';
   const models = {};
   let thinkingCount = 0;
   for (const id of modelIds) {
