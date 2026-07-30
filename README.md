@@ -2,6 +2,10 @@
 
 A lightweight, hands-on chat interface for teaching effective AI prompting. Students practice writing prompts, iterate on responses, and submit their best attempt — all through a familiar ChatGPT-like interface.
 
+## Recording of a Learning Time about this project:
+- Link: https://us02web.zoom.us/rec/share/1wNSCMq3muxNvZHVt_H_mVnXXvuWce-6hZAApF90SdOJco1Q8W4a3-LY04AI-xmB.xMhOrbYfAHgxP7mY
+- Passcode: +3qmt@q9
+
 ## Features
 
 - **Conversational UI** — clean, minimal interface similar to ChatGPT
