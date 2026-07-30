@@ -10,7 +10,7 @@ import {
   canSendMessage,
   nextSaveAction,
 } from '../lib/stream-registry.js';
-import { resolveAssistantContent } from '../lib/thinking.js';
+import { resolveAssistantContent, segmentAssistantParts } from '../lib/thinking.js';
 import { supportsThinking } from '../lib/model-capabilities.js';
 import Dropdown from '../design-system/components/dropdown/dropdown.js';
 import Modal from '../design-system/components/modal/modal.js';
@@ -938,7 +938,8 @@ function shouldShowReasoning() {
 }
 
 /**
- * Collapsible "Thoughts" block for assistant reasoning parts.
+ * Collapsible block for one thought. A reply can contain several, each rendered
+ * where it arrived in the stream.
  * Open while streaming so learners can watch the chain of thought; collapsed when done.
  */
 function renderThoughtsBlock(reasoningText, { streaming = false } = {}) {
@@ -1016,13 +1017,12 @@ function renderMessages(liveMessages, status) {
     if (msg.role === 'assistant') {
       const rawText = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
       const fileParts = msg.parts.filter((p) => p.type === 'file');
-      const reasoningFromParts = msg.parts
-        .filter((p) => p.type === 'reasoning')
-        .map((p) => p.text)
-        .join('');
-      const reasoningStreaming = msg.parts.some(
-        (p) => p.type === 'reasoning' && (p.status === 'streaming' || p.status === 'pending'),
-      );
+      const segments = segmentAssistantParts(msg.parts);
+      const reasoningSegments = segments.filter((seg) => seg.kind === 'reasoning');
+      // Blank lines between thoughts, so this stays readable wherever the pooled
+      // string is used rather than running one thought into the next.
+      const reasoningFromParts = reasoningSegments.map((seg) => seg.text).join('\n\n');
+      const reasoningStreaming = reasoningSegments.some((seg) => seg.streaming);
       const resolved = resolveAssistantContent({
         text: rawText,
         reasoningFromParts,
@@ -1035,26 +1035,51 @@ function renderMessages(liveMessages, status) {
       const hasReasoning =
         reasoningText.trim().length > 0 || reasoningStreaming || resolved.thinkingOpen;
       const showThoughts = shouldShowReasoning() && hasReasoning;
-      const renderedHtml = stripEmojisFromHtml(
-        stripHeadingLeadDecorationsFromHtml(marked.parse(text)),
-      );
       const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
-      const thoughtsHtml = showThoughts
-        ? renderThoughtsBlock(reasoningText, { streaming })
-        : '';
 
       const isImageGen = isImageGenerationLoading(msg.parts);
 
-      let bodyContent;
-      if (streaming && !hasText && fileParts.length === 0 && isImageGen) {
-        bodyContent = renderImagePlaceholderBody();
-      } else if (streaming && !hasText && fileParts.length === 0 && !isImageGen) {
-        bodyContent = '';
-      } else if (streaming && fileParts.length === 0) {
-        bodyContent = `${renderedHtml}<span class="cursor" aria-hidden="true"></span>`;
-      } else {
-        bodyContent = `${renderedHtml}${filesHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}`;
+      // Body pieces in the order they arrived, so a thought stays with the step
+      // that prompted it instead of being pooled above the whole reply. The
+      // embedded-tag fallback peels a single block out of the text, which leads.
+      const pieces = (resolved.source === 'octavus'
+        ? segments
+        : [{ kind: 'reasoning', text: reasoningText, streaming }, { kind: 'text', text }]
+      ).filter((piece) => piece.kind === 'text' || showThoughts);
+
+      // Files and the image placeholder belong to the reply as a whole, so they
+      // trail the final body — which has to exist even when there is no answer
+      // text yet.
+      if (!pieces.some((piece) => piece.kind === 'text')) {
+        pieces.push({ kind: 'text', text: '' });
       }
+      const lastTextIdx = pieces.reduce((last, piece, idx) => (piece.kind === 'text' ? idx : last), -1);
+      // A reply that currently ends on a thought gets no caret: the open
+      // "Thinking…" block already shows where the work is happening.
+      const caretHtml = streaming && lastTextIdx === pieces.length - 1
+        ? '<span class="cursor" aria-hidden="true"></span>'
+        : '';
+
+      let bodyTrailing;
+      if (streaming && !hasText && fileParts.length === 0) {
+        bodyTrailing = isImageGen ? renderImagePlaceholderBody() : '';
+      } else if (streaming && fileParts.length === 0) {
+        bodyTrailing = caretHtml;
+      } else {
+        bodyTrailing = `${filesHtml}${caretHtml}`;
+      }
+
+      const bodyHtml = pieces
+        .map((piece, idx) => {
+          if (piece.kind === 'reasoning') {
+            return renderThoughtsBlock(piece.text, { streaming: piece.streaming });
+          }
+          const renderedHtml = stripEmojisFromHtml(
+            stripHeadingLeadDecorationsFromHtml(marked.parse(piece.text)),
+          );
+          return `<div class="message__body body-medium markdown">${renderedHtml}${idx === lastTextIdx ? bodyTrailing : ''}</div>`;
+        })
+        .join('');
 
       const streamingStatus = streaming && fileParts.length === 0 ? getStreamingStatus(msg.parts) : null;
       const statusHtml = streamingStatus
@@ -1080,10 +1105,7 @@ function renderMessages(liveMessages, status) {
 
       row.className = streaming ? 'message message--ai message--ai--streaming' : 'message message--ai';
       row.innerHTML = `
-        ${thoughtsHtml}
-        <div class="message__body body-medium markdown">
-          ${bodyContent}
-        </div>
+        ${bodyHtml}
         ${trailingHtml}
       `;
 
@@ -1091,7 +1113,8 @@ function renderMessages(liveMessages, status) {
         const stoppedEl = document.createElement('div');
         stoppedEl.className = 'message__stopped body-xsmall';
         stoppedEl.textContent = t('Response stopped');
-        row.querySelector('.message__body').appendChild(stoppedEl);
+        const bodies = row.querySelectorAll('.message__body');
+        bodies[bodies.length - 1].appendChild(stoppedEl);
       }
 
       // Hover actions on every assistant message (when idle): regenerate
@@ -1656,19 +1679,23 @@ function serializeLiveMessages(liveMessages) {
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .map((m) => {
       const rawText = m.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
-      const reasoningFromParts = m.parts
-        .filter((p) => p.type === 'reasoning')
-        .map((p) => p.text)
-        .join('');
+      const reasoningBlocks = segmentAssistantParts(m.parts)
+        .filter((seg) => seg.kind === 'reasoning')
+        .map((seg) => seg.text);
       const resolved = resolveAssistantContent({
         text: rawText,
-        reasoningFromParts,
+        reasoningFromParts: reasoningBlocks.join('\n\n'),
       });
-      const reasoning = resolved.reasoning;
+      // Stored as one entry per thought so a reloaded session renders the same
+      // blocks it did live. Their position relative to the answer text is not
+      // recoverable from the flat `content` field, so they lead on restore.
+      const reasoning = resolved.source === 'octavus'
+        ? reasoningBlocks
+        : (resolved.reasoning ? [resolved.reasoning] : []);
       return {
         role: m.role,
         content: m.role === 'assistant' ? resolved.answer : rawText,
-        ...(reasoning ? { reasoning } : {}),
+        ...(reasoning.length ? { reasoning } : {}),
         files: m.parts
           .filter((p) => p.type === 'file')
           .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
@@ -1975,12 +2002,16 @@ function deriveTitle(messages) {
 // Convert a stored plain-object message back into the shape renderMessages expects
 // (mirrors the OctavusChat message structure just enough for rendering).
 function storedToDisplayMsg(m) {
+  // One entry per thought; sessions saved before that held a single string.
+  const reasoningBlocks = Array.isArray(m.reasoning)
+    ? m.reasoning
+    : (m.reasoning ? [m.reasoning] : []);
   return {
     role: m.role,
     status: 'done',
     stopped: m.stopped || false,
     parts: [
-      ...(m.reasoning ? [{ type: 'reasoning', text: m.reasoning, status: 'done' }] : []),
+      ...reasoningBlocks.map((text) => ({ type: 'reasoning', text, status: 'done' })),
       ...(m.content ? [{ type: 'text', text: m.content }] : []),
       ...(m.files ?? []).map((f) => ({ type: 'file', ...f })),
     ],

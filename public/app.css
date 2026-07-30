@@ -760,6 +760,12 @@ body.is-resizing-sidebar {
   padding: var(--UI-Spacing-spacing-xs) 0 var(--UI-Spacing-spacing-xs) var(--UI-Spacing-spacing-ms);
 }
 
+/* A thought that interrupts the answer needs air above it too, so it reads as a
+   new step instead of a continuation of the text it follows. */
+.message__body + .message__thoughts {
+  margin-top: var(--UI-Spacing-spacing-xs);
+}
+
 .message__thoughts-summary {
   cursor: pointer;
   list-style: none;

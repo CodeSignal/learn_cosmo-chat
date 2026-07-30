@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   extractEmbeddedThinking,
   resolveAssistantContent,
+  segmentAssistantParts,
   splitMarkdownCodeSegments,
 } from '../lib/thinking.js';
 
@@ -22,6 +23,54 @@ describe('splitMarkdownCodeSegments', () => {
       { type: 'text', value: 'Intro\n\n' },
       { type: 'code', value: '```\n<thinking>example' },
     ]);
+  });
+});
+
+describe('segmentAssistantParts', () => {
+  it('keeps each thought separate and in stream order', () => {
+    const segments = segmentAssistantParts([
+      { type: 'reasoning', text: 'Let me search for the specifics.', status: 'done' },
+      { type: 'tool-call', toolName: 'octavus_web_search', status: 'done' },
+      { type: 'reasoning', text: 'Let me try the skill instead.', status: 'done' },
+      { type: 'text', text: 'Here is the answer.' },
+    ]);
+    expect(segments).toEqual([
+      { kind: 'reasoning', text: 'Let me search for the specifics.', streaming: false },
+      { kind: 'reasoning', text: 'Let me try the skill instead.', streaming: false },
+      { kind: 'text', text: 'Here is the answer.', streaming: false },
+    ]);
+  });
+
+  it('merges consecutive text parts so Markdown spanning them survives', () => {
+    const segments = segmentAssistantParts([
+      { type: 'text', text: 'Steps:\n\n- one\n' },
+      { type: 'text', text: '- two\n' },
+    ]);
+    expect(segments).toEqual([
+      { kind: 'text', text: 'Steps:\n\n- one\n- two\n', streaming: false },
+    ]);
+  });
+
+  it('keeps text that follows a thought as its own segment', () => {
+    const segments = segmentAssistantParts([
+      { type: 'text', text: 'First pass.' },
+      { type: 'reasoning', text: 'Reconsidering.', status: 'done' },
+      { type: 'text', text: 'Second pass.' },
+    ]);
+    expect(segments.map((s) => s.kind)).toEqual(['text', 'reasoning', 'text']);
+  });
+
+  it('keeps a thought that is still streaming but drops finished empty ones', () => {
+    const segments = segmentAssistantParts([
+      { type: 'reasoning', text: '', status: 'done' },
+      { type: 'reasoning', text: '', status: 'streaming' },
+    ]);
+    expect(segments).toEqual([{ kind: 'reasoning', text: '', streaming: true }]);
+  });
+
+  it('ignores non-text, non-reasoning parts and blank input', () => {
+    expect(segmentAssistantParts([{ type: 'file', url: 'x' }])).toEqual([]);
+    expect(segmentAssistantParts()).toEqual([]);
   });
 });
 
