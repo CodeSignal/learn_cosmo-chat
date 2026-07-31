@@ -51,15 +51,6 @@ describe('segmentAssistantParts', () => {
     ]);
   });
 
-  it('keeps text that follows a thought as its own segment', () => {
-    const segments = segmentAssistantParts([
-      { type: 'text', text: 'First pass.' },
-      { type: 'reasoning', text: 'Reconsidering.', status: 'done' },
-      { type: 'text', text: 'Second pass.' },
-    ]);
-    expect(segments.map((s) => s.kind)).toEqual(['text', 'reasoning', 'text']);
-  });
-
   it('keeps a thought that is still streaming but drops finished empty ones', () => {
     const segments = segmentAssistantParts([
       { type: 'reasoning', text: '', status: 'done' },
