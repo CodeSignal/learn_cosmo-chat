@@ -1712,12 +1712,34 @@ textarea.input.composer__textarea {
   }
 }
 
-/* When the Thinking dropdown is open, let its menu escape the modal's
-   clipping containers so it isn't cut off — pure CSS, no DOM portal
-   (keeps the DS dropdown intact). Reverts once the dropdown closes. */
-.modal-content:has(.settings-content .dropdown-container.open),
-.modal-dialog:has(.settings-content .dropdown-container.open) {
-  overflow: visible;
+/* PortalDropdown moves the open menu to <body>, where the DS rule that reveals
+   it (.dropdown-container.open .dropdown-menu) no longer matches, and where it
+   is positioned from the viewport. The z-index must clear .modal-overlay
+   (10000) for menus opened from inside a modal. */
+.dropdown-menu.dropdown-menu--portaled {
+  display: block;
+  position: fixed;
+  z-index: 10050;
+}
+
+/* The Thinking menu is sized to its field, so the options have to stretch with
+   it — the DS pins them to a fixed width. Matched on the menu's own class
+   because it renders outside the dropdown container. */
+.settings-thinking-menu .dropdown-menu-item,
+.settings-thinking-menu .dropdown-menu-item.selected {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Settings still scrolls on short viewports; only the scrollbar chrome is
+   hidden, matching .chat-history. */
+.modal-dialog:has(.settings-content) .modal-content {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+}
+
+.modal-dialog:has(.settings-content) .modal-content::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 /* ============================================================

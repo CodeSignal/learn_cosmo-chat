@@ -13,6 +13,7 @@ import {
 import { resolveAssistantContent, segmentAssistantParts } from '../lib/thinking.js';
 import { supportsThinking } from '../lib/model-capabilities.js';
 import Dropdown from '../design-system/components/dropdown/dropdown.js';
+import PortalDropdown from './portal-dropdown.js';
 import Modal from '../design-system/components/modal/modal.js';
 import NumericSlider from '../design-system/components/numeric-slider/numeric-slider.js';
 import { marked, Renderer } from 'marked';
@@ -595,6 +596,9 @@ function openSettings() {
       content,
       closeOnOverlayClick: true,
       closeOnEscape: true,
+      // The Thinking menu renders in <body>, so it outlives the modal unless
+      // it is closed here.
+      onClose: () => { thinkingDropdownInstance?.close(); },
       onOpen: () => {
         const sliderEl    = settingsModal.content.querySelector('#temperatureSliderEl');
         const dropdownEl  = settingsModal.content.querySelector('#thinkingDropdownEl');
@@ -609,10 +613,14 @@ function openSettings() {
 
           // Thinking dropdown
           if (thinkingDropdownInstance) thinkingDropdownInstance.destroy();
-          thinkingDropdownInstance = new Dropdown(dropdownEl, {
+          // PortalDropdown, not Dropdown: the modal body scrolls and would clip
+          // the menu.
+          thinkingDropdownInstance = new PortalDropdown(dropdownEl, {
             items: THINKING_OPTIONS.map((o) => ({ ...o, label: t(o.label) })),
             selectedValue: selectedThinking,
             width: '100%',
+            matchToggleWidth: true,
+            menuClassName: 'settings-thinking-menu',
             onSelect: (value) => {
               const canThinkNow = modelSupportsThinking(selectedModel);
               if (!canThinkNow && value !== 'off') {
