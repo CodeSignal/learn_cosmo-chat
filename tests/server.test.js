@@ -65,22 +65,62 @@ describe('GET /api/models', () => {
     fs.readFile.mockImplementation((path) => {
       if (path.includes('current-models')) return Promise.resolve('openai/gpt-4o\nanthropic/claude-3\n');
       if (path.includes('chat-config')) return Promise.resolve('{}');
+      if (path.includes('model-capabilities')) {
+        return Promise.resolve(JSON.stringify({
+          models: {
+            'openai/gpt-4o': { supportsThinking: false },
+            'anthropic/claude-3': { supportsThinking: true },
+          },
+        }));
+      }
       return Promise.reject(new Error('ENOENT'));
     });
     const res = await request(app).get('/api/models');
     expect(res.status).toBe(200);
     expect(res.body.models).toEqual(['openai/gpt-4o', 'anthropic/claude-3']);
+    expect(res.body.capabilities).toEqual({
+      'openai/gpt-4o': { supportsThinking: false },
+      'anthropic/claude-3': { supportsThinking: true },
+    });
   });
 
   it('filters models by allowedModels config', async () => {
     fs.readFile.mockImplementation((path) => {
       if (path.includes('current-models')) return Promise.resolve('openai/gpt-4o\nanthropic/claude-3\n');
       if (path.includes('chat-config')) return Promise.resolve(JSON.stringify({ allowedModels: ['openai/gpt-4o'] }));
+      if (path.includes('model-capabilities')) return Promise.resolve(JSON.stringify({ models: {} }));
       return Promise.reject(new Error('ENOENT'));
     });
     const res = await request(app).get('/api/models');
     expect(res.status).toBe(200);
     expect(res.body.models).toEqual(['openai/gpt-4o']);
+    expect(res.body.capabilities).toHaveProperty('openai/gpt-4o');
+  });
+
+  it('applies thinkingModels config overrides on capabilities', async () => {
+    fs.readFile.mockImplementation((path) => {
+      if (path.includes('current-models')) {
+        return Promise.resolve('openrouter/amazon/nova-premier-v1\n');
+      }
+      if (path.includes('chat-config')) {
+        return Promise.resolve(JSON.stringify({
+          thinkingModels: ['openrouter/amazon/nova-premier-v1'],
+        }));
+      }
+      if (path.includes('model-capabilities')) {
+        return Promise.resolve(JSON.stringify({
+          models: {
+            'openrouter/amazon/nova-premier-v1': { supportsThinking: false },
+          },
+        }));
+      }
+      return Promise.reject(new Error('ENOENT'));
+    });
+    const res = await request(app).get('/api/models');
+    expect(res.status).toBe(200);
+    expect(res.body.capabilities['openrouter/amazon/nova-premier-v1']).toEqual({
+      supportsThinking: true,
+    });
   });
 
   it('returns empty array when models file is missing', async () => {
@@ -88,6 +128,7 @@ describe('GET /api/models', () => {
     const res = await request(app).get('/api/models');
     expect(res.status).toBe(200);
     expect(res.body.models).toEqual([]);
+    expect(res.body.capabilities).toEqual({});
   });
 });
 

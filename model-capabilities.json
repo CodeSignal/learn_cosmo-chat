@@ -1,0 +1,588 @@
+{
+  "generatedAt": "2026-07-29T19:30:00.805Z",
+  "source": "openrouter+octavus-provider-rules",
+  "models": {
+    "anthropic/claude-opus-4-7": {
+      "supportsThinking": true
+    },
+    "anthropic/claude-opus-4-6": {
+      "supportsThinking": true
+    },
+    "anthropic/claude-sonnet-4-6": {
+      "supportsThinking": true
+    },
+    "anthropic/claude-sonnet-4-5": {
+      "supportsThinking": true
+    },
+    "anthropic/claude-haiku-4-5": {
+      "supportsThinking": true
+    },
+    "google/gemini-3-pro-preview": {
+      "supportsThinking": true
+    },
+    "google/gemini-3-flash-preview": {
+      "supportsThinking": true
+    },
+    "google/gemini-2.5-flash": {
+      "supportsThinking": true
+    },
+    "openai/gpt-5": {
+      "supportsThinking": true
+    },
+    "openai/gpt-4o": {
+      "supportsThinking": false
+    },
+    "openai/o4-mini": {
+      "supportsThinking": true
+    },
+    "openai/o3": {
+      "supportsThinking": true
+    },
+    "openai/o3-mini": {
+      "supportsThinking": true
+    },
+    "openai/o1": {
+      "supportsThinking": true
+    },
+    "openrouter/amazon/nova-2-lite-v1": {
+      "supportsThinking": true
+    },
+    "openrouter/amazon/nova-premier-v1": {
+      "supportsThinking": false
+    },
+    "openrouter/amazon/nova-lite-v1": {
+      "supportsThinking": false
+    },
+    "openrouter/amazon/nova-micro-v1": {
+      "supportsThinking": false
+    },
+    "openrouter/amazon/nova-pro-v1": {
+      "supportsThinking": false
+    },
+    "openrouter/cohere/command-a": {
+      "supportsThinking": false
+    },
+    "openrouter/cohere/command-r7b-12-2024": {
+      "supportsThinking": false
+    },
+    "openrouter/cohere/command-r-08-2024": {
+      "supportsThinking": false
+    },
+    "openrouter/cohere/command-r-plus-08-2024": {
+      "supportsThinking": false
+    },
+    "openrouter/cohere/command-r-plus": {
+      "supportsThinking": false
+    },
+    "openrouter/cohere/command-r-plus-04-2024": {
+      "supportsThinking": false
+    },
+    "openrouter/cohere/command": {
+      "supportsThinking": false
+    },
+    "openrouter/cohere/command-r": {
+      "supportsThinking": false
+    },
+    "openrouter/cohere/command-r-03-2024": {
+      "supportsThinking": false
+    },
+    "openrouter/deepseek/deepseek-v4-pro": {
+      "supportsThinking": true
+    },
+    "openrouter/deepseek/deepseek-v4-flash": {
+      "supportsThinking": true
+    },
+    "openrouter/deepseek/deepseek-v3.2-speciale": {
+      "supportsThinking": false
+    },
+    "openrouter/deepseek/deepseek-v3.2": {
+      "supportsThinking": true
+    },
+    "openrouter/deepseek/deepseek-v3.2-exp": {
+      "supportsThinking": true
+    },
+    "openrouter/deepseek/deepseek-v3.1-terminus": {
+      "supportsThinking": true
+    },
+    "openrouter/deepseek/deepseek-chat-v3.1": {
+      "supportsThinking": true
+    },
+    "openrouter/deepseek/deepseek-r1-0528-qwen3-8b": {
+      "supportsThinking": false
+    },
+    "openrouter/deepseek/deepseek-r1-0528": {
+      "supportsThinking": true
+    },
+    "openrouter/deepseek/deepseek-prover-v2": {
+      "supportsThinking": false
+    },
+    "openrouter/deepseek/deepseek-chat-v3-0324": {
+      "supportsThinking": false
+    },
+    "openrouter/deepseek/deepseek-r1-zero": {
+      "supportsThinking": false
+    },
+    "openrouter/deepseek/deepseek-r1-distill-llama-8b": {
+      "supportsThinking": false
+    },
+    "openrouter/deepseek/deepseek-r1-distill-qwen-1.5b": {
+      "supportsThinking": false
+    },
+    "openrouter/deepseek/deepseek-r1-distill-qwen-7b": {
+      "supportsThinking": false
+    },
+    "openrouter/deepseek/deepseek-r1-distill-qwen-14b": {
+      "supportsThinking": false
+    },
+    "openrouter/deepseek/deepseek-r1-distill-qwen-32b": {
+      "supportsThinking": false
+    },
+    "openrouter/deepseek/deepseek-r1-distill-llama-70b": {
+      "supportsThinking": true
+    },
+    "openrouter/deepseek/deepseek-r1": {
+      "supportsThinking": true
+    },
+    "openrouter/deepseek/deepseek-chat-v2.5": {
+      "supportsThinking": false
+    },
+    "openrouter/google/gemini-3.1-flash-lite": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemini-3.1-flash-image-preview": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemini-3.1-pro-preview": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemini-3.1-flash-lite-preview": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemini-3-flash-preview": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemini-3-pro-image-preview": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemini-3-pro-preview": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemini-2.5-flash-image": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemini-2.5-flash-lite": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemini-2.5-flash": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemini-2.5-pro": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemini-2.5-pro-preview": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemini-2.0-flash-lite-001": {
+      "supportsThinking": false
+    },
+    "openrouter/google/gemini-2.0-flash-001": {
+      "supportsThinking": false
+    },
+    "openrouter/google/gemini-flash-1.5": {
+      "supportsThinking": false
+    },
+    "openrouter/google/gemini-pro-1.5": {
+      "supportsThinking": false
+    },
+    "openrouter/google/gemma-4-26b-a4b-it": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemma-4-31b-it": {
+      "supportsThinking": true
+    },
+    "openrouter/google/gemma-3n-e2b-it": {
+      "supportsThinking": false
+    },
+    "openrouter/google/gemma-3n-e4b-it": {
+      "supportsThinking": false
+    },
+    "openrouter/google/gemma-3-1b-it": {
+      "supportsThinking": false
+    },
+    "openrouter/google/gemma-3-4b-it": {
+      "supportsThinking": false
+    },
+    "openrouter/google/gemma-3-12b-it": {
+      "supportsThinking": false
+    },
+    "openrouter/google/gemma-3-27b-it": {
+      "supportsThinking": false
+    },
+    "openrouter/google/gemma-2-27b-it": {
+      "supportsThinking": false
+    },
+    "openrouter/google/gemma-2-9b-it": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-4-maverick": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-4-scout": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-3.3-8b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-3.3-70b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-3.2-1b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-3.2-3b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-3.2-11b-vision-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-3.2-90b-vision-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-3.1-405b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-3.1-8b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-3.1-70b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-3-8b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/llama-3-70b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/codellama-70b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/meta-llama/codellama-34b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-medium-3-5": {
+      "supportsThinking": true
+    },
+    "openrouter/mistralai/mistral-medium-3.1": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-medium-3": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-large-2512": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-large-2411": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-large-2407": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-large": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-small-2603": {
+      "supportsThinking": true
+    },
+    "openrouter/mistralai/mistral-small-creative": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-small-3.2-24b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-small-3.1-24b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-small-24b-instruct-2501": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-small": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-saba": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-nemo": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/pixtral-large-2411": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/pixtral-12b": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/magistral-medium-2506": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/magistral-small-2506": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/devstral-2512": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/devstral-medium": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/devstral-small": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/devstral-small-2505": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/codestral-2508": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/codestral-2501": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/ministral-14b-2512": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/ministral-8b-2512": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/ministral-3b-2512": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/ministral-8b": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/ministral-3b": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mixtral-8x22b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mixtral-8x7b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-7b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/mistralai/mistral-7b-instruct-v0.3": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3.6-flash": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3.6-35b-a3b": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3.6-max-preview": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3.6-27b": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3.6-plus": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3.6-plus-preview": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3.5-9b": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3.5-35b-a3b": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3.5-27b": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3.5-122b-a10b": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3.5-plus-20260420": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3.5-plus-02-15": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3.5-397b-a17b": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3.5-flash-02-23": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-max": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-max-thinking": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-coder-next": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-coder-plus": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-coder-flash": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-coder": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-coder-30b-a3b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-next-80b-a3b-thinking": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-next-80b-a3b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-vl-32b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-vl-8b-thinking": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-vl-8b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-vl-30b-a3b-thinking": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-vl-30b-a3b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-vl-235b-a22b-thinking": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-vl-235b-a22b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-235b-a22b": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-235b-a22b-thinking-2507": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-235b-a22b-2507": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-30b-a3b": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-30b-a3b-thinking-2507": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-30b-a3b-instruct-2507": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-32b": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-14b": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-8b": {
+      "supportsThinking": true
+    },
+    "openrouter/qwen/qwen3-4b": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-1.7b": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen3-0.6b-04-28": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwq-32b": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen-max": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen-plus": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen-turbo": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen-vl-plus": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen-vl-max": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen2.5-vl-72b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen2.5-vl-32b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen2.5-vl-3b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen2.5-32b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen-2.5-coder-32b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen2.5-coder-7b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen-2.5-72b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/qwen/qwen-2.5-7b-instruct": {
+      "supportsThinking": false
+    },
+    "openrouter/x-ai/grok-4.3": {
+      "supportsThinking": true
+    },
+    "openrouter/x-ai/grok-4.20-multi-agent": {
+      "supportsThinking": true
+    },
+    "openrouter/x-ai/grok-4.20": {
+      "supportsThinking": true
+    },
+    "openrouter/x-ai/grok-4.1-fast": {
+      "supportsThinking": false
+    },
+    "openrouter/x-ai/grok-4-fast": {
+      "supportsThinking": false
+    },
+    "openrouter/x-ai/grok-code-fast-1": {
+      "supportsThinking": false
+    },
+    "openrouter/x-ai/grok-4": {
+      "supportsThinking": false
+    },
+    "openrouter/x-ai/grok-3-mini": {
+      "supportsThinking": false
+    },
+    "openrouter/x-ai/grok-3": {
+      "supportsThinking": false
+    },
+    "openrouter/x-ai/grok-3-mini-beta": {
+      "supportsThinking": false
+    },
+    "openrouter/x-ai/grok-3-beta": {
+      "supportsThinking": false
+    },
+    "openrouter/x-ai/grok-2-vision-1212": {
+      "supportsThinking": false
+    },
+    "openrouter/x-ai/grok-2-1212": {
+      "supportsThinking": false
+    },
+    "openrouter/x-ai/grok-2-mini": {
+      "supportsThinking": false
+    },
+    "openrouter/x-ai/grok-2": {
+      "supportsThinking": false
+    }
+  }
+}

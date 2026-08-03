@@ -10,6 +10,8 @@ import {
   canSendMessage,
   nextSaveAction,
 } from '../lib/stream-registry.js';
+import { resolveAssistantContent, segmentAssistantParts } from '../lib/thinking.js';
+import { supportsThinking } from '../lib/model-capabilities.js';
 import Dropdown from '../design-system/components/dropdown/dropdown.js';
 import Modal from '../design-system/components/modal/modal.js';
 import NumericSlider from '../design-system/components/numeric-slider/numeric-slider.js';
@@ -221,6 +223,8 @@ let allSessionsMeta = []; // [{session_id, title, updated_at}]
 let loadingIntervalId = null;
 let chatConfig = {};
 let availableModels = [];
+/** @type {Record<string, { supportsThinking?: boolean }>} */
+let modelCapabilities = {};
 
 /**
  * Translate a user-facing UI string via the `strings` map in chat-config.json.
@@ -446,9 +450,22 @@ function renderModelSelector() {
     width: '100%',
     onSelect: (value) => {
       selectedModel = value;
+      syncThinkingForSelectedModel();
       startNewChat();
     },
   });
+}
+
+/** Prefer server `/api/models` capabilities; fall back to local heuristics. */
+function modelSupportsThinking(modelId = selectedModel) {
+  return supportsThinking(modelId, chatConfig, modelCapabilities);
+}
+
+/** Force Thinking to Off when the current model does not support it. */
+function syncThinkingForSelectedModel() {
+  if (!modelSupportsThinking(selectedModel)) {
+    selectedThinking = 'off';
+  }
 }
 
 // ── Settings modal ────────────────────────────────────────────
@@ -559,10 +576,11 @@ function openSettings() {
           <div class="settings-slider-container" id="temperatureSliderEl"></div>
         </div>
 
-        <div class="settings-row">
+        <div class="settings-row" id="thinkingRow">
           <label class="body-small settings-row__label">${t('Thinking')}</label>
           <p class="body-xsmall settings-row__desc">${t('Extended reasoning depth. When enabled, temperature is ignored by the model.')}</p>
           <div class="settings-dropdown-container" id="thinkingDropdownEl"></div>
+          <p class="body-xsmall settings-row__note" id="thinkingUnsupportedNote" hidden></p>
         </div>
       </section>
     `;
@@ -584,6 +602,11 @@ function openSettings() {
 
         // Generation controls only exist when `hideModelSettings` is falsy.
         if (sliderEl && dropdownEl && tempRow) {
+          const thinkingRow = settingsModal.content.querySelector('#thinkingRow');
+          const thinkingNote = settingsModal.content.querySelector('#thinkingUnsupportedNote');
+          const canThink = modelSupportsThinking(selectedModel);
+          if (!canThink) selectedThinking = 'off';
+
           // Thinking dropdown
           if (thinkingDropdownInstance) thinkingDropdownInstance.destroy();
           thinkingDropdownInstance = new Dropdown(dropdownEl, {
@@ -591,11 +614,51 @@ function openSettings() {
             selectedValue: selectedThinking,
             width: '100%',
             onSelect: (value) => {
+              const canThinkNow = modelSupportsThinking(selectedModel);
+              if (!canThinkNow && value !== 'off') {
+                if (thinkingNote) {
+                  thinkingNote.hidden = false;
+                  thinkingNote.textContent = t(
+                    "This model does not support Thinking. Switch to a model that does, then update Thinking.",
+                  );
+                }
+                // Snap back to Off without leaving a non-supported level selected.
+                if (thinkingDropdownInstance.getValue() !== 'off') {
+                  thinkingDropdownInstance.setValue('off');
+                }
+                selectedThinking = 'off';
+                tempRow.classList.remove('settings-row--disabled');
+                return;
+              }
               selectedThinking = value;
+              if (thinkingNote) {
+                if (canThinkNow) {
+                  thinkingNote.hidden = true;
+                  thinkingNote.textContent = '';
+                } else {
+                  thinkingNote.hidden = false;
+                  thinkingNote.textContent = t(
+                    "This model does not support Thinking. Switch to a model that does, then update Thinking.",
+                  );
+                }
+              }
               // Dim temperature row when thinking is active
               tempRow.classList.toggle('settings-row--disabled', value !== 'off');
             },
           });
+
+          if (thinkingNote) {
+            if (canThink) {
+              thinkingNote.hidden = true;
+              thinkingNote.textContent = '';
+            } else {
+              thinkingNote.hidden = false;
+              thinkingNote.textContent = t(
+                "This model does not support Thinking. Switch to a model that does, then update Thinking.",
+              );
+            }
+          }
+          thinkingRow?.classList.toggle('settings-row--thinking-locked', !canThink);
 
           // Temperature slider — reinit each open so it measures the visible DOM
           const tempValueEl = settingsModal.content.querySelector('#temperatureValue');
@@ -781,8 +844,13 @@ async function init() {
     applyChatConfigUI();
 
     const modelsData = modelsRes.ok ? await modelsRes.json() : { models: [] };
-    availableModels = modelsData.models;
+    availableModels = modelsData.models ?? [];
+    modelCapabilities =
+      modelsData.capabilities && typeof modelsData.capabilities === 'object'
+        ? modelsData.capabilities
+        : {};
     selectedModel = chatConfig.model || availableModels[0] || '';
+    syncThinkingForSelectedModel();
     renderModelSelector();
 
     renderActive();
@@ -851,6 +919,53 @@ function renderImagePlaceholderBody() {
     `;
 }
 
+/** Escape text for safe insertion into HTML attribute/text contexts. */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Whether to surface model reasoning/thoughts in the UI.
+ * Course authors can opt out with `showReasoning: false`. When thinking is off,
+ * models typically won't emit reasoning — but historical thoughts still show if present.
+ */
+function shouldShowReasoning() {
+  return chatConfig.showReasoning !== false;
+}
+
+/**
+ * Single collapsible "Thoughts" section for the whole reply (ChatGPT / Claude /
+ * Gemini style). Each discrete thought is its own DIV inside the body so
+ * consecutive reasoning parts stay delineated without mid-sentence gluing.
+ * Open while streaming so learners can watch; collapsed when done.
+ *
+ * @param {string[]} reasoningBlocks
+ */
+function renderThoughtsBlock(reasoningBlocks, { streaming = false } = {}) {
+  const openAttr = streaming ? ' open' : '';
+  const summaryLabel = streaming ? t('Thinking…') : t('Thoughts');
+  const blocks = (Array.isArray(reasoningBlocks) ? reasoningBlocks : [reasoningBlocks])
+    .filter((text) => (text ?? '').trim().length > 0 || streaming);
+  const body = blocks
+    .map((text) => {
+      const html = escapeHtml(text ?? '').replace(/\n/g, '<br>');
+      return `<div class="message__thoughts-block">${html}</div>`;
+    })
+    .join('');
+  return `
+    <details class="message__thoughts"${openAttr}>
+      <summary class="message__thoughts-summary body-xsmall">
+        <span class="message__thoughts-summary-label">${escapeHtml(summaryLabel)}</span>
+      </summary>
+      <div class="message__thoughts-body body-small">${body}</div>
+    </details>
+  `;
+}
+
 /**
  * Label shown next to the avatar while streaming (no three-dot animation).
  * @returns {{ label: string, icon: string | null, isImage: boolean }}
@@ -910,14 +1025,41 @@ function renderMessages(liveMessages, status) {
     const row = document.createElement('div');
 
     if (msg.role === 'assistant') {
-      const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
+      const rawText = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
       const fileParts = msg.parts.filter((p) => p.type === 'file');
+      const segments = segmentAssistantParts(msg.parts);
+      const reasoningSegments = segments.filter((seg) => seg.kind === 'reasoning');
+      // Join only for resolveAssistantContent's string API; UI keeps one DIV per
+      // thought so blocks stay delineated (Brian: single section, separate DIVs).
+      const reasoningFromParts = reasoningSegments.map((seg) => seg.text).join('\n\n');
+      const reasoningStreaming = reasoningSegments.some((seg) => seg.streaming);
+      const resolved = resolveAssistantContent({
+        text: rawText,
+        reasoningFromParts,
+        reasoningStreaming,
+      });
+      const text = resolved.answer;
       const streaming = msg.status === 'streaming';
+      // Octavus: one entry per reasoning part. Embedded peel already joins with
+      // blank lines — split those back into blocks for the same DIV treatment.
+      const reasoningBlocks = resolved.source === 'octavus'
+        ? reasoningSegments.map((seg) => seg.text)
+        : (resolved.reasoning
+          ? resolved.reasoning.split(/\n\n+/).filter((block) => block.trim().length > 0)
+          : []);
       const hasText = text.trim().length > 0;
+      const hasReasoning =
+        reasoningBlocks.some((block) => block.trim().length > 0)
+        || reasoningStreaming
+        || resolved.thinkingOpen;
+      const showThoughts = shouldShowReasoning() && hasReasoning;
       const renderedHtml = stripEmojisFromHtml(
         stripHeadingLeadDecorationsFromHtml(marked.parse(text)),
       );
       const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
+      const thoughtsHtml = showThoughts
+        ? renderThoughtsBlock(reasoningBlocks, { streaming })
+        : '';
 
       const isImageGen = isImageGenerationLoading(msg.parts);
 
@@ -956,6 +1098,7 @@ function renderMessages(liveMessages, status) {
 
       row.className = streaming ? 'message message--ai message--ai--streaming' : 'message message--ai';
       row.innerHTML = `
+        ${thoughtsHtml}
         <div class="message__body body-medium markdown">
           ${bodyContent}
         </div>
@@ -1529,14 +1672,30 @@ async function startNewChat() {
 function serializeLiveMessages(liveMessages) {
   return liveMessages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({
-      role: m.role,
-      content: m.parts.filter((p) => p.type === 'text').map((p) => p.text).join(''),
-      files: m.parts
-        .filter((p) => p.type === 'file')
-        .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
-      timestamp: new Date().toISOString(),
-    }));
+    .map((m) => {
+      const rawText = m.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
+      const reasoningBlocks = segmentAssistantParts(m.parts)
+        .filter((seg) => seg.kind === 'reasoning')
+        .map((seg) => seg.text);
+      const resolved = resolveAssistantContent({
+        text: rawText,
+        reasoningFromParts: reasoningBlocks.join('\n\n'),
+      });
+      // One entry per thought so restore can render separate DIVs inside the
+      // single Thoughts section (not one glued string).
+      const reasoning = resolved.source === 'octavus'
+        ? reasoningBlocks
+        : (resolved.reasoning ? [resolved.reasoning] : []);
+      return {
+        role: m.role,
+        content: m.role === 'assistant' ? resolved.answer : rawText,
+        ...(reasoning.length ? { reasoning } : {}),
+        files: m.parts
+          .filter((p) => p.type === 'file')
+          .map((p) => ({ filename: p.filename, mediaType: p.mediaType, url: p.url })),
+        timestamp: new Date().toISOString(),
+      };
+    });
 }
 
 // The full conversation in storage shape: pre-load history followed by
@@ -1837,11 +1996,16 @@ function deriveTitle(messages) {
 // Convert a stored plain-object message back into the shape renderMessages expects
 // (mirrors the OctavusChat message structure just enough for rendering).
 function storedToDisplayMsg(m) {
+  // One entry per thought; sessions saved before that held a single string.
+  const reasoningBlocks = Array.isArray(m.reasoning)
+    ? m.reasoning
+    : (m.reasoning ? [m.reasoning] : []);
   return {
     role: m.role,
     status: 'done',
     stopped: m.stopped || false,
     parts: [
+      ...reasoningBlocks.map((text) => ({ type: 'reasoning', text, status: 'done' })),
       ...(m.content ? [{ type: 'text', text: m.content }] : []),
       ...(m.files ?? []).map((f) => ({ type: 'file', ...f })),
     ],

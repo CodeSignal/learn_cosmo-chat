@@ -13,6 +13,7 @@
     "validate:agent": "octavus --env .env validate ./agents/cosmo-tutor",
     "deploy:agent:dev": "node scripts/deploy-agent.mjs dev",
     "deploy:agent:prod": "node scripts/deploy-agent.mjs prod",
+    "refresh:model-capabilities": "node scripts/refresh-model-capabilities.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
