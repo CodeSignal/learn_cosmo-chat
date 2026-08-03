@@ -11,6 +11,7 @@ import {
   VERBOSITY_LEVELS,
   normalizeLanguageName,
   matchLocaleStrings,
+  mergeConfig,
   mergeStrings,
 } from '../lib/helpers.js';
 
@@ -372,6 +373,56 @@ describe('mergeStrings', () => {
 
   it('returns {} when both are absent', () => {
     expect(mergeStrings()).toEqual({});
+  });
+});
+
+// ── mergeConfig ───────────────────────────────────────────────
+
+describe('mergeConfig', () => {
+  it('lets override scalars and arrays replace base values', () => {
+    const base = {
+      model: 'anthropic/claude-sonnet-4-6',
+      thinking: 'off',
+      allowedModels: ['a', 'b'],
+      hideHistory: true,
+    };
+    const override = {
+      thinking: 'medium',
+      allowedModels: ['c'],
+      hideModelSettings: true,
+    };
+    expect(mergeConfig(base, override)).toEqual({
+      model: 'anthropic/claude-sonnet-4-6',
+      thinking: 'medium',
+      allowedModels: ['c'],
+      hideHistory: true,
+      hideModelSettings: true,
+    });
+  });
+
+  it('deep-merges strings and modelDisplayNames maps per key', () => {
+    const base = {
+      strings: { 'New chat': 'Nuevo', Settings: 'Ajustes' },
+      modelDisplayNames: { 'openai/gpt-5': 'GPT-5' },
+    };
+    const override = {
+      strings: { Settings: 'Configuración' },
+      modelDisplayNames: { 'anthropic/claude-sonnet-4-6': 'Claude' },
+    };
+    expect(mergeConfig(base, override)).toEqual({
+      strings: { 'New chat': 'Nuevo', Settings: 'Configuración' },
+      modelDisplayNames: {
+        'openai/gpt-5': 'GPT-5',
+        'anthropic/claude-sonnet-4-6': 'Claude',
+      },
+    });
+  });
+
+  it('returns a shallow copy of base when override is missing or invalid', () => {
+    const base = { thinking: 'off' };
+    expect(mergeConfig(base)).toEqual({ thinking: 'off' });
+    expect(mergeConfig(base, null)).toEqual({ thinking: 'off' });
+    expect(mergeConfig(base, [])).toEqual({ thinking: 'off' });
   });
 });
 

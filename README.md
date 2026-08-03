@@ -100,6 +100,33 @@ Runtime behaviour can be tuned via `chat-config.json` in the project root. Copy 
 cp chat-config.example.json chat-config.json
 ```
 
+### Practice overrides
+
+Optional `chat-config.override.json` layers on top of the base config. Use a shared base setup for the project, then let individual practices pin only the settings they need.
+
+- Base: `chat-config.json`
+- Override (optional): `chat-config.override.json` — present keys win; missing file is a no-op
+- Object maps (`strings`, `modelDisplayNames`) merge per key; scalars and arrays in the override replace the base value
+- Learner `customInstructions` are still persisted only to `chat-config.json` (overrides are not written back into the base file)
+
+```json
+// chat-config.json (shared base)
+{
+  "model": "anthropic/claude-sonnet-4-6",
+  "verbosity": "detailed",
+  "hideHistory": true
+}
+
+// chat-config.override.json (one practice)
+{
+  "thinking": "medium",
+  "hideModelSettings": true,
+  "showReasoning": true
+}
+```
+
+Both files are gitignored; practices typically inject the override at runtime.
+
 ### Supported options
 
 | Key | Type | Default | Description |
@@ -264,6 +291,7 @@ chat-cpt/
 ├── current-models.txt        # Model catalog for the picker
 ├── model-capabilities.json   # Generated Thinking capability snapshot (refresh via npm script)
 ├── chat-config.json          # Runtime configuration (see Configuration section)
+├── chat-config.override.json # Optional practice overrides (merged on top of base)
 ├── chat-config.example.json  # Reference template for chat-config.json
 ├── chat-sessions.json        # Auto-generated session storage (gitignored)
 ├── .env                      # Secret credentials (gitignored)

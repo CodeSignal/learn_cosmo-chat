@@ -42,10 +42,44 @@ describe('GET /api/config', () => {
   beforeEach(() => vi.resetAllMocks());
 
   it('returns parsed config from chat-config.json', async () => {
-    fs.readFile.mockResolvedValue(JSON.stringify({ model: 'openai/gpt-4o', temperature: 0.5 }));
+    fs.readFile.mockImplementation((filePath) => {
+      if (String(filePath).endsWith('chat-config.json')) {
+        return Promise.resolve(JSON.stringify({ model: 'openai/gpt-4o', temperature: 0.5 }));
+      }
+      return Promise.reject(new Error('ENOENT'));
+    });
     const res = await request(app).get('/api/config');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ model: 'openai/gpt-4o', temperature: 0.5 });
+  });
+
+  it('merges chat-config.override.json on top of the base config', async () => {
+    fs.readFile.mockImplementation((filePath) => {
+      const p = String(filePath);
+      if (p.endsWith('chat-config.override.json')) {
+        return Promise.resolve(JSON.stringify({
+          thinking: 'medium',
+          hideModelSettings: true,
+          strings: { Settings: 'Config' },
+        }));
+      }
+      if (p.endsWith('chat-config.json')) {
+        return Promise.resolve(JSON.stringify({
+          model: 'openai/gpt-4o',
+          thinking: 'off',
+          strings: { 'New chat': 'Nuevo', Settings: 'Ajustes' },
+        }));
+      }
+      return Promise.reject(new Error('ENOENT'));
+    });
+    const res = await request(app).get('/api/config');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      model: 'openai/gpt-4o',
+      thinking: 'medium',
+      hideModelSettings: true,
+      strings: { 'New chat': 'Nuevo', Settings: 'Config' },
+    });
   });
 
   it('returns empty object when config file is missing', async () => {

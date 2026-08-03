@@ -6,4 +6,5 @@ public/app.bundle.js
 public/hljs-*.css
 chat-sessions.json
 chat-config.json
+chat-config.override.json
 .agent-build

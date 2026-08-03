@@ -12,6 +12,7 @@ import {
   buildSessionRecord,
   filterModels,
   matchLocaleStrings,
+  mergeConfig,
   mergeStrings,
 } from './lib/helpers.js';
 import {
@@ -22,6 +23,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SESSIONS_FILE = path.join(__dirname, 'chat-sessions.json');
 const CONFIG_FILE   = path.join(__dirname, 'chat-config.json');
+const CONFIG_OVERRIDE_FILE = path.join(__dirname, 'chat-config.override.json');
 const MODELS_FILE   = path.join(__dirname, 'current-models.txt');
 const CAPABILITIES_FILE = path.join(__dirname, 'model-capabilities.json');
 const I18N_DIR      = path.join(__dirname, 'i18n');
@@ -56,7 +58,15 @@ app.use('/design-system', express.static(path.join(__dirname, 'design-system')))
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Config ────────────────────────────────────────────────────
-const readConfig = () => readJsonFile(CONFIG_FILE);
+// Base chat-config.json plus optional chat-config.override.json. Practices can
+// ship only the keys they need to change; missing override is a no-op.
+async function readConfig() {
+  const [base, override] = await Promise.all([
+    readJsonFile(CONFIG_FILE),
+    readJsonFile(CONFIG_OVERRIDE_FILE),
+  ]);
+  return mergeConfig(base, override);
+}
 
 // Loads every i18n/*.json locale catalog. Each file is
 // { languageNames: string[], strings: { [english]: translation } }.
@@ -104,9 +114,10 @@ app.post('/api/config/custom-instructions', async (req, res) => {
   }
 
   try {
-    const config = await readConfig();
-    config.customInstructions = customInstructions;
-    await writeJsonFile(CONFIG_FILE, config);
+    // Write only the base file so practice overrides are not baked into it.
+    const base = await readJsonFile(CONFIG_FILE);
+    base.customInstructions = customInstructions;
+    await writeJsonFile(CONFIG_FILE, base);
     res.json({ ok: true });
   } catch (err) {
     console.error('[config/custom-instructions] Error:', err);

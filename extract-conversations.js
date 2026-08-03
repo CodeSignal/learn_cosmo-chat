@@ -21,11 +21,12 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { deriveTitle } from './lib/helpers.js';
+import { deriveTitle, mergeConfig } from './lib/helpers.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SESSIONS_FILE = join(__dirname, 'chat-sessions.json');
 const CONFIG_FILE = join(__dirname, 'chat-config.json');
+const CONFIG_OVERRIDE_FILE = join(__dirname, 'chat-config.override.json');
 
 // ── Parse args ────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -40,7 +41,7 @@ Options:
                      report     Generate a markdown report (oldest first)
   --latest         Only include the most recent conversation
   --output <file>  Write report to a file instead of stdout
-  --print-settings Print the current chat-config.json settings in the heading
+  --print-settings Print the effective chat-config settings (base + override) in the heading
   -h, --help       Show this help message`);
   process.exit(0);
 }
@@ -84,17 +85,25 @@ const toRender = latestOnly ? sessions.slice(0, 1) : sessions;
 
 // ── Helpers ───────────────────────────────────────────────────
 
-// Returns the heading lines for the current chat-config.json settings, or an
-// empty array when --print-settings was not passed. Rendered as a fenced JSON
-// block so it reads cleanly in both plain stdout and the markdown report.
+// Returns the heading lines for the effective chat-config settings (base merged
+// with optional override), or an empty array when --print-settings was not
+// passed. Rendered as a fenced JSON block so it reads cleanly in both plain
+// stdout and the markdown report.
 function settingsHeadingLines() {
   if (!printSettings) return [];
-  let config;
+  let base = {};
   try {
-    config = JSON.parse(readFileSync(CONFIG_FILE, 'utf8'));
+    base = JSON.parse(readFileSync(CONFIG_FILE, 'utf8'));
   } catch (err) {
     return ['# Settings', '', `_Could not read chat-config.json: ${err.message}_`, '', '---', ''];
   }
+  let override = {};
+  try {
+    override = JSON.parse(readFileSync(CONFIG_OVERRIDE_FILE, 'utf8'));
+  } catch {
+    // Optional practice override — missing file is a no-op.
+  }
+  const config = mergeConfig(base, override);
   // Only the settings a user can change in the Settings panel. Defaults mirror
   // the agent protocol (temperature 0.7, thinking off).
   const settings = {
