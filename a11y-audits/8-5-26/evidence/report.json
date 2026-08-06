@@ -1,0 +1,2863 @@
+{
+  "light": {
+    "scheme": "light",
+    "scans": [
+      {
+        "label": "empty-state",
+        "violations": [
+          {
+            "id": "aria-allowed-role",
+            "impact": "minor",
+            "help": "ARIA role should be appropriate for the element",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#chatHistory",
+                "summary": "Fix any of the following: ARIA role log is not allowed for given element"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "tags": [
+              "wcag2aa",
+              "wcag143"
+            ],
+            "nodes": [
+              {
+                "target": "#newChatBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.44 (foreground color: #808aa5, background color: #ffffff, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": "#settingsBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.44 (foreground color: #808aa5, background color: #ffffff, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": ".composer__hint",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 2.58 (foreground color: #99a1b7, background color: #ffffff, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+              }
+            ],
+            "total": 3
+          },
+          {
+            "id": "landmark-one-main",
+            "impact": "moderate",
+            "help": "Document should have one main landmark",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "html",
+                "summary": "Fix all of the following: Document does not have a main landmark"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "nested-interactive",
+            "impact": "serious",
+            "help": "Interactive controls must not be nested",
+            "tags": [
+              "wcag2a",
+              "wcag412"
+            ],
+            "nodes": [
+              {
+                "target": ".session-item--active",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": "div[aria-label=\"New conversation\"]",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              }
+            ],
+            "total": 2
+          },
+          {
+            "id": "page-has-heading-one",
+            "impact": "moderate",
+            "help": "Page should contain a level-one heading",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "html",
+                "summary": "Fix all of the following: Page must have a level-one heading"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "region",
+            "impact": "moderate",
+            "help": "All page content should be contained by landmarks",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#sidebarResizer",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              }
+            ],
+            "total": 1
+          }
+        ],
+        "incomplete": []
+      },
+      {
+        "label": "streaming",
+        "violations": [
+          {
+            "id": "aria-allowed-role",
+            "impact": "minor",
+            "help": "ARIA role should be appropriate for the element",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#chatHistory",
+                "summary": "Fix any of the following: ARIA role log is not allowed for given element"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "tags": [
+              "wcag2aa",
+              "wcag143"
+            ],
+            "nodes": [
+              {
+                "target": "#newChatBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.44 (foreground color: #808aa5, background color: #ffffff, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": "#settingsBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.44 (foreground color: #808aa5, background color: #ffffff, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": ".composer__hint",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 2.58 (foreground color: #99a1b7, background color: #ffffff, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+              }
+            ],
+            "total": 3
+          },
+          {
+            "id": "landmark-one-main",
+            "impact": "moderate",
+            "help": "Document should have one main landmark",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "html",
+                "summary": "Fix all of the following: Document does not have a main landmark"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "nested-interactive",
+            "impact": "serious",
+            "help": "Interactive controls must not be nested",
+            "tags": [
+              "wcag2a",
+              "wcag412"
+            ],
+            "nodes": [
+              {
+                "target": ".session-item--active",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": "div[aria-label=\"New conversation\"]",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              }
+            ],
+            "total": 2
+          },
+          {
+            "id": "page-has-heading-one",
+            "impact": "moderate",
+            "help": "Page should contain a level-one heading",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "html",
+                "summary": "Fix all of the following: Page must have a level-one heading"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "region",
+            "impact": "moderate",
+            "help": "All page content should be contained by landmarks",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#sidebarResizer",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              }
+            ],
+            "total": 1
+          }
+        ],
+        "incomplete": []
+      },
+      {
+        "label": "with-messages",
+        "violations": [
+          {
+            "id": "aria-allowed-role",
+            "impact": "minor",
+            "help": "ARIA role should be appropriate for the element",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#chatHistory",
+                "summary": "Fix any of the following: ARIA role log is not allowed for given element"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "tags": [
+              "wcag2aa",
+              "wcag143"
+            ],
+            "nodes": [
+              {
+                "target": "#newChatBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.44 (foreground color: #808aa5, background color: #ffffff, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": "#settingsBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.44 (foreground color: #808aa5, background color: #ffffff, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": ".composer__hint",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 2.58 (foreground color: #99a1b7, background color: #ffffff, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+              }
+            ],
+            "total": 3
+          },
+          {
+            "id": "landmark-one-main",
+            "impact": "moderate",
+            "help": "Document should have one main landmark",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "html",
+                "summary": "Fix all of the following: Document does not have a main landmark"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "nested-interactive",
+            "impact": "serious",
+            "help": "Interactive controls must not be nested",
+            "tags": [
+              "wcag2a",
+              "wcag412"
+            ],
+            "nodes": [
+              {
+                "target": ".session-item--active",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": "div[aria-label=\"New conversation\"]",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              }
+            ],
+            "total": 2
+          },
+          {
+            "id": "page-has-heading-one",
+            "impact": "moderate",
+            "help": "Page should contain a level-one heading",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "html",
+                "summary": "Fix all of the following: Page must have a level-one heading"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "region",
+            "impact": "moderate",
+            "help": "All page content should be contained by landmarks",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#sidebarResizer",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              }
+            ],
+            "total": 1
+          }
+        ],
+        "incomplete": []
+      },
+      {
+        "label": "settings-modal",
+        "violations": [
+          {
+            "id": "aria-allowed-role",
+            "impact": "minor",
+            "help": "ARIA role should be appropriate for the element",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#chatHistory",
+                "summary": "Fix any of the following: ARIA role log is not allowed for given element"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "tags": [
+              "wcag2aa",
+              "wcag143"
+            ],
+            "nodes": [
+              {
+                "target": "#newChatBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.44 (foreground color: #808aa5, background color: #ffffff, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": "#settingsBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.44 (foreground color: #808aa5, background color: #ffffff, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": ".composer__hint",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 2.58 (foreground color: #99a1b7, background color: #ffffff, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+              }
+            ],
+            "total": 3
+          },
+          {
+            "id": "nested-interactive",
+            "impact": "serious",
+            "help": "Interactive controls must not be nested",
+            "tags": [
+              "wcag2a",
+              "wcag412"
+            ],
+            "nodes": [
+              {
+                "target": ".session-item--active",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": "div[aria-label=\"New conversation\"]",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": ".numeric-slider-wrapper",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              }
+            ],
+            "total": 3
+          },
+          {
+            "id": "region",
+            "impact": "moderate",
+            "help": "All page content should be contained by landmarks",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#sidebarResizer",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              }
+            ],
+            "total": 1
+          }
+        ],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "help": "ARIA attributes must conform to valid values",
+            "count": 1
+          },
+          {
+            "id": "color-contrast",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 3
+          }
+        ]
+      },
+      {
+        "label": "settings-modal-dropdown-open",
+        "violations": [
+          {
+            "id": "aria-allowed-role",
+            "impact": "minor",
+            "help": "ARIA role should be appropriate for the element",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#chatHistory",
+                "summary": "Fix any of the following: ARIA role log is not allowed for given element"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "aria-input-field-name",
+            "impact": "serious",
+            "help": "ARIA input fields must have an accessible name",
+            "tags": [
+              "wcag2a",
+              "wcag412"
+            ],
+            "nodes": [
+              {
+                "target": "#portal-dropdown-menu-1",
+                "summary": "Fix any of the following: aria-label attribute does not exist or is empty aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty Element has no title attribute"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "tags": [
+              "wcag2aa",
+              "wcag143"
+            ],
+            "nodes": [
+              {
+                "target": "#newChatBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.44 (foreground color: #808aa5, background color: #ffffff, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": "#settingsBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.44 (foreground color: #808aa5, background color: #ffffff, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": ".composer__hint",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 2.58 (foreground color: #99a1b7, background color: #ffffff, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+              }
+            ],
+            "total": 3
+          },
+          {
+            "id": "nested-interactive",
+            "impact": "serious",
+            "help": "Interactive controls must not be nested",
+            "tags": [
+              "wcag2a",
+              "wcag412"
+            ],
+            "nodes": [
+              {
+                "target": ".session-item--active",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": "div[aria-label=\"New conversation\"]",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": ".numeric-slider-wrapper",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              }
+            ],
+            "total": 3
+          },
+          {
+            "id": "region",
+            "impact": "moderate",
+            "help": "All page content should be contained by landmarks",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#sidebarResizer",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              },
+              {
+                "target": "button[data-value=\"off\"]",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              },
+              {
+                "target": "button[data-value=\"low\"]",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              },
+              {
+                "target": ".selected > .dropdown-menu-item-content > .dropdown-menu-item-label.body-small",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              }
+            ],
+            "total": 6
+          }
+        ],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "help": "ARIA attributes must conform to valid values",
+            "count": 1
+          },
+          {
+            "id": "color-contrast",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 3
+          }
+        ]
+      }
+    ],
+    "tabOrder": [
+      {
+        "tag": "button",
+        "id": "newChatBtn",
+        "cls": "sidebar__nav-item",
+        "role": null,
+        "name": "New chat",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 247,
+        "h": 26
+      },
+      {
+        "tag": "button",
+        "id": "settingsBtn",
+        "cls": "sidebar__nav-item",
+        "role": null,
+        "name": "Open settings",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 247,
+        "h": 26
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "session-item session-item--active",
+        "role": "button",
+        "name": "What's in a name?",
+        "outlineWidth": "1px",
+        "outlineStyle": "auto",
+        "outlineColor": "rgb(0, 95, 204)",
+        "boxShadow": null,
+        "w": 255,
+        "h": 40
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "cls": "session-item__delete",
+        "role": null,
+        "name": "Delete conversation",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 22,
+        "h": 22
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "session-item",
+        "role": "button",
+        "name": "New conversation",
+        "outlineWidth": "1px",
+        "outlineStyle": "auto",
+        "outlineColor": "rgb(0, 95, 204)",
+        "boxShadow": null,
+        "w": 255,
+        "h": 40
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "cls": "session-item__delete",
+        "role": null,
+        "name": "Delete conversation",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 22,
+        "h": 22
+      },
+      {
+        "tag": "div",
+        "id": "sidebarResizer",
+        "cls": "sidebar-resizer",
+        "role": "separator",
+        "name": "Resize sidebar",
+        "outlineWidth": "3px",
+        "outlineStyle": "none",
+        "outlineColor": "rgb(45, 56, 85)",
+        "boxShadow": null,
+        "w": 8,
+        "h": 900
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "cls": "button-icon",
+        "role": null,
+        "name": "Edit message",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "summary",
+        "id": null,
+        "cls": "message__thoughts-summary body-xsmall",
+        "role": null,
+        "name": "Thoughts",
+        "outlineWidth": "1px",
+        "outlineStyle": "auto",
+        "outlineColor": "rgb(0, 95, 204)",
+        "boxShadow": null,
+        "w": 75,
+        "h": 27
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "cls": "button-icon message__hover-btn",
+        "role": null,
+        "name": "Regenerate response",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "cls": "button-icon message__hover-btn",
+        "role": null,
+        "name": "Copy as Markdown",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "textarea",
+        "id": "promptInput",
+        "cls": "input composer__textarea composer_textarea",
+        "role": null,
+        "name": "Prompt input",
+        "outlineWidth": "3px",
+        "outlineStyle": "none",
+        "outlineColor": "rgb(73, 85, 115)",
+        "boxShadow": null,
+        "w": 712,
+        "h": 55
+      },
+      {
+        "tag": "button",
+        "id": "uploadImageBtn",
+        "cls": "composer__icon-btn",
+        "role": null,
+        "name": "Attach an image",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 18,
+        "h": 18
+      },
+      {
+        "tag": "button",
+        "id": "uploadFileBtn",
+        "cls": "composer__icon-btn",
+        "role": null,
+        "name": "Attach a file",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 18,
+        "h": 18
+      },
+      {
+        "tag": "button",
+        "id": "sendBtn",
+        "cls": "composer__send-btn",
+        "role": null,
+        "name": "Send prompt",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 18,
+        "h": 18
+      },
+      {
+        "tag": "body",
+        "id": null,
+        "cls": "",
+        "role": null,
+        "name": "ChatCPT\n        \n      \n\n      \n        ",
+        "outlineWidth": "3px",
+        "outlineStyle": "none",
+        "outlineColor": "rgb(45, 56, 85)",
+        "boxShadow": null,
+        "w": 1440,
+        "h": 900
+      }
+    ],
+    "contrast": [
+      {
+        "state": "empty",
+        "pairs": [
+          {
+            "sel": ".sidebar__title",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "13px",
+            "fontWeight": "500",
+            "text": "ChatCPT",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".sidebar__nav-label",
+            "color": "rgb(128, 138, 165)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "14px",
+            "fontWeight": "500",
+            "text": "New chat",
+            "ratio": 3.44,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".sidebar__history-heading",
+            "color": "rgb(24, 33, 57)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "13px",
+            "fontWeight": "600",
+            "text": "History",
+            "ratio": 15.96,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".sidebar__model-static",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "anthropic/claude-sonnet-4-6",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".session-item__title",
+            "color": "rgb(24, 33, 57)",
+            "bg": "rgb(236, 242, 255)",
+            "fontSize": "15px",
+            "fontWeight": "500",
+            "text": "What's in a name?",
+            "ratio": 14.22,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".composer__hint",
+            "color": "rgb(128, 138, 165)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "13px",
+            "fontWeight": "400",
+            "text": "Cosmo can make mistakes. Pract",
+            "ratio": 3.44,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".composer__textarea",
+            "color": "rgb(73, 85, 115)",
+            "bg": "rgb(244, 245, 249)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "",
+            "ratio": 6.81,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__bubble",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(237, 239, 245)",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "text": "What's in a name?",
+            "ratio": 10.1,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__body",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "text": "Great question — and a famousl",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__thoughts-summary",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "Thoughts",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".composer__textarea::placeholder",
+            "color": "rgb(102, 113, 143)",
+            "bg": "rgb(244, 245, 249)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "Ask me anything...",
+            "ratio": 4.46,
+            "required": 4.5,
+            "pass": false
+          }
+        ]
+      },
+      {
+        "state": "messages",
+        "pairs": [
+          {
+            "sel": ".sidebar__title",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "13px",
+            "fontWeight": "500",
+            "text": "ChatCPT",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".sidebar__nav-label",
+            "color": "rgb(128, 138, 165)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "14px",
+            "fontWeight": "500",
+            "text": "New chat",
+            "ratio": 3.44,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".sidebar__history-heading",
+            "color": "rgb(24, 33, 57)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "13px",
+            "fontWeight": "600",
+            "text": "History",
+            "ratio": 15.96,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".sidebar__model-static",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "anthropic/claude-sonnet-4-6",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".session-item__title",
+            "color": "rgb(24, 33, 57)",
+            "bg": "rgb(236, 242, 255)",
+            "fontSize": "15px",
+            "fontWeight": "500",
+            "text": "What's in a name?",
+            "ratio": 14.22,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".composer__hint",
+            "color": "rgb(128, 138, 165)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "13px",
+            "fontWeight": "400",
+            "text": "Cosmo can make mistakes. Pract",
+            "ratio": 3.44,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".composer__textarea",
+            "color": "rgb(73, 85, 115)",
+            "bg": "rgb(244, 245, 249)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "",
+            "ratio": 6.81,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__bubble",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(237, 239, 245)",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "text": "What's in a name?",
+            "ratio": 10.1,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__body",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "text": "Great question — and a famousl",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__thoughts-summary",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "Thoughts",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".composer__textarea::placeholder",
+            "color": "rgb(102, 113, 143)",
+            "bg": "rgb(244, 245, 249)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "Ask me anything...",
+            "ratio": 4.46,
+            "required": 4.5,
+            "pass": false
+          }
+        ]
+      },
+      {
+        "state": "settings",
+        "pairs": [
+          {
+            "sel": ".sidebar__title",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "13px",
+            "fontWeight": "500",
+            "text": "ChatCPT",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".sidebar__nav-label",
+            "color": "rgb(128, 138, 165)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "14px",
+            "fontWeight": "500",
+            "text": "New chat",
+            "ratio": 3.44,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".sidebar__history-heading",
+            "color": "rgb(24, 33, 57)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "13px",
+            "fontWeight": "600",
+            "text": "History",
+            "ratio": 15.96,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".sidebar__model-static",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "anthropic/claude-sonnet-4-6",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".session-item__title",
+            "color": "rgb(24, 33, 57)",
+            "bg": "rgb(236, 242, 255)",
+            "fontSize": "15px",
+            "fontWeight": "500",
+            "text": "What's in a name?",
+            "ratio": 14.22,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".composer__hint",
+            "color": "rgb(128, 138, 165)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "13px",
+            "fontWeight": "400",
+            "text": "Cosmo can make mistakes. Pract",
+            "ratio": 3.44,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".composer__textarea",
+            "color": "rgb(73, 85, 115)",
+            "bg": "rgb(244, 245, 249)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "",
+            "ratio": 6.81,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__bubble",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(237, 239, 245)",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "text": "What's in a name?",
+            "ratio": 10.1,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__body",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "text": "Great question — and a famousl",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__thoughts-summary",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "Thoughts",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".settings-row__label",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "Temperature",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".settings-row__desc",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "Controls randomness (0–2). Low",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".settings-row__value",
+            "color": "rgb(45, 56, 85)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "0.70",
+            "ratio": 11.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".modal-title",
+            "color": "rgb(10, 17, 34)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "20px",
+            "fontWeight": "500",
+            "text": "Settings",
+            "ratio": 18.81,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".dropdown-toggle-label",
+            "color": "rgb(73, 85, 115)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "15px",
+            "fontWeight": "500",
+            "text": "Medium",
+            "ratio": 7.42,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".button-secondary",
+            "color": "rgb(16, 98, 251)",
+            "bg": "rgb(255, 255, 255)",
+            "fontSize": "17px",
+            "fontWeight": "500",
+            "text": "Close",
+            "ratio": 5.05,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".button-primary",
+            "color": "rgb(255, 255, 255)",
+            "bg": "rgb(16, 98, 251)",
+            "fontSize": "17px",
+            "fontWeight": "500",
+            "text": "Apply & New Chat",
+            "ratio": 5.05,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".composer__textarea::placeholder",
+            "color": "rgb(102, 113, 143)",
+            "bg": "rgb(244, 245, 249)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "Ask me anything...",
+            "ratio": 4.46,
+            "required": 4.5,
+            "pass": false
+          }
+        ]
+      }
+    ],
+    "notes": [
+      "bootError visible: false",
+      "live region text length while streaming: 2229",
+      "hover-action focus test: focused: button-icon message__hover-btn",
+      "settings modal open: true",
+      "modal initial focus: [{\"in\":true,\"tag\":\"button\",\"cls\":\"modal-close-button\"}]",
+      "duplicate ids: []",
+      "thinking menu portaled: true; menu inside dialog: false; focus after open: BUTTON.button-icon; options with aria-selected: 0/5",
+      "320px reflow: {\"docScrollW\":320,\"clientW\":320}"
+    ],
+    "modalTabWalk": [
+      {
+        "insideDialog": true,
+        "tag": "div",
+        "id": null,
+        "cls": "numeric-slider-wrapper"
+      },
+      {
+        "insideDialog": true,
+        "tag": "button",
+        "id": null,
+        "cls": "numeric-slider-handle style-marker theme-prim"
+      },
+      {
+        "insideDialog": true,
+        "tag": "button",
+        "id": null,
+        "cls": "dropdown-toggle has-selection"
+      },
+      {
+        "insideDialog": true,
+        "tag": "textarea",
+        "id": "customInstructionsEl",
+        "cls": "settings-textarea body-small"
+      },
+      {
+        "insideDialog": true,
+        "tag": "button",
+        "id": null,
+        "cls": "button button-secondary"
+      },
+      {
+        "insideDialog": true,
+        "tag": "button",
+        "id": null,
+        "cls": "button button-primary"
+      },
+      {
+        "insideDialog": false,
+        "tag": "button",
+        "id": "newChatBtn",
+        "cls": "sidebar__nav-item"
+      },
+      {
+        "insideDialog": false,
+        "tag": "button",
+        "id": "settingsBtn",
+        "cls": "sidebar__nav-item"
+      },
+      {
+        "insideDialog": false,
+        "tag": "div",
+        "id": null,
+        "cls": "session-item session-item--active"
+      },
+      {
+        "insideDialog": false,
+        "tag": "button",
+        "id": null,
+        "cls": "session-item__delete"
+      },
+      {
+        "insideDialog": false,
+        "tag": "div",
+        "id": null,
+        "cls": "session-item"
+      },
+      {
+        "insideDialog": false,
+        "tag": "button",
+        "id": null,
+        "cls": "session-item__delete"
+      },
+      {
+        "insideDialog": false,
+        "tag": "div",
+        "id": "sidebarResizer",
+        "cls": "sidebar-resizer"
+      },
+      {
+        "insideDialog": false,
+        "tag": "button",
+        "id": null,
+        "cls": "button-icon"
+      }
+    ]
+  },
+  "light-ds-dropdown": {
+    "scheme": "light",
+    "notes": [
+      "{\"toggleRole\":null,\"ariaHaspopup\":\"true\",\"ariaExpanded\":\"true\",\"ariaControls\":null,\"menuRole\":\"listbox\",\"optionParentRole\":null,\"optionTag\":\"BUTTON\",\"ariaSelectedCount\":0,\"optionCount\":6,\"focusAfterOpen\":\"BODY.\"}",
+      "after ArrowDown on toggle, focus = dropdown-toggle",
+      "after Enter on option, focus = BODY. | isBody=true"
+    ],
+    "axe": {
+      "label": "ds-dropdown-test",
+      "violations": [
+        {
+          "id": "landmark-one-main",
+          "impact": "moderate",
+          "help": "Document should have one main landmark",
+          "tags": [
+            "best-practice"
+          ],
+          "nodes": [
+            {
+              "target": "html",
+              "summary": "Fix all of the following: Document does not have a main landmark"
+            }
+          ],
+          "total": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "tags": [
+            "best-practice"
+          ],
+          "nodes": [
+            {
+              "target": "h1",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            },
+            {
+              "target": ".test-section:nth-child(2) > h2",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            },
+            {
+              "target": ".test-section:nth-child(2) > .test-row > .test-item > label",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            },
+            {
+              "target": ".test-section:nth-child(2) > .test-output",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            }
+          ],
+          "total": 20
+        }
+      ],
+      "incomplete": []
+    },
+    "axeOpen": {
+      "label": "ds-dropdown-open",
+      "violations": [
+        {
+          "id": "landmark-one-main",
+          "impact": "moderate",
+          "help": "Document should have one main landmark",
+          "tags": [
+            "best-practice"
+          ],
+          "nodes": [
+            {
+              "target": "html",
+              "summary": "Fix all of the following: Document does not have a main landmark"
+            }
+          ],
+          "total": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "tags": [
+            "best-practice"
+          ],
+          "nodes": [
+            {
+              "target": "h1",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            },
+            {
+              "target": ".test-section:nth-child(2) > h2",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            },
+            {
+              "target": ".test-section:nth-child(2) > .test-row > .test-item > label",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            },
+            {
+              "target": ".test-section:nth-child(2) > .test-output",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            }
+          ],
+          "total": 20
+        }
+      ],
+      "incomplete": []
+    }
+  },
+  "dark": {
+    "scheme": "dark",
+    "scans": [
+      {
+        "label": "empty-state",
+        "violations": [
+          {
+            "id": "aria-allowed-role",
+            "impact": "minor",
+            "help": "ARIA role should be appropriate for the element",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#chatHistory",
+                "summary": "Fix any of the following: ARIA role log is not allowed for given element"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "tags": [
+              "wcag2aa",
+              "wcag143"
+            ],
+            "nodes": [
+              {
+                "target": "#newChatBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.05 (foreground color: #66718f, background color: #1d2740, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": "#settingsBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.05 (foreground color: #66718f, background color: #1d2740, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": ".composer__hint",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 2.44 (foreground color: #57627f, background color: #1d2740, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+              }
+            ],
+            "total": 3
+          },
+          {
+            "id": "landmark-one-main",
+            "impact": "moderate",
+            "help": "Document should have one main landmark",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "html",
+                "summary": "Fix all of the following: Document does not have a main landmark"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "nested-interactive",
+            "impact": "serious",
+            "help": "Interactive controls must not be nested",
+            "tags": [
+              "wcag2a",
+              "wcag412"
+            ],
+            "nodes": [
+              {
+                "target": ".session-item--active",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": "div[aria-label=\"New conversation\"]",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              }
+            ],
+            "total": 2
+          },
+          {
+            "id": "page-has-heading-one",
+            "impact": "moderate",
+            "help": "Page should contain a level-one heading",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "html",
+                "summary": "Fix all of the following: Page must have a level-one heading"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "region",
+            "impact": "moderate",
+            "help": "All page content should be contained by landmarks",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#sidebarResizer",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              }
+            ],
+            "total": 1
+          }
+        ],
+        "incomplete": []
+      },
+      {
+        "label": "streaming",
+        "violations": [
+          {
+            "id": "aria-allowed-role",
+            "impact": "minor",
+            "help": "ARIA role should be appropriate for the element",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#chatHistory",
+                "summary": "Fix any of the following: ARIA role log is not allowed for given element"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "tags": [
+              "wcag2aa",
+              "wcag143"
+            ],
+            "nodes": [
+              {
+                "target": "#newChatBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.05 (foreground color: #66718f, background color: #1d2740, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": "#settingsBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.05 (foreground color: #66718f, background color: #1d2740, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": ".composer__hint",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 2.44 (foreground color: #57627f, background color: #1d2740, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+              }
+            ],
+            "total": 3
+          },
+          {
+            "id": "landmark-one-main",
+            "impact": "moderate",
+            "help": "Document should have one main landmark",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "html",
+                "summary": "Fix all of the following: Document does not have a main landmark"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "nested-interactive",
+            "impact": "serious",
+            "help": "Interactive controls must not be nested",
+            "tags": [
+              "wcag2a",
+              "wcag412"
+            ],
+            "nodes": [
+              {
+                "target": ".session-item--active",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": "div[aria-label=\"New conversation\"]",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              }
+            ],
+            "total": 2
+          },
+          {
+            "id": "page-has-heading-one",
+            "impact": "moderate",
+            "help": "Page should contain a level-one heading",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "html",
+                "summary": "Fix all of the following: Page must have a level-one heading"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "region",
+            "impact": "moderate",
+            "help": "All page content should be contained by landmarks",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#sidebarResizer",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              }
+            ],
+            "total": 1
+          }
+        ],
+        "incomplete": []
+      },
+      {
+        "label": "with-messages",
+        "violations": [
+          {
+            "id": "aria-allowed-role",
+            "impact": "minor",
+            "help": "ARIA role should be appropriate for the element",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#chatHistory",
+                "summary": "Fix any of the following: ARIA role log is not allowed for given element"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "tags": [
+              "wcag2aa",
+              "wcag143"
+            ],
+            "nodes": [
+              {
+                "target": "#newChatBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.05 (foreground color: #66718f, background color: #1d2740, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": "#settingsBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.05 (foreground color: #66718f, background color: #1d2740, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": ".composer__hint",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 2.44 (foreground color: #57627f, background color: #1d2740, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+              }
+            ],
+            "total": 3
+          },
+          {
+            "id": "landmark-one-main",
+            "impact": "moderate",
+            "help": "Document should have one main landmark",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "html",
+                "summary": "Fix all of the following: Document does not have a main landmark"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "nested-interactive",
+            "impact": "serious",
+            "help": "Interactive controls must not be nested",
+            "tags": [
+              "wcag2a",
+              "wcag412"
+            ],
+            "nodes": [
+              {
+                "target": ".session-item--active",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": "div[aria-label=\"New conversation\"]",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              }
+            ],
+            "total": 2
+          },
+          {
+            "id": "page-has-heading-one",
+            "impact": "moderate",
+            "help": "Page should contain a level-one heading",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "html",
+                "summary": "Fix all of the following: Page must have a level-one heading"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "region",
+            "impact": "moderate",
+            "help": "All page content should be contained by landmarks",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#sidebarResizer",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              }
+            ],
+            "total": 1
+          }
+        ],
+        "incomplete": []
+      },
+      {
+        "label": "settings-modal",
+        "violations": [
+          {
+            "id": "aria-allowed-role",
+            "impact": "minor",
+            "help": "ARIA role should be appropriate for the element",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#chatHistory",
+                "summary": "Fix any of the following: ARIA role log is not allowed for given element"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "tags": [
+              "wcag2aa",
+              "wcag143"
+            ],
+            "nodes": [
+              {
+                "target": "#newChatBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.05 (foreground color: #66718f, background color: #1d2740, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": "#settingsBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.05 (foreground color: #66718f, background color: #1d2740, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": ".composer__hint",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 2.44 (foreground color: #57627f, background color: #1d2740, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": ".button-secondary",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.91 (foreground color: #377dff, background color: #1d2740, font size: 12.8pt (17px), font weight: normal). Expected contrast ratio of 4.5:1"
+              }
+            ],
+            "total": 4
+          },
+          {
+            "id": "nested-interactive",
+            "impact": "serious",
+            "help": "Interactive controls must not be nested",
+            "tags": [
+              "wcag2a",
+              "wcag412"
+            ],
+            "nodes": [
+              {
+                "target": ".session-item--active",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": "div[aria-label=\"New conversation\"]",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": ".numeric-slider-wrapper",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              }
+            ],
+            "total": 3
+          },
+          {
+            "id": "region",
+            "impact": "moderate",
+            "help": "All page content should be contained by landmarks",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#sidebarResizer",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              }
+            ],
+            "total": 1
+          }
+        ],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "help": "ARIA attributes must conform to valid values",
+            "count": 1
+          },
+          {
+            "id": "color-contrast",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 3
+          }
+        ]
+      },
+      {
+        "label": "settings-modal-dropdown-open",
+        "violations": [
+          {
+            "id": "aria-allowed-role",
+            "impact": "minor",
+            "help": "ARIA role should be appropriate for the element",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#chatHistory",
+                "summary": "Fix any of the following: ARIA role log is not allowed for given element"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "aria-input-field-name",
+            "impact": "serious",
+            "help": "ARIA input fields must have an accessible name",
+            "tags": [
+              "wcag2a",
+              "wcag412"
+            ],
+            "nodes": [
+              {
+                "target": "#portal-dropdown-menu-1",
+                "summary": "Fix any of the following: aria-label attribute does not exist or is empty aria-labelledby attribute does not exist, references elements that do not exist or references elements that are empty Element has no title attribute"
+              }
+            ],
+            "total": 1
+          },
+          {
+            "id": "color-contrast",
+            "impact": "serious",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "tags": [
+              "wcag2aa",
+              "wcag143"
+            ],
+            "nodes": [
+              {
+                "target": "#newChatBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.05 (foreground color: #66718f, background color: #1d2740, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": "#settingsBtn > .sidebar__nav-label",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.05 (foreground color: #66718f, background color: #1d2740, font size: 10.5pt (14px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": ".composer__hint",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 2.44 (foreground color: #57627f, background color: #1d2740, font size: 9.8pt (13px), font weight: normal). Expected contrast ratio of 4.5:1"
+              },
+              {
+                "target": ".button-secondary",
+                "summary": "Fix any of the following: Element has insufficient color contrast of 3.91 (foreground color: #377dff, background color: #1d2740, font size: 12.8pt (17px), font weight: normal). Expected contrast ratio of 4.5:1"
+              }
+            ],
+            "total": 4
+          },
+          {
+            "id": "nested-interactive",
+            "impact": "serious",
+            "help": "Interactive controls must not be nested",
+            "tags": [
+              "wcag2a",
+              "wcag412"
+            ],
+            "nodes": [
+              {
+                "target": ".session-item--active",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": "div[aria-label=\"New conversation\"]",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              },
+              {
+                "target": ".numeric-slider-wrapper",
+                "summary": "Fix any of the following: Element has focusable descendants"
+              }
+            ],
+            "total": 3
+          },
+          {
+            "id": "region",
+            "impact": "moderate",
+            "help": "All page content should be contained by landmarks",
+            "tags": [
+              "best-practice"
+            ],
+            "nodes": [
+              {
+                "target": "#sidebarResizer",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              },
+              {
+                "target": "button[data-value=\"off\"]",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              },
+              {
+                "target": "button[data-value=\"low\"]",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              },
+              {
+                "target": ".selected > .dropdown-menu-item-content > .dropdown-menu-item-label.body-small",
+                "summary": "Fix any of the following: Some page content is not contained by landmarks"
+              }
+            ],
+            "total": 6
+          }
+        ],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "help": "ARIA attributes must conform to valid values",
+            "count": 1
+          },
+          {
+            "id": "color-contrast",
+            "help": "Elements must meet minimum color contrast ratio thresholds",
+            "count": 3
+          }
+        ]
+      }
+    ],
+    "tabOrder": [
+      {
+        "tag": "button",
+        "id": "newChatBtn",
+        "cls": "sidebar__nav-item",
+        "role": null,
+        "name": "New chat",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 247,
+        "h": 26
+      },
+      {
+        "tag": "button",
+        "id": "settingsBtn",
+        "cls": "sidebar__nav-item",
+        "role": null,
+        "name": "Open settings",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 247,
+        "h": 26
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "session-item session-item--active",
+        "role": "button",
+        "name": "What's in a name?",
+        "outlineWidth": "1px",
+        "outlineStyle": "auto",
+        "outlineColor": "rgb(0, 95, 204)",
+        "boxShadow": null,
+        "w": 255,
+        "h": 40
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "cls": "session-item__delete",
+        "role": null,
+        "name": "Delete conversation",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 22,
+        "h": 22
+      },
+      {
+        "tag": "div",
+        "id": null,
+        "cls": "session-item",
+        "role": "button",
+        "name": "New conversation",
+        "outlineWidth": "1px",
+        "outlineStyle": "auto",
+        "outlineColor": "rgb(0, 95, 204)",
+        "boxShadow": null,
+        "w": 255,
+        "h": 40
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "cls": "session-item__delete",
+        "role": null,
+        "name": "Delete conversation",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 22,
+        "h": 22
+      },
+      {
+        "tag": "div",
+        "id": "sidebarResizer",
+        "cls": "sidebar-resizer",
+        "role": "separator",
+        "name": "Resize sidebar",
+        "outlineWidth": "3px",
+        "outlineStyle": "none",
+        "outlineColor": "rgb(193, 199, 215)",
+        "boxShadow": null,
+        "w": 8,
+        "h": 900
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "cls": "button-icon",
+        "role": null,
+        "name": "Edit message",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "summary",
+        "id": null,
+        "cls": "message__thoughts-summary body-xsmall",
+        "role": null,
+        "name": "Thoughts",
+        "outlineWidth": "1px",
+        "outlineStyle": "auto",
+        "outlineColor": "rgb(0, 95, 204)",
+        "boxShadow": null,
+        "w": 75,
+        "h": 27
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "cls": "button-icon message__hover-btn",
+        "role": null,
+        "name": "Regenerate response",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "cls": "button-icon message__hover-btn",
+        "role": null,
+        "name": "Copy as Markdown",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "button",
+        "id": null,
+        "cls": "button-icon",
+        "role": null,
+        "name": "Edit message",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 32,
+        "h": 32
+      },
+      {
+        "tag": "textarea",
+        "id": "promptInput",
+        "cls": "input composer__textarea composer_textarea",
+        "role": null,
+        "name": "Prompt input",
+        "outlineWidth": "3px",
+        "outlineStyle": "none",
+        "outlineColor": "rgb(163, 171, 190)",
+        "boxShadow": null,
+        "w": 712,
+        "h": 55
+      },
+      {
+        "tag": "button",
+        "id": "uploadImageBtn",
+        "cls": "composer__icon-btn",
+        "role": null,
+        "name": "Attach an image",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 18,
+        "h": 18
+      },
+      {
+        "tag": "button",
+        "id": "uploadFileBtn",
+        "cls": "composer__icon-btn",
+        "role": null,
+        "name": "Attach a file",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 18,
+        "h": 18
+      },
+      {
+        "tag": "button",
+        "id": "sendBtn",
+        "cls": "composer__send-btn",
+        "role": null,
+        "name": "Send prompt",
+        "outlineWidth": "2px",
+        "outlineStyle": "solid",
+        "outlineColor": "rgb(16, 98, 251)",
+        "boxShadow": null,
+        "w": 18,
+        "h": 18
+      },
+      {
+        "tag": "body",
+        "id": null,
+        "cls": "",
+        "role": null,
+        "name": "ChatCPT\n        \n      \n\n      \n        ",
+        "outlineWidth": "3px",
+        "outlineStyle": "none",
+        "outlineColor": "rgb(193, 199, 215)",
+        "boxShadow": null,
+        "w": 1440,
+        "h": 900
+      }
+    ],
+    "contrast": [
+      {
+        "state": "empty",
+        "pairs": [
+          {
+            "sel": ".sidebar__title",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "13px",
+            "fontWeight": "500",
+            "text": "ChatCPT",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".sidebar__nav-label",
+            "color": "rgb(102, 113, 143)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "14px",
+            "fontWeight": "500",
+            "text": "New chat",
+            "ratio": 3.05,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".sidebar__history-heading",
+            "color": "rgb(255, 255, 255)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "13px",
+            "fontWeight": "600",
+            "text": "History",
+            "ratio": 14.83,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".sidebar__model-static",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "anthropic/claude-sonnet-4-6",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".session-item__title",
+            "color": "rgb(255, 255, 255)",
+            "bg": "rgb(38, 49, 76)",
+            "fontSize": "15px",
+            "fontWeight": "500",
+            "text": "What's in a name?",
+            "ratio": 12.91,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".composer__hint",
+            "color": "rgb(102, 113, 143)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "13px",
+            "fontWeight": "400",
+            "text": "Cosmo can make mistakes. Pract",
+            "ratio": 3.05,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".composer__textarea",
+            "color": "rgb(163, 171, 190)",
+            "bg": "rgb(38, 49, 76)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "",
+            "ratio": 5.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__bubble",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(38, 49, 76)",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "text": "What's in a name?",
+            "ratio": 7.64,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__body",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "text": "Great question — and a famousl",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__thoughts-summary",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "Thoughts",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".composer__textarea::placeholder",
+            "color": "rgb(139, 148, 171)",
+            "bg": "rgb(38, 49, 76)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "Ask me anything...",
+            "ratio": 4.26,
+            "required": 4.5,
+            "pass": false
+          }
+        ]
+      },
+      {
+        "state": "messages",
+        "pairs": [
+          {
+            "sel": ".sidebar__title",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "13px",
+            "fontWeight": "500",
+            "text": "ChatCPT",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".sidebar__nav-label",
+            "color": "rgb(102, 113, 143)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "14px",
+            "fontWeight": "500",
+            "text": "New chat",
+            "ratio": 3.05,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".sidebar__history-heading",
+            "color": "rgb(255, 255, 255)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "13px",
+            "fontWeight": "600",
+            "text": "History",
+            "ratio": 14.83,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".sidebar__model-static",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "anthropic/claude-sonnet-4-6",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".session-item__title",
+            "color": "rgb(255, 255, 255)",
+            "bg": "rgb(38, 49, 76)",
+            "fontSize": "15px",
+            "fontWeight": "500",
+            "text": "What's in a name?",
+            "ratio": 12.91,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".composer__hint",
+            "color": "rgb(102, 113, 143)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "13px",
+            "fontWeight": "400",
+            "text": "Cosmo can make mistakes. Pract",
+            "ratio": 3.05,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".composer__textarea",
+            "color": "rgb(163, 171, 190)",
+            "bg": "rgb(38, 49, 76)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "",
+            "ratio": 5.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__bubble",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(38, 49, 76)",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "text": "What's in a name?",
+            "ratio": 7.64,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__body",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "text": "Great question — and a famousl",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__thoughts-summary",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "Thoughts",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".composer__textarea::placeholder",
+            "color": "rgb(139, 148, 171)",
+            "bg": "rgb(38, 49, 76)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "Ask me anything...",
+            "ratio": 4.26,
+            "required": 4.5,
+            "pass": false
+          }
+        ]
+      },
+      {
+        "state": "settings",
+        "pairs": [
+          {
+            "sel": ".sidebar__title",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "13px",
+            "fontWeight": "500",
+            "text": "ChatCPT",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".sidebar__nav-label",
+            "color": "rgb(102, 113, 143)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "14px",
+            "fontWeight": "500",
+            "text": "New chat",
+            "ratio": 3.05,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".sidebar__history-heading",
+            "color": "rgb(255, 255, 255)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "13px",
+            "fontWeight": "600",
+            "text": "History",
+            "ratio": 14.83,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".sidebar__model-static",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "anthropic/claude-sonnet-4-6",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".session-item__title",
+            "color": "rgb(255, 255, 255)",
+            "bg": "rgb(38, 49, 76)",
+            "fontSize": "15px",
+            "fontWeight": "500",
+            "text": "What's in a name?",
+            "ratio": 12.91,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".composer__hint",
+            "color": "rgb(102, 113, 143)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "13px",
+            "fontWeight": "400",
+            "text": "Cosmo can make mistakes. Pract",
+            "ratio": 3.05,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".composer__textarea",
+            "color": "rgb(163, 171, 190)",
+            "bg": "rgb(38, 49, 76)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "",
+            "ratio": 5.61,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__bubble",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(38, 49, 76)",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "text": "What's in a name?",
+            "ratio": 7.64,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__body",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "16px",
+            "fontWeight": "400",
+            "text": "Great question — and a famousl",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".message__thoughts-summary",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "Thoughts",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".settings-row__label",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "Temperature",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".settings-row__desc",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "14px",
+            "fontWeight": "400",
+            "text": "Controls randomness (0–2). Low",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".settings-row__value",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "0.70",
+            "ratio": 8.77,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".modal-title",
+            "color": "rgb(255, 255, 255)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "20px",
+            "fontWeight": "500",
+            "text": "Settings",
+            "ratio": 14.83,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".dropdown-toggle-label",
+            "color": "rgb(193, 199, 215)",
+            "bg": "rgb(45, 56, 85)",
+            "fontSize": "15px",
+            "fontWeight": "500",
+            "text": "Medium",
+            "ratio": 6.87,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".button-secondary",
+            "color": "rgb(55, 125, 255)",
+            "bg": "rgb(29, 39, 64)",
+            "fontSize": "17px",
+            "fontWeight": "500",
+            "text": "Close",
+            "ratio": 3.91,
+            "required": 4.5,
+            "pass": false
+          },
+          {
+            "sel": ".button-primary",
+            "color": "rgb(255, 255, 255)",
+            "bg": "rgb(16, 98, 251)",
+            "fontSize": "17px",
+            "fontWeight": "500",
+            "text": "Apply & New Chat",
+            "ratio": 5.05,
+            "required": 4.5,
+            "pass": true
+          },
+          {
+            "sel": ".composer__textarea::placeholder",
+            "color": "rgb(139, 148, 171)",
+            "bg": "rgb(38, 49, 76)",
+            "fontSize": "15px",
+            "fontWeight": "400",
+            "text": "Ask me anything...",
+            "ratio": 4.26,
+            "required": 4.5,
+            "pass": false
+          }
+        ]
+      }
+    ],
+    "notes": [
+      "bootError visible: false",
+      "live region text length while streaming: 2454",
+      "hover-action focus test: focused: button-icon message__hover-btn",
+      "settings modal open: true",
+      "modal initial focus: [{\"in\":true,\"tag\":\"button\",\"cls\":\"modal-close-button\"}]",
+      "duplicate ids: []",
+      "thinking menu portaled: true; menu inside dialog: false; focus after open: BUTTON.button-icon; options with aria-selected: 0/5",
+      "320px reflow: {\"docScrollW\":320,\"clientW\":320}"
+    ],
+    "modalTabWalk": [
+      {
+        "insideDialog": true,
+        "tag": "div",
+        "id": null,
+        "cls": "numeric-slider-wrapper"
+      },
+      {
+        "insideDialog": true,
+        "tag": "button",
+        "id": null,
+        "cls": "numeric-slider-handle style-marker theme-prim"
+      },
+      {
+        "insideDialog": true,
+        "tag": "button",
+        "id": null,
+        "cls": "dropdown-toggle has-selection"
+      },
+      {
+        "insideDialog": true,
+        "tag": "textarea",
+        "id": "customInstructionsEl",
+        "cls": "settings-textarea body-small"
+      },
+      {
+        "insideDialog": true,
+        "tag": "button",
+        "id": null,
+        "cls": "button button-secondary"
+      },
+      {
+        "insideDialog": true,
+        "tag": "button",
+        "id": null,
+        "cls": "button button-primary"
+      },
+      {
+        "insideDialog": false,
+        "tag": "button",
+        "id": "newChatBtn",
+        "cls": "sidebar__nav-item"
+      },
+      {
+        "insideDialog": false,
+        "tag": "button",
+        "id": "settingsBtn",
+        "cls": "sidebar__nav-item"
+      },
+      {
+        "insideDialog": false,
+        "tag": "div",
+        "id": null,
+        "cls": "session-item session-item--active"
+      },
+      {
+        "insideDialog": false,
+        "tag": "button",
+        "id": null,
+        "cls": "session-item__delete"
+      },
+      {
+        "insideDialog": false,
+        "tag": "div",
+        "id": null,
+        "cls": "session-item"
+      },
+      {
+        "insideDialog": false,
+        "tag": "button",
+        "id": null,
+        "cls": "session-item__delete"
+      },
+      {
+        "insideDialog": false,
+        "tag": "div",
+        "id": "sidebarResizer",
+        "cls": "sidebar-resizer"
+      },
+      {
+        "insideDialog": false,
+        "tag": "button",
+        "id": null,
+        "cls": "button-icon"
+      }
+    ]
+  },
+  "dark-ds-dropdown": {
+    "scheme": "dark",
+    "notes": [
+      "{\"toggleRole\":null,\"ariaHaspopup\":\"true\",\"ariaExpanded\":\"true\",\"ariaControls\":null,\"menuRole\":\"listbox\",\"optionParentRole\":null,\"optionTag\":\"BUTTON\",\"ariaSelectedCount\":0,\"optionCount\":6,\"focusAfterOpen\":\"BODY.\"}",
+      "after ArrowDown on toggle, focus = dropdown-toggle",
+      "after Enter on option, focus = BODY. | isBody=true"
+    ],
+    "axe": {
+      "label": "ds-dropdown-test",
+      "violations": [
+        {
+          "id": "landmark-one-main",
+          "impact": "moderate",
+          "help": "Document should have one main landmark",
+          "tags": [
+            "best-practice"
+          ],
+          "nodes": [
+            {
+              "target": "html",
+              "summary": "Fix all of the following: Document does not have a main landmark"
+            }
+          ],
+          "total": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "tags": [
+            "best-practice"
+          ],
+          "nodes": [
+            {
+              "target": "h1",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            },
+            {
+              "target": ".test-section:nth-child(2) > h2",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            },
+            {
+              "target": ".test-section:nth-child(2) > .test-row > .test-item > label",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            },
+            {
+              "target": ".test-section:nth-child(2) > .test-output",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            }
+          ],
+          "total": 20
+        }
+      ],
+      "incomplete": []
+    },
+    "axeOpen": {
+      "label": "ds-dropdown-open",
+      "violations": [
+        {
+          "id": "landmark-one-main",
+          "impact": "moderate",
+          "help": "Document should have one main landmark",
+          "tags": [
+            "best-practice"
+          ],
+          "nodes": [
+            {
+              "target": "html",
+              "summary": "Fix all of the following: Document does not have a main landmark"
+            }
+          ],
+          "total": 1
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "tags": [
+            "best-practice"
+          ],
+          "nodes": [
+            {
+              "target": "h1",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            },
+            {
+              "target": ".test-section:nth-child(2) > h2",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            },
+            {
+              "target": ".test-section:nth-child(2) > .test-row > .test-item > label",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            },
+            {
+              "target": ".test-section:nth-child(2) > .test-output",
+              "summary": "Fix any of the following: Some page content is not contained by landmarks"
+            }
+          ],
+          "total": 20
+        }
+      ],
+      "incomplete": []
+    }
+  }
+}

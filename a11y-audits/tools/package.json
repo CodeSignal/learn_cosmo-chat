@@ -1,0 +1,17 @@
+{
+  "name": "a11y-audit-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright + axe-core scripts used to produce the accessibility audit evidence",
+  "type": "commonjs",
+  "license": "ISC",
+  "scripts": {
+    "audit": "node audit.mjs",
+    "verify": "node verify.mjs",
+    "verify:sessions": "node verify2.mjs"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "playwright": "^1.62.1"
+  }
+}
