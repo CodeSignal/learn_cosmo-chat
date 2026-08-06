@@ -131,6 +131,21 @@ describe('markdown rendering', () => {
     expect(q('.message__body p').textContent).not.toContain('🎉');
     expect(q('.code-block__pre').textContent).toContain('🎉');
   });
+
+  it('demotes markdown headings under the turn h2 for a correct outline', async () => {
+    await bootApp({
+      messages: [storedAssistant('# Top\n\n## Section\n\n### Detail')],
+    });
+
+    const turnHeading = q('article.message--ai > h2.visually-hidden');
+    expect(turnHeading?.textContent).toBe("Cosmo's reply");
+
+    const contentHeadings = qa('.message__body :is(h1,h2,h3,h4,h5,h6)');
+    expect(contentHeadings.map((h) => h.tagName)).toEqual(['H3', 'H4', 'H5']);
+    expect(contentHeadings.map((h) => h.textContent)).toEqual(['Top', 'Section', 'Detail']);
+    // No content heading at h2 — those would compete with the turn chrome in the rotor.
+    expect(qa('.message__body h2').length).toBe(0);
+  });
 });
 
 describe('file parts', () => {

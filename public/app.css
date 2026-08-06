@@ -843,17 +843,17 @@ body.is-resizing-sidebar {
 .message__body li + li { margin-top: var(--UI-Spacing-spacing-xxs); }
 
 /* Markdown-specific styles */
-.message__body.markdown h1,
-.message__body.markdown h2,
-.message__body.markdown h3 {
+/* Semantic levels are demoted (+2) under the turn h2; --N is the author's
+   original markdown depth so visual weight stays the same. */
+.message__body.markdown :is(h1, h2, h3, h4, h5, h6) {
   margin: var(--UI-Spacing-spacing-ms) 0 var(--UI-Spacing-spacing-xs);
   font-family: var(--heading-family, inherit);
   font-weight: 500;
   margin-top: 0 !important;
 }
-.message__body.markdown h1 { font-size: 1.4em; }
-.message__body.markdown h2 { font-size: 1.2em; }
-.message__body.markdown h3 { font-size: 1.1em; }
+.message__body.markdown .message__heading--1 { font-size: 1.4em; }
+.message__body.markdown .message__heading--2 { font-size: 1.2em; }
+.message__body.markdown .message__heading--3 { font-size: 1.1em; }
 
 /* Inline code */
 .message__body.markdown code {

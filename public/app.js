@@ -126,6 +126,16 @@ renderer.link = function (token) {
   return html.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
 };
 
+// Nest markdown headings under the per-turn h2 ("Cosmo's reply" / "Your message")
+// so VoiceOver's Headings rotor doesn't list content headings as siblings of the
+// turn chrome. Markdown # → h3, ## → h4, … capped at h6. Visual size is kept via
+// message__heading--N (original depth).
+renderer.heading = function ({ tokens, depth }) {
+  const level = Math.min(6, depth + 2);
+  const body = this.parser.parseInline(tokens);
+  return `<h${level} class="message__heading message__heading--${depth}">${body}</h${level}>\n`;
+};
+
 marked.use({ breaks: true, gfm: true, renderer });
 
 /** Strip leading emoji / pictographic decorations models often put before heading text (e.g. colored squares). */
