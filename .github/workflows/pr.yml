@@ -1,0 +1,97 @@
+# Pull-request checks for ChatCPT.
+#
+# Includes an axe-core accessibility gate against a checked-in shrink-only
+# baseline (a11y-audits/tools/baseline.json). The baseline may only ever
+# shrink — new rules or higher node counts fail the build.
+#
+# IMPORTANT: axe cannot detect live-region over-announcement (finding A1 in
+# a11y-audits/8-5-26/audit.md). A green badge here is a floor, not WCAG
+# conformance. Manual VoiceOver checks remain mandatory for live-region and
+# focus work.
+
+name: PR
+
+on:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Populate design system submodule
+        run: git submodule update --init
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build frontend bundle
+        run: npm run build
+
+      - name: Install accessibility audit tools
+        working-directory: a11y-audits/tools
+        run: npm ci
+
+      - name: Baseline helper unit tests
+        working-directory: a11y-audits/tools
+        run: npm test
+
+      - name: Install Playwright Chromium
+        working-directory: a11y-audits/tools
+        run: npx playwright install chromium --with-deps
+
+      - name: Start app server
+        # No Octavus credentials in CI — audit.mjs stubs /api/* when A11Y_CI=1.
+        # A placeholder AGENT_ID keeps the server from warning; the stub never
+        # reaches the create-session path.
+        run: |
+          PORT=3100 AGENT_TARGET=dev OCTAVUS_AGENT_ID=ci-placeholder \
+            node server.js > /tmp/chatcpt-ci-server.log 2>&1 &
+          echo $! > /tmp/chatcpt-ci-server.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3100/ >/dev/null; then
+              echo "Server ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server failed to start" >&2
+          cat /tmp/chatcpt-ci-server.log >&2
+          exit 1
+
+      - name: Axe scan (light + dark) against shrink-only baseline
+        working-directory: a11y-audits/tools
+        env:
+          A11Y_CI: '1'
+          A11Y_BROWSER_CHANNEL: bundled
+          A11Y_BASE_URL: http://127.0.0.1:3100
+          A11Y_OUT: a11y-out-ci
+          A11Y_BASELINE: ${{ github.workspace }}/a11y-audits/tools/baseline.json
+        run: npm run audit
+
+      - name: Upload axe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: axe-report
+          path: a11y-audits/tools/a11y-out-ci/
+          if-no-files-found: ignore
+
+      - name: Stop app server
+        if: always()
+        run: |
+          if [ -f /tmp/chatcpt-ci-server.pid ]; then
+            kill "$(cat /tmp/chatcpt-ci-server.pid)" || true
+          fi
