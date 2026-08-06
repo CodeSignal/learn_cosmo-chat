@@ -141,7 +141,8 @@ describe('markdown rendering', () => {
     expect(turnHeading?.textContent).toBe("Cosmo's reply");
 
     const contentHeadings = qa('.message__body :is(h1,h2,h3,h4,h5,h6)');
-    expect(contentHeadings.map((h) => h.tagName)).toEqual(['H3', 'H4', 'H5']);
+    // # and ## both become h3 (models usually start at ##); ### → h4.
+    expect(contentHeadings.map((h) => h.tagName)).toEqual(['H3', 'H3', 'H4']);
     expect(contentHeadings.map((h) => h.textContent)).toEqual(['Top', 'Section', 'Detail']);
     // No content heading at h2 — those would compete with the turn chrome in the rotor.
     expect(qa('.message__body h2').length).toBe(0);

@@ -126,12 +126,12 @@ renderer.link = function (token) {
   return html.replace(/^<a /, '<a target="_blank" rel="noopener noreferrer" ');
 };
 
-// Nest markdown headings under the per-turn h2 ("Cosmo's reply" / "Your message")
-// so VoiceOver's Headings rotor doesn't list content headings as siblings of the
-// turn chrome. Markdown # → h3, ## → h4, … capped at h6. Visual size is kept via
-// message__heading--N (original depth).
+// Nest markdown headings under the per-turn h2 ("Cosmo's reply" / "Your message").
+// Models usually start sections at ## (not #); shift by +1 and never emit h1/h2
+// so content can't compete with the turn chrome: #/## → h3, ### → h4, … ≤ h6.
+// Visual size is kept via message__heading--N (original markdown depth).
 renderer.heading = function ({ tokens, depth }) {
-  const level = Math.min(6, depth + 2);
+  const level = Math.min(6, Math.max(3, depth + 1));
   const body = this.parser.parseInline(tokens);
   return `<h${level} class="message__heading message__heading--${depth}">${body}</h${level}>\n`;
 };
