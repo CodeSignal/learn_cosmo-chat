@@ -321,12 +321,26 @@ function attachChat(rt) {
   rt.chat = new OctavusChat({ transport, requestUploadUrls });
   rt.unsubscribe = rt.chat.subscribe(() => {
     const status = rt.chat.status;
+    const prevStatus = rt.lastStatus;
 
     // Track when streaming starts so the elapsed-time indicator is accurate.
-    if (status === 'streaming' && rt.lastStatus !== 'streaming') {
+    if (status === 'streaming' && prevStatus !== 'streaming') {
       rt.streamingStartTime = Date.now();
     } else if (status !== 'streaming') {
       rt.streamingStartTime = null;
+    }
+
+    // Short status announcements for AT (A1/A11). Never the transcript itself.
+    if (rt === active && status !== prevStatus) {
+      if (status === 'streaming') {
+        announceChatStatus(t('Cosmo is responding'));
+      } else if (prevStatus === 'streaming') {
+        if (rt.stopAnnouncementPending) {
+          rt.stopAnnouncementPending = false;
+        } else {
+          announceChatStatus(t('Response complete'));
+        }
+      }
     }
 
     // Persistence runs for EVERY runtime, even when it isn't on screen, so a
@@ -350,7 +364,7 @@ function attachChat(rt) {
     // on each status transition, independent of the save callbacks (which may
     // be throttled, delayed, or fail). Only on transitions — not every token —
     // so a full sidebar re-render here stays cheap.
-    if (status !== rt.lastStatus) renderSidebar();
+    if (status !== prevStatus) renderSidebar();
 
     rt.lastStatus = status;
   });
@@ -1003,9 +1017,25 @@ function getStreamingStatus(parts = []) {
   return { label: t(label), icon: null, isImage: false };
 }
 
+// ── Chat status live region (A1 / A11) ─────────────────────────
+// One persistent role="status" outside the message list. Only short
+// deliberate strings — never streaming transcript text.
+function announceChatStatus(message) {
+  const el = document.getElementById('chatStatus');
+  if (!el) return;
+  // Clear-then-set so repeated identical strings still announce.
+  el.textContent = '';
+  void el.offsetWidth;
+  el.textContent = message;
+}
+
 // ── Render messages ───────────────────────────────────────────
 // `liveMessages` comes from OctavusChat; `restoredMessages` are pre-loaded from disk.
 // We display restored first, then live so the conversation reads continuously.
+//
+// Reconciliation (A1/A2): rows are keyed by index and reused when their
+// signature is unchanged, so idle re-renders and status ticks do not wipe
+// focus or re-announce the whole transcript through the DOM.
 function renderMessages(liveMessages, status) {
   const wasPinnedToBottom = isChatNearBottom();
   const messages = [...(active?.restoredMessages ?? []).map(storedToDisplayMsg), ...liveMessages];
@@ -1017,10 +1047,13 @@ function renderMessages(liveMessages, status) {
     chatHistory.appendChild(messagesEl);
   }
 
-  messagesEl.innerHTML = '';
+  const sessionId = active?.sessionId ?? '';
+  if (messagesEl.dataset.sessionId !== sessionId) {
+    messagesEl.replaceChildren();
+    messagesEl.dataset.sessionId = sessionId;
+  }
 
   const isIdle = status !== 'streaming';
-  let userAssistantIdx = 0;
   const lastAssistantIdx = (() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'assistant') return i;
@@ -1028,178 +1061,51 @@ function renderMessages(liveMessages, status) {
     return -1;
   })();
 
+  /** @type {{ key: string, sig: string, create: () => HTMLElement }[]} */
+  const planned = [];
+  let userAssistantIdx = 0;
+
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
-    const row = document.createElement('div');
+    if (msg.role !== 'user' && msg.role !== 'assistant') continue;
 
-    if (msg.role === 'assistant') {
-      const rawText = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
-      const fileParts = msg.parts.filter((p) => p.type === 'file');
-      const segments = segmentAssistantParts(msg.parts);
-      const reasoningSegments = segments.filter((seg) => seg.kind === 'reasoning');
-      // Join only for resolveAssistantContent's string API; UI keeps one DIV per
-      // thought so blocks stay delineated (Brian: single section, separate DIVs).
-      const reasoningFromParts = reasoningSegments.map((seg) => seg.text).join('\n\n');
-      const reasoningStreaming = reasoningSegments.some((seg) => seg.streaming);
-      const resolved = resolveAssistantContent({
-        text: rawText,
-        reasoningFromParts,
-        reasoningStreaming,
-      });
-      const text = resolved.answer;
-      const streaming = msg.status === 'streaming';
-      // Octavus: one entry per reasoning part. Embedded peel already joins with
-      // blank lines — split those back into blocks for the same DIV treatment.
-      const reasoningBlocks = resolved.source === 'octavus'
-        ? reasoningSegments.map((seg) => seg.text)
-        : (resolved.reasoning
-          ? resolved.reasoning.split(/\n\n+/).filter((block) => block.trim().length > 0)
-          : []);
-      const hasText = text.trim().length > 0;
-      const hasReasoning =
-        reasoningBlocks.some((block) => block.trim().length > 0)
-        || reasoningStreaming
-        || resolved.thinkingOpen;
-      const showThoughts = shouldShowReasoning() && hasReasoning;
-      const renderedHtml = stripEmojisFromHtml(
-        stripHeadingLeadDecorationsFromHtml(marked.parse(text)),
-      );
-      const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
-      const thoughtsHtml = showThoughts
-        ? renderThoughtsBlock(reasoningBlocks, { streaming })
-        : '';
+    const idx = userAssistantIdx;
+    const isLastAssistant = i === lastAssistantIdx;
+    const sig = messageRowSignature(msg, { isIdle, isLastAssistant, hidePromptControls: !!chatConfig.hidePromptControls });
+    const key = String(i);
+    planned.push({
+      key,
+      sig,
+      create: () => {
+        const row = createMessageRow(msg, idx, { isIdle, isLastAssistant });
+        row.dataset.msgKey = key;
+        row.dataset.msgSig = sig;
+        return row;
+      },
+    });
+    userAssistantIdx++;
+  }
 
-      const isImageGen = isImageGenerationLoading(msg.parts);
+  for (let i = 0; i < planned.length; i++) {
+    const { key, sig, create } = planned[i];
+    const current = messagesEl.children[i];
 
-      let bodyContent;
-      if (streaming && !hasText && fileParts.length === 0 && isImageGen) {
-        bodyContent = renderImagePlaceholderBody();
-      } else if (streaming && !hasText && fileParts.length === 0 && !isImageGen) {
-        bodyContent = '';
-      } else if (streaming && fileParts.length === 0) {
-        bodyContent = `${renderedHtml}<span class="cursor" aria-hidden="true"></span>`;
-      } else {
-        bodyContent = `${renderedHtml}${filesHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}`;
-      }
+    // In-place edit UI is DOM-only state; never tear it down on a re-render.
+    if (current?.querySelector?.('.message__edit-box')) continue;
 
-      const streamingStatus = streaming && fileParts.length === 0 ? getStreamingStatus(msg.parts) : null;
-      const statusHtml = streamingStatus
-        ? `<div class="message__ai-status body-xsmall" aria-live="polite">${streamingStatus.icon ? `${streamingStatus.icon} ` : ''}${streamingStatus.label}</div>`
-        : '';
-
-      const showThinkingRing = streaming;
-      const avatarOpen = showThinkingRing
-        ? `<div class="message__avatar message__avatar--thinking"${thinkingBorderAnimationDelayAttr()}>`
-        : '<div class="message__avatar">';
-      const avatarClose = '</div>';
-
-      // Only the last assistant message gets the trailing Cosmo avatar
-      // (and its thinking animation) — earlier replies don't repeat it.
-      const trailingHtml = i === lastAssistantIdx ? `
-        <div class="message__ai-trailing">
-          ${avatarOpen}
-            <span class="cosmo-avatar small" role="img" aria-label="Cosmo"></span>
-          ${avatarClose}
-          ${statusHtml}
-        </div>
-      ` : '';
-
-      row.className = streaming ? 'message message--ai message--ai--streaming' : 'message message--ai';
-      row.innerHTML = `
-        ${thoughtsHtml}
-        <div class="message__body body-medium markdown">
-          ${bodyContent}
-        </div>
-        ${trailingHtml}
-      `;
-
-      if (msg.stopped) {
-        const stoppedEl = document.createElement('div');
-        stoppedEl.className = 'message__stopped body-xsmall';
-        stoppedEl.textContent = t('Response stopped');
-        row.querySelector('.message__body').appendChild(stoppedEl);
-      }
-
-      // Hover actions on every assistant message (when idle): regenerate
-      // and copy-as-markdown. Both use the .button-icon style and reveal on
-      // hover. On the last message they share the trailing avatar row (12px
-      // from the avatar); earlier messages get their own row below.
-      if (!chatConfig.hidePromptControls && isIdle && (hasText || msg.stopped)) {
-        const actions = document.createElement('div');
-        actions.className = 'message__msg-actions';
-
-        const regenBtn = document.createElement('button');
-        regenBtn.type = 'button';
-        regenBtn.className = 'button-icon message__hover-btn';
-        regenBtn.setAttribute('aria-label', t('Regenerate response'));
-        regenBtn.title = t('Regenerate');
-        regenBtn.innerHTML = REGEN_ICON_SVG;
-        const capturedIdx = userAssistantIdx;
-        regenBtn.addEventListener('click', () => regenerateResponse(capturedIdx));
-        actions.appendChild(regenBtn);
-
-        if (hasText) {
-          const copyBtn = document.createElement('button');
-          copyBtn.type = 'button';
-          copyBtn.className = 'button-icon message__hover-btn';
-          copyBtn.setAttribute('aria-label', t('Copy as Markdown'));
-          copyBtn.title = t('Copy');
-          copyBtn.innerHTML = COPY_ICON_SVG;
-          const markdown = text;
-          copyBtn.addEventListener('click', () => copyMessageMarkdown(copyBtn, markdown));
-          actions.appendChild(copyBtn);
-        }
-
-        const trailing = row.querySelector('.message__ai-trailing');
-        if (trailing) {
-          trailing.appendChild(actions);
-        } else {
-          actions.classList.add('message__msg-actions--standalone');
-          row.appendChild(actions);
-        }
-      }
-    } else if (msg.role === 'user') {
-      const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
-      const fileParts = msg.parts.filter((p) => p.type === 'file');
-
-      const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
-
-      row.className = 'message message--user';
-      row.innerHTML = `
-        <div class="message__user-content">
-          ${filesHtml}
-          ${text ? `<div class="message__bubble body-medium">${text}</div>` : ''}
-        </div>
-      `;
-
-      if (!chatConfig.hidePromptControls && isIdle && text) {
-        const actionsEl = document.createElement('div');
-        actionsEl.className = 'message__actions message__actions--user';
-
-        const editBtn = document.createElement('button');
-        editBtn.type = 'button';
-        editBtn.className = 'button-icon';
-        editBtn.setAttribute('aria-label', t('Edit message'));
-        editBtn.title = t('Edit');
-        // Edit icon (local inline SVG) — inherits currentColor. A matching
-        // stroke fattens the otherwise-thin fill paths.
-        editBtn.innerHTML = `<svg viewBox="0 0 32 32" fill="currentColor" stroke="currentColor" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="m27.1 7.16-2.26-2.26c-1.2-1.2-3.15-1.2-4.35 0l-3.79 3.8s0 0 0 0l-11.19 11.18c-.98.98-1.51 2.27-1.51 3.65v3.47c0 .55.45 1 1 1h3.47c1.38 0 2.67-.54 3.65-1.51l11.19-11.18s0 0 0 0l3.79-3.8c.58-.58.9-1.35.9-2.17s-.32-1.59-.9-2.17zm-16.4 17.91c-.6.6-1.39.93-2.23.93h-2.47v-2.47c0-.84.33-1.64.93-2.23l10.48-10.47 3.78 3.78-10.48 10.48zm14.99-14.98s0 0 0 0l-3.08 3.09-3.78-3.78 3.08-3.09c.42-.42 1.1-.42 1.52 0l2.26 2.26c.2.2.31.47.31.76s-.11.55-.31.76z"/>
-          <path d="m26 26h-10c-.55 0-1 .45-1 1s.45 1 1 1h10c.55 0 1-.45 1-1s-.45-1-1-1z"/>
-        </svg>`;
-        const capturedIdx = userAssistantIdx;
-        const capturedText = text;
-        editBtn.addEventListener('click', () => startEditingMessage(row, capturedIdx, capturedText));
-
-        actionsEl.appendChild(editBtn);
-        row.querySelector('.message__user-content').appendChild(actionsEl);
-      }
-    } else {
+    if (current
+      && current.dataset.msgKey === key
+      && current.dataset.msgSig === sig) {
       continue;
     }
 
-    if (msg.role === 'user' || msg.role === 'assistant') userAssistantIdx++;
-    messagesEl.appendChild(row);
+    const next = create();
+    if (current) current.replaceWith(next);
+    else messagesEl.appendChild(next);
+  }
+
+  while (messagesEl.childElementCount > planned.length) {
+    messagesEl.lastElementChild.remove();
   }
 
   if (emptyState) {
@@ -1216,6 +1122,213 @@ function renderMessages(liveMessages, status) {
   const streaming = status === 'streaming';
   promptInput.disabled = streaming;
   updateSendBtn();
+}
+
+/** Stable fingerprint of everything that affects a row's rendered output. */
+function messageRowSignature(msg, { isIdle, isLastAssistant, hidePromptControls }) {
+  const parts = (msg.parts ?? []).map((p) => {
+    if (p.type === 'text' || p.type === 'reasoning') {
+      return { type: p.type, text: p.text ?? '', status: p.status ?? '' };
+    }
+    if (p.type === 'file') {
+      return { type: 'file', url: p.url ?? '', filename: p.filename ?? '', mediaType: p.mediaType ?? '' };
+    }
+    if (p.type === 'tool-call') {
+      return { type: 'tool-call', name: p.name ?? p.toolName ?? '', status: p.status ?? '' };
+    }
+    return { type: p.type };
+  });
+
+  let statusLabel = '';
+  if (msg.role === 'assistant' && msg.status === 'streaming') {
+    const fileParts = (msg.parts ?? []).filter((p) => p.type === 'file');
+    if (fileParts.length === 0) {
+      statusLabel = getStreamingStatus(msg.parts).label;
+    }
+  }
+
+  return JSON.stringify({
+    role: msg.role,
+    status: msg.status ?? '',
+    stopped: !!msg.stopped,
+    parts,
+    isIdle,
+    isLastAssistant,
+    hidePromptControls,
+    showReasoning: shouldShowReasoning(),
+    statusLabel,
+  });
+}
+
+function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
+  const row = document.createElement('div');
+
+  if (msg.role === 'assistant') {
+    const rawText = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
+    const fileParts = msg.parts.filter((p) => p.type === 'file');
+    const segments = segmentAssistantParts(msg.parts);
+    const reasoningSegments = segments.filter((seg) => seg.kind === 'reasoning');
+    // Join only for resolveAssistantContent's string API; UI keeps one DIV per
+    // thought so blocks stay delineated (Brian: single section, separate DIVs).
+    const reasoningFromParts = reasoningSegments.map((seg) => seg.text).join('\n\n');
+    const reasoningStreaming = reasoningSegments.some((seg) => seg.streaming);
+    const resolved = resolveAssistantContent({
+      text: rawText,
+      reasoningFromParts,
+      reasoningStreaming,
+    });
+    const text = resolved.answer;
+    const streaming = msg.status === 'streaming';
+    // Octavus: one entry per reasoning part. Embedded peel already joins with
+    // blank lines — split those back into blocks for the same DIV treatment.
+    const reasoningBlocks = resolved.source === 'octavus'
+      ? reasoningSegments.map((seg) => seg.text)
+      : (resolved.reasoning
+        ? resolved.reasoning.split(/\n\n+/).filter((block) => block.trim().length > 0)
+        : []);
+    const hasText = text.trim().length > 0;
+    const hasReasoning =
+      reasoningBlocks.some((block) => block.trim().length > 0)
+      || reasoningStreaming
+      || resolved.thinkingOpen;
+    const showThoughts = shouldShowReasoning() && hasReasoning;
+    const renderedHtml = stripEmojisFromHtml(
+      stripHeadingLeadDecorationsFromHtml(marked.parse(text)),
+    );
+    const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
+    const thoughtsHtml = showThoughts
+      ? renderThoughtsBlock(reasoningBlocks, { streaming })
+      : '';
+
+    const isImageGen = isImageGenerationLoading(msg.parts);
+
+    let bodyContent;
+    if (streaming && !hasText && fileParts.length === 0 && isImageGen) {
+      bodyContent = renderImagePlaceholderBody();
+    } else if (streaming && !hasText && fileParts.length === 0 && !isImageGen) {
+      bodyContent = '';
+    } else if (streaming && fileParts.length === 0) {
+      bodyContent = `${renderedHtml}<span class="cursor" aria-hidden="true"></span>`;
+    } else {
+      bodyContent = `${renderedHtml}${filesHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}`;
+    }
+
+    // Visual-only stage label. Announcements go through #chatStatus (A11).
+    const streamingStatus = streaming && fileParts.length === 0 ? getStreamingStatus(msg.parts) : null;
+    const statusHtml = streamingStatus
+      ? `<div class="message__ai-status body-xsmall">${streamingStatus.icon ? `${streamingStatus.icon} ` : ''}${streamingStatus.label}</div>`
+      : '';
+
+    const showThinkingRing = streaming;
+    const avatarOpen = showThinkingRing
+      ? `<div class="message__avatar message__avatar--thinking"${thinkingBorderAnimationDelayAttr()}>`
+      : '<div class="message__avatar">';
+    const avatarClose = '</div>';
+
+    // Only the last assistant message gets the trailing Cosmo avatar
+    // (and its thinking animation) — earlier replies don't repeat it.
+    const trailingHtml = isLastAssistant ? `
+      <div class="message__ai-trailing">
+        ${avatarOpen}
+          <span class="cosmo-avatar small" role="img" aria-label="Cosmo"></span>
+        ${avatarClose}
+        ${statusHtml}
+      </div>
+    ` : '';
+
+    row.className = streaming ? 'message message--ai message--ai--streaming' : 'message message--ai';
+    row.innerHTML = `
+      ${thoughtsHtml}
+      <div class="message__body body-medium markdown">
+        ${bodyContent}
+      </div>
+      ${trailingHtml}
+    `;
+
+    if (msg.stopped) {
+      const stoppedEl = document.createElement('div');
+      stoppedEl.className = 'message__stopped body-xsmall';
+      stoppedEl.textContent = t('Response stopped');
+      row.querySelector('.message__body').appendChild(stoppedEl);
+    }
+
+    // Hover actions on every assistant message (when idle): regenerate
+    // and copy-as-markdown. Both use the .button-icon style and reveal on
+    // hover. On the last message they share the trailing avatar row (12px
+    // from the avatar); earlier messages get their own row below.
+    if (!chatConfig.hidePromptControls && isIdle && (hasText || msg.stopped)) {
+      const actions = document.createElement('div');
+      actions.className = 'message__msg-actions';
+
+      const regenBtn = document.createElement('button');
+      regenBtn.type = 'button';
+      regenBtn.className = 'button-icon message__hover-btn';
+      regenBtn.setAttribute('aria-label', t('Regenerate response'));
+      regenBtn.title = t('Regenerate');
+      regenBtn.innerHTML = REGEN_ICON_SVG;
+      const capturedIdx = userAssistantIdx;
+      regenBtn.addEventListener('click', () => regenerateResponse(capturedIdx));
+      actions.appendChild(regenBtn);
+
+      if (hasText) {
+        const copyBtn = document.createElement('button');
+        copyBtn.type = 'button';
+        copyBtn.className = 'button-icon message__hover-btn';
+        copyBtn.setAttribute('aria-label', t('Copy as Markdown'));
+        copyBtn.title = t('Copy');
+        copyBtn.innerHTML = COPY_ICON_SVG;
+        const markdown = text;
+        copyBtn.addEventListener('click', () => copyMessageMarkdown(copyBtn, markdown));
+        actions.appendChild(copyBtn);
+      }
+
+      const trailing = row.querySelector('.message__ai-trailing');
+      if (trailing) {
+        trailing.appendChild(actions);
+      } else {
+        actions.classList.add('message__msg-actions--standalone');
+        row.appendChild(actions);
+      }
+    }
+  } else {
+    const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
+    const fileParts = msg.parts.filter((p) => p.type === 'file');
+
+    const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
+
+    row.className = 'message message--user';
+    row.innerHTML = `
+      <div class="message__user-content">
+        ${filesHtml}
+        ${text ? `<div class="message__bubble body-medium">${text}</div>` : ''}
+      </div>
+    `;
+
+    if (!chatConfig.hidePromptControls && isIdle && text) {
+      const actionsEl = document.createElement('div');
+      actionsEl.className = 'message__actions message__actions--user';
+
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'button-icon';
+      editBtn.setAttribute('aria-label', t('Edit message'));
+      editBtn.title = t('Edit');
+      // Edit icon (local inline SVG) — inherits currentColor. A matching
+      // stroke fattens the otherwise-thin fill paths.
+      editBtn.innerHTML = `<svg viewBox="0 0 32 32" fill="currentColor" stroke="currentColor" stroke-width="0.75" stroke-linejoin="round" stroke-linecap="round" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="m27.1 7.16-2.26-2.26c-1.2-1.2-3.15-1.2-4.35 0l-3.79 3.8s0 0 0 0l-11.19 11.18c-.98.98-1.51 2.27-1.51 3.65v3.47c0 .55.45 1 1 1h3.47c1.38 0 2.67-.54 3.65-1.51l11.19-11.18s0 0 0 0l3.79-3.8c.58-.58.9-1.35.9-2.17s-.32-1.59-.9-2.17zm-16.4 17.91c-.6.6-1.39.93-2.23.93h-2.47v-2.47c0-.84.33-1.64.93-2.23l10.48-10.47 3.78 3.78-10.48 10.48zm14.99-14.98s0 0 0 0l-3.08 3.09-3.78-3.78 3.08-3.09c.42-.42 1.1-.42 1.52 0l2.26 2.26c.2.2.31.47.31.76s-.11.55-.31.76z"/>
+        <path d="m26 26h-10c-.55 0-1 .45-1 1s.45 1 1 1h10c.55 0 1-.45 1-1s-.45-1-1-1z"/>
+      </svg>`;
+      const capturedIdx = userAssistantIdx;
+      const capturedText = text;
+      editBtn.addEventListener('click', () => startEditingMessage(row, capturedIdx, capturedText));
+
+      actionsEl.appendChild(editBtn);
+      row.querySelector('.message__user-content').appendChild(actionsEl);
+    }
+  }
+
+  return row;
 }
 
 function renderFilePart(part) {
@@ -1455,6 +1568,11 @@ function stopGeneration() {
   const rt = active;
   if (!rt) return;
 
+  // Announce before abort so the subscribe handler can suppress the generic
+  // "Response complete" that would otherwise fire on the streaming→idle tick.
+  rt.stopAnnouncementPending = true;
+  announceChatStatus(t('Response stopped'));
+
   clearSaveTimer(rt);
   if (rt.abortController) {
     rt.abortController.abort();
@@ -1483,6 +1601,7 @@ function stopGeneration() {
   // Rebuild the chat so the live message set is cleared before we persist;
   // saveSession() then writes restoredMessages (the full convo) only.
   rt.lastStatus = null;
+  rt.stopAnnouncementPending = false;
   attachChat(rt);
   renderActive();
   syncStreamingLoop();

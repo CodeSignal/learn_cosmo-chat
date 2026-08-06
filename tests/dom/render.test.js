@@ -8,11 +8,11 @@
  * They are deliberately behavioural (assert on rendered DOM) rather than unit
  * tests of internals, because the render functions are not exported.
  *
- * The final block documents the two accessibility defects the refactor must fix.
- * Those use `it.fails`, so the suite stays green on main and turns red the moment
- * the bugs are fixed — at which point they should be converted to plain `it`.
+ * The final block are the A1/A2 acceptance tests for the foundation PR
+ * (reconcile message rows; do not wipe-and-rebuild). They were `it.fails` on
+ * main before the refactor and are plain `it` once reconciliation lands.
  *
- * See a11y-audits/8-5-26/resolution-plan.md → Wave 0 → P0-1.
+ * See a11y-audits/8-5-26/resolution-plan.md → Wave 1 → A1+A2+A11.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -226,22 +226,19 @@ describe('streaming state', () => {
 });
 
 /**
- * Accessibility characterization — these document defects A1 and A2.
+ * Accessibility acceptance — A1 and A2 (foundation PR with A11).
  *
- * Both are expected to FAIL against the current implementation, which is why
- * they use `it.fails`. When the reconciliation refactor lands they will start
- * passing, vitest will report the unexpected pass, and they should be converted
- * to plain `it`. That conversion is the acceptance test for the foundation PR.
+ * Converted from `it.fails` when reconciliation landed. Do not delete.
  */
 describe('accessibility characteristics of re-rendering', () => {
-  it.fails('A2: keyboard focus on a message action survives a re-render', async () => {
+  it('A2: keyboard focus on a message action survives a re-render', async () => {
     await bootApp({ messages: [storedUser('Q'), storedAssistant('A')] });
 
     const regenerate = qa('.message__hover-btn').find((b) => label(b) === 'Regenerate response');
     regenerate.focus();
     expect(document.activeElement).toBe(regenerate);
 
-    // A status tick with no content change still triggers a full re-render.
+    // A status tick with no content change must not destroy focus.
     fakeChats[0].setMessages([], 'idle');
     await settle();
 
@@ -254,7 +251,7 @@ describe('accessibility characteristics of re-rendering', () => {
     expect(q('.messages').contains(refocused)).toBe(true);
   });
 
-  it.fails('A1: an unchanged message keeps its DOM node across a re-render', async () => {
+  it('A1: an unchanged message keeps its DOM node across a re-render', async () => {
     await bootApp({ messages: [storedUser('Unchanged'), storedAssistant('Also unchanged')] });
 
     const before = qa('.message');
@@ -262,9 +259,33 @@ describe('accessibility characteristics of re-rendering', () => {
     await settle();
     const after = qa('.message');
 
-    // Reconciliation should reuse the nodes; today every row is rebuilt, so the
-    // live region reports the entire conversation as new content on every tick.
+    // Reconciliation reuses unchanged rows so AT does not see the whole
+    // conversation as new content on every tick.
     expect(after[0]).toBe(before[0]);
     expect(after[1]).toBe(before[1]);
+  });
+
+  it('A11: persistent status region receives short stream lifecycle messages', async () => {
+    await bootApp({ messages: [] });
+
+    const statusEl = q('#chatStatus');
+    expect(statusEl).toBeTruthy();
+    expect(statusEl.getAttribute('role')).toBe('status');
+    expect(q('.messages')?.contains(statusEl) ?? false).toBe(false);
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'partial' }], 'streaming')],
+      'streaming',
+    );
+    await settle();
+    expect(statusEl.textContent).toBe('Cosmo is responding');
+    expect(q('.message__ai-status')?.hasAttribute('aria-live') ?? false).toBe(false);
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'done' }], 'done')],
+      'idle',
+    );
+    await settle();
+    expect(statusEl.textContent).toBe('Response complete');
   });
 });

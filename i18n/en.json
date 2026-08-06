@@ -40,6 +40,8 @@
     "Running tool…": "Running tool…",
     "Still running…": "Still running…",
     "Response stopped": "Response stopped",
+    "Cosmo is responding": "Cosmo is responding",
+    "Response complete": "Response complete",
     "Regenerate response": "Regenerate response",
     "Regenerate": "Regenerate",
     "Copy as Markdown": "Copy as Markdown",
