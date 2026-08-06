@@ -1161,7 +1161,15 @@ function messageRowSignature(msg, { isIdle, isLastAssistant, hidePromptControls 
 }
 
 function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
-  const row = document.createElement('div');
+  // <article> + visually hidden heading so VoiceOver's Headings / Articles
+  // rotors can land on each turn. Plain divs left replies as an unlabelled
+  // paragraph soup inside a scrollable main — reachable in the AX tree, but
+  // practically undiscoverable via landmark/heading navigation.
+  const row = document.createElement('article');
+  const whoLabel = msg.role === 'assistant' ? t("Cosmo's reply") : t('Your message');
+  const labelId = `msg-label-${userAssistantIdx}`;
+  row.setAttribute('aria-labelledby', labelId);
+  const headingHtml = `<h2 id="${labelId}" class="visually-hidden">${escapeHtml(whoLabel)}</h2>`;
 
   if (msg.role === 'assistant') {
     const rawText = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
@@ -1238,6 +1246,7 @@ function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
 
     row.className = streaming ? 'message message--ai message--ai--streaming' : 'message message--ai';
     row.innerHTML = `
+      ${headingHtml}
       ${thoughtsHtml}
       <div class="message__body body-medium markdown">
         ${bodyContent}
@@ -1298,6 +1307,7 @@ function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
 
     row.className = 'message message--user';
     row.innerHTML = `
+      ${headingHtml}
       <div class="message__user-content">
         ${filesHtml}
         ${text ? `<div class="message__bubble body-medium">${text}</div>` : ''}

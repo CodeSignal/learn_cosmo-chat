@@ -265,6 +265,17 @@ describe('accessibility characteristics of re-rendering', () => {
     expect(after[1]).toBe(before[1]);
   });
 
+  it('exposes each message as a named article with a heading for AT navigation', async () => {
+    await bootApp({ messages: [storedUser('Q'), storedAssistant('A')] });
+
+    const rows = qa('.message');
+    expect(rows.map((r) => r.tagName)).toEqual(['ARTICLE', 'ARTICLE']);
+    expect(rows[0].getAttribute('aria-labelledby')).toBeTruthy();
+    expect(rows[1].getAttribute('aria-labelledby')).toBeTruthy();
+    expect(rows[0].querySelector('h2.visually-hidden')?.textContent).toBe('Your message');
+    expect(rows[1].querySelector('h2.visually-hidden')?.textContent).toBe("Cosmo's reply");
+  });
+
   it('A11: persistent status region receives short stream lifecycle messages', async () => {
     await bootApp({ messages: [] });
 
