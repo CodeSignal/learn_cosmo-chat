@@ -245,7 +245,13 @@ describe('accessibility characteristics of re-rendering', () => {
     fakeChats[0].setMessages([], 'idle');
     await settle();
 
-    expect(document.activeElement).not.toBe(document.body);
+    // Focus has to land back on Regenerate specifically. Merely being somewhere
+    // other than <body> would still have moved the user without telling them.
+    // Asserted by accessible name rather than node identity, so a fix is free to
+    // either reuse the node or recreate it and restore focus.
+    const refocused = document.activeElement;
+    expect(label(refocused)).toBe('Regenerate response');
+    expect(q('.messages').contains(refocused)).toBe(true);
   });
 
   it.fails('A1: an unchanged message keeps its DOM node across a re-render', async () => {

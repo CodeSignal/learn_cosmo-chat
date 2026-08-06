@@ -90,11 +90,13 @@ export async function bootApp({ messages = [], config = {}, models = ['anthropic
 
     if (u.startsWith('/api/session?id=')) return json({ sessionId: 'session-switched', messages: [] });
     if (u === '/api/session') return json({ sessionId: 'session-1', messages });
+    // startNewChat() POSTs to the same path the session list is read from, so
+    // the method check has to come first.
+    if (u === '/api/sessions' && init.method === 'POST') return json({ sessionId: 'session-2' });
     if (u === '/api/sessions') return json({ sessions: [{ session_id: 'session-1', title: 'Test conversation', updated_at: '2026-08-05T00:00:00Z' }] });
     if (u === '/api/config') return json({ ...DEFAULT_CONFIG, ...config });
     if (u === '/api/models') return json({ models, capabilities: {} });
     if (u === '/api/session/save') return json({ ok: true });
-    if (u === '/api/sessions' && init.method === 'POST') return json({ sessionId: 'session-2' });
     return json({ ok: true });
   });
 
