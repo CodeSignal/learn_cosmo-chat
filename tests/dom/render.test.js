@@ -276,6 +276,36 @@ describe('accessibility characteristics of re-rendering', () => {
     expect(rows[1].querySelector('h2.visually-hidden')?.textContent).toBe("Cosmo's reply");
   });
 
+  it('keeps the streaming reply article and heading stable across token ticks', async () => {
+    await bootApp({ messages: [storedUser('Q')] });
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'Hel' }], 'streaming')],
+      'streaming',
+    );
+    await settle();
+
+    const article = q('.message--ai');
+    const heading = article.querySelector('h2.visually-hidden');
+    expect(heading?.textContent).toBe("Cosmo's reply");
+    expect(qa('article.message > h2.visually-hidden').map((h) => h.textContent)).toEqual([
+      'Your message',
+      "Cosmo's reply",
+    ]);
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'Hello, world' }], 'streaming')],
+      'streaming',
+    );
+    await settle();
+
+    // Same nodes — not replaceWith — so VoiceOver can keep reading mid-stream.
+    expect(q('.message--ai')).toBe(article);
+    expect(article.querySelector('h2.visually-hidden')).toBe(heading);
+    expect(qa('article.message > h2.visually-hidden').length).toBe(2);
+    expect(q('.message--ai .message__body').textContent).toContain('Hello, world');
+  });
+
   it('A11: persistent status region receives short stream lifecycle messages', async () => {
     await bootApp({ messages: [] });
 

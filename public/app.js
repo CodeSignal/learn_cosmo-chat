@@ -1061,7 +1061,7 @@ function renderMessages(liveMessages, status) {
     return -1;
   })();
 
-  /** @type {{ key: string, sig: string, create: () => HTMLElement }[]} */
+  /** @type {{ key: string, structureSig: string, contentSig: string, msg: object, idx: number, isLastAssistant: boolean }[]} */
   const planned = [];
   let userAssistantIdx = 0;
 
@@ -1071,35 +1071,49 @@ function renderMessages(liveMessages, status) {
 
     const idx = userAssistantIdx;
     const isLastAssistant = i === lastAssistantIdx;
-    const sig = messageRowSignature(msg, { isIdle, isLastAssistant, hidePromptControls: !!chatConfig.hidePromptControls });
-    const key = String(i);
+    const ctx = { isIdle, isLastAssistant, hidePromptControls: !!chatConfig.hidePromptControls };
+    const { structureSig, contentSig } = messageRowSignatures(msg, ctx);
     planned.push({
-      key,
-      sig,
-      create: () => {
-        const row = createMessageRow(msg, idx, { isIdle, isLastAssistant });
-        row.dataset.msgKey = key;
-        row.dataset.msgSig = sig;
-        return row;
-      },
+      key: String(i),
+      structureSig,
+      contentSig,
+      msg,
+      idx,
+      isLastAssistant,
     });
     userAssistantIdx++;
   }
 
   for (let i = 0; i < planned.length; i++) {
-    const { key, sig, create } = planned[i];
+    const { key, structureSig, contentSig, msg, idx, isLastAssistant } = planned[i];
     const current = messagesEl.children[i];
+    const ctx = { isIdle, isLastAssistant };
 
     // In-place edit UI is DOM-only state; never tear it down on a re-render.
     if (current?.querySelector?.('.message__edit-box')) continue;
 
     if (current
       && current.dataset.msgKey === key
-      && current.dataset.msgSig === sig) {
+      && current.dataset.structureSig === structureSig
+      && current.dataset.contentSig === contentSig) {
       continue;
     }
 
-    const next = create();
+    // Same chrome (article/heading/actions); only prose/status changed —
+    // patch in place so VoiceOver can keep reading during streaming.
+    if (current
+      && current.dataset.msgKey === key
+      && current.dataset.structureSig === structureSig
+      && msg.role === 'assistant') {
+      patchAssistantRowContent(current, buildAssistantModel(msg, ctx));
+      current.dataset.contentSig = contentSig;
+      continue;
+    }
+
+    const next = createMessageRow(msg, idx, ctx);
+    next.dataset.msgKey = key;
+    next.dataset.structureSig = structureSig;
+    next.dataset.contentSig = contentSig;
     if (current) current.replaceWith(next);
     else messagesEl.appendChild(next);
   }
@@ -1124,40 +1138,183 @@ function renderMessages(liveMessages, status) {
   updateSendBtn();
 }
 
-/** Stable fingerprint of everything that affects a row's rendered output. */
-function messageRowSignature(msg, { isIdle, isLastAssistant, hidePromptControls }) {
-  const parts = (msg.parts ?? []).map((p) => {
-    if (p.type === 'text' || p.type === 'reasoning') {
-      return { type: p.type, text: p.text ?? '', status: p.status ?? '' };
-    }
-    if (p.type === 'file') {
-      return { type: 'file', url: p.url ?? '', filename: p.filename ?? '', mediaType: p.mediaType ?? '' };
-    }
-    if (p.type === 'tool-call') {
-      return { type: 'tool-call', name: p.name ?? p.toolName ?? '', status: p.status ?? '' };
-    }
-    return { type: p.type };
-  });
+/**
+ * Split fingerprints so streaming token ticks can patch prose without
+ * recreating the article/heading chrome (keeps VoiceOver's place).
+ */
+function messageRowSignatures(msg, { isIdle, isLastAssistant, hidePromptControls }) {
+  if (msg.role === 'assistant') {
+    const model = buildAssistantModel(msg, { isIdle, isLastAssistant });
+    // Structure = chrome that needs a full rebuild (action buttons/listeners,
+    // trailing avatar). Prose, thoughts, and status labels are content patches.
+    const structureSig = JSON.stringify({
+      role: 'assistant',
+      isIdle,
+      isLastAssistant,
+      hidePromptControls,
+      showActions: model.showActions,
+    });
+    const contentSig = JSON.stringify({
+      className: model.className,
+      bodyContent: model.bodyContent,
+      stopped: model.stopped,
+      statusLabel: model.statusLabel,
+      statusIcon: model.statusIcon,
+      showThoughts: model.showThoughts,
+      reasoningBlocks: model.reasoningBlocks,
+      summaryLabel: model.summaryLabel,
+      streaming: model.streaming,
+    });
+    return { structureSig, contentSig };
+  }
 
-  let statusLabel = '';
-  if (msg.role === 'assistant' && msg.status === 'streaming') {
-    const fileParts = (msg.parts ?? []).filter((p) => p.type === 'file');
-    if (fileParts.length === 0) {
-      statusLabel = getStreamingStatus(msg.parts).label;
+  const text = (msg.parts ?? []).filter((p) => p.type === 'text').map((p) => p.text).join('');
+  const fileParts = (msg.parts ?? []).filter((p) => p.type === 'file');
+  const structureSig = JSON.stringify({
+    role: 'user',
+    isIdle,
+    hidePromptControls,
+    showActions: !hidePromptControls && isIdle && !!text,
+  });
+  const contentSig = JSON.stringify({
+    text,
+    files: fileParts.map((f) => ({ url: f.url, filename: f.filename, mediaType: f.mediaType })),
+  });
+  return { structureSig, contentSig };
+}
+
+function buildAssistantModel(msg, { isIdle, isLastAssistant }) {
+  const rawText = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
+  const fileParts = msg.parts.filter((p) => p.type === 'file');
+  const segments = segmentAssistantParts(msg.parts);
+  const reasoningSegments = segments.filter((seg) => seg.kind === 'reasoning');
+  // Join only for resolveAssistantContent's string API; UI keeps one DIV per
+  // thought so blocks stay delineated (Brian: single section, separate DIVs).
+  const reasoningFromParts = reasoningSegments.map((seg) => seg.text).join('\n\n');
+  const reasoningStreaming = reasoningSegments.some((seg) => seg.streaming);
+  const resolved = resolveAssistantContent({
+    text: rawText,
+    reasoningFromParts,
+    reasoningStreaming,
+  });
+  const text = resolved.answer;
+  const streaming = msg.status === 'streaming';
+  // Octavus: one entry per reasoning part. Embedded peel already joins with
+  // blank lines — split those back into blocks for the same DIV treatment.
+  const reasoningBlocks = resolved.source === 'octavus'
+    ? reasoningSegments.map((seg) => seg.text)
+    : (resolved.reasoning
+      ? resolved.reasoning.split(/\n\n+/).filter((block) => block.trim().length > 0)
+      : []);
+  const hasText = text.trim().length > 0;
+  const hasReasoning =
+    reasoningBlocks.some((block) => block.trim().length > 0)
+    || reasoningStreaming
+    || resolved.thinkingOpen;
+  const showThoughts = shouldShowReasoning() && hasReasoning;
+  const renderedHtml = stripEmojisFromHtml(
+    stripHeadingLeadDecorationsFromHtml(marked.parse(text)),
+  );
+  const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
+  const isImageGen = isImageGenerationLoading(msg.parts);
+
+  let bodyMode = 'content';
+  let bodyContent;
+  if (streaming && !hasText && fileParts.length === 0 && isImageGen) {
+    bodyMode = 'image';
+    bodyContent = renderImagePlaceholderBody();
+  } else if (streaming && !hasText && fileParts.length === 0 && !isImageGen) {
+    bodyMode = 'empty';
+    bodyContent = '';
+  } else if (streaming && fileParts.length === 0) {
+    bodyContent = `${renderedHtml}<span class="cursor" aria-hidden="true"></span>`;
+  } else {
+    bodyContent = `${renderedHtml}${filesHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}`;
+  }
+
+  const streamingStatus = streaming && fileParts.length === 0 ? getStreamingStatus(msg.parts) : null;
+  const showActions = !chatConfig.hidePromptControls && isIdle && (hasText || msg.stopped);
+
+  return {
+    text,
+    fileParts,
+    streaming,
+    stopped: !!msg.stopped,
+    reasoningBlocks,
+    showThoughts,
+    summaryLabel: streaming ? t('Thinking…') : t('Thoughts'),
+    thoughtsHtml: showThoughts ? renderThoughtsBlock(reasoningBlocks, { streaming }) : '',
+    bodyMode,
+    bodyContent,
+    statusLabel: streamingStatus?.label ?? '',
+    statusIcon: streamingStatus?.icon ?? null,
+    statusHtml: streamingStatus
+      ? `<div class="message__ai-status body-xsmall">${streamingStatus.icon ? `${streamingStatus.icon} ` : ''}${streamingStatus.label}</div>`
+      : '',
+    isLastAssistant,
+    showActions,
+    className: streaming ? 'message message--ai message--ai--streaming' : 'message message--ai',
+  };
+}
+
+/** Update prose/status inside an existing assistant article without replacing it. */
+function patchAssistantRowContent(row, model) {
+  row.className = model.className;
+
+  const heading = row.querySelector(':scope > h2.visually-hidden');
+  let thoughts = row.querySelector(':scope > .message__thoughts');
+  if (model.showThoughts) {
+    const blocksHtml = model.reasoningBlocks
+      .map((text) => {
+        const html = escapeHtml(text ?? '').replace(/\n/g, '<br>');
+        return `<div class="message__thoughts-block">${html}</div>`;
+      })
+      .join('');
+    if (thoughts) {
+      // Preserve the user's open/closed choice across token ticks (A20).
+      const wasOpen = thoughts.open;
+      const label = thoughts.querySelector('.message__thoughts-summary-label');
+      if (label) label.textContent = model.summaryLabel;
+      const thoughtsBody = thoughts.querySelector('.message__thoughts-body');
+      if (thoughtsBody) thoughtsBody.innerHTML = blocksHtml;
+      thoughts.open = wasOpen;
+    } else if (heading) {
+      heading.insertAdjacentHTML('afterend', model.thoughtsHtml);
+    }
+  } else if (thoughts) {
+    thoughts.remove();
+  }
+
+  const body = row.querySelector(':scope > .message__body');
+  if (body) {
+    body.innerHTML = model.bodyContent;
+    if (model.stopped) {
+      const stoppedEl = document.createElement('div');
+      stoppedEl.className = 'message__stopped body-xsmall';
+      stoppedEl.textContent = t('Response stopped');
+      body.appendChild(stoppedEl);
     }
   }
 
-  return JSON.stringify({
-    role: msg.role,
-    status: msg.status ?? '',
-    stopped: !!msg.stopped,
-    parts,
-    isIdle,
-    isLastAssistant,
-    hidePromptControls,
-    showReasoning: shouldShowReasoning(),
-    statusLabel,
-  });
+  const statusEl = row.querySelector('.message__ai-status');
+  if (model.statusLabel) {
+    const statusText = `${model.statusIcon ? `${model.statusIcon} ` : ''}${model.statusLabel}`;
+    if (statusEl) {
+      statusEl.textContent = statusText;
+    } else {
+      const trailing = row.querySelector('.message__ai-trailing');
+      if (trailing) {
+        trailing.insertAdjacentHTML('beforeend', model.statusHtml);
+      }
+    }
+  } else if (statusEl) {
+    statusEl.remove();
+  }
+
+  const avatar = row.querySelector('.message__avatar');
+  if (avatar) {
+    avatar.classList.toggle('message__avatar--thinking', model.streaming);
+  }
 }
 
 function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
@@ -1172,63 +1329,9 @@ function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
   const headingHtml = `<h2 id="${labelId}" class="visually-hidden">${escapeHtml(whoLabel)}</h2>`;
 
   if (msg.role === 'assistant') {
-    const rawText = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
-    const fileParts = msg.parts.filter((p) => p.type === 'file');
-    const segments = segmentAssistantParts(msg.parts);
-    const reasoningSegments = segments.filter((seg) => seg.kind === 'reasoning');
-    // Join only for resolveAssistantContent's string API; UI keeps one DIV per
-    // thought so blocks stay delineated (Brian: single section, separate DIVs).
-    const reasoningFromParts = reasoningSegments.map((seg) => seg.text).join('\n\n');
-    const reasoningStreaming = reasoningSegments.some((seg) => seg.streaming);
-    const resolved = resolveAssistantContent({
-      text: rawText,
-      reasoningFromParts,
-      reasoningStreaming,
-    });
-    const text = resolved.answer;
-    const streaming = msg.status === 'streaming';
-    // Octavus: one entry per reasoning part. Embedded peel already joins with
-    // blank lines — split those back into blocks for the same DIV treatment.
-    const reasoningBlocks = resolved.source === 'octavus'
-      ? reasoningSegments.map((seg) => seg.text)
-      : (resolved.reasoning
-        ? resolved.reasoning.split(/\n\n+/).filter((block) => block.trim().length > 0)
-        : []);
-    const hasText = text.trim().length > 0;
-    const hasReasoning =
-      reasoningBlocks.some((block) => block.trim().length > 0)
-      || reasoningStreaming
-      || resolved.thinkingOpen;
-    const showThoughts = shouldShowReasoning() && hasReasoning;
-    const renderedHtml = stripEmojisFromHtml(
-      stripHeadingLeadDecorationsFromHtml(marked.parse(text)),
-    );
-    const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
-    const thoughtsHtml = showThoughts
-      ? renderThoughtsBlock(reasoningBlocks, { streaming })
-      : '';
+    const model = buildAssistantModel(msg, { isIdle, isLastAssistant });
 
-    const isImageGen = isImageGenerationLoading(msg.parts);
-
-    let bodyContent;
-    if (streaming && !hasText && fileParts.length === 0 && isImageGen) {
-      bodyContent = renderImagePlaceholderBody();
-    } else if (streaming && !hasText && fileParts.length === 0 && !isImageGen) {
-      bodyContent = '';
-    } else if (streaming && fileParts.length === 0) {
-      bodyContent = `${renderedHtml}<span class="cursor" aria-hidden="true"></span>`;
-    } else {
-      bodyContent = `${renderedHtml}${filesHtml}${streaming ? '<span class="cursor" aria-hidden="true"></span>' : ''}`;
-    }
-
-    // Visual-only stage label. Announcements go through #chatStatus (A11).
-    const streamingStatus = streaming && fileParts.length === 0 ? getStreamingStatus(msg.parts) : null;
-    const statusHtml = streamingStatus
-      ? `<div class="message__ai-status body-xsmall">${streamingStatus.icon ? `${streamingStatus.icon} ` : ''}${streamingStatus.label}</div>`
-      : '';
-
-    const showThinkingRing = streaming;
-    const avatarOpen = showThinkingRing
+    const avatarOpen = model.streaming
       ? `<div class="message__avatar message__avatar--thinking"${thinkingBorderAnimationDelayAttr()}>`
       : '<div class="message__avatar">';
     const avatarClose = '</div>';
@@ -1240,21 +1343,21 @@ function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
         ${avatarOpen}
           <span class="cosmo-avatar small" role="img" aria-label="Cosmo"></span>
         ${avatarClose}
-        ${statusHtml}
+        ${model.statusHtml}
       </div>
     ` : '';
 
-    row.className = streaming ? 'message message--ai message--ai--streaming' : 'message message--ai';
+    row.className = model.className;
     row.innerHTML = `
       ${headingHtml}
-      ${thoughtsHtml}
+      ${model.thoughtsHtml}
       <div class="message__body body-medium markdown">
-        ${bodyContent}
+        ${model.bodyContent}
       </div>
       ${trailingHtml}
     `;
 
-    if (msg.stopped) {
+    if (model.stopped) {
       const stoppedEl = document.createElement('div');
       stoppedEl.className = 'message__stopped body-xsmall';
       stoppedEl.textContent = t('Response stopped');
@@ -1265,7 +1368,7 @@ function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
     // and copy-as-markdown. Both use the .button-icon style and reveal on
     // hover. On the last message they share the trailing avatar row (12px
     // from the avatar); earlier messages get their own row below.
-    if (!chatConfig.hidePromptControls && isIdle && (hasText || msg.stopped)) {
+    if (model.showActions) {
       const actions = document.createElement('div');
       actions.className = 'message__msg-actions';
 
@@ -1279,14 +1382,14 @@ function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
       regenBtn.addEventListener('click', () => regenerateResponse(capturedIdx));
       actions.appendChild(regenBtn);
 
-      if (hasText) {
+      if (model.text.trim()) {
         const copyBtn = document.createElement('button');
         copyBtn.type = 'button';
         copyBtn.className = 'button-icon message__hover-btn';
         copyBtn.setAttribute('aria-label', t('Copy as Markdown'));
         copyBtn.title = t('Copy');
         copyBtn.innerHTML = COPY_ICON_SVG;
-        const markdown = text;
+        const markdown = model.text;
         copyBtn.addEventListener('click', () => copyMessageMarkdown(copyBtn, markdown));
         actions.appendChild(copyBtn);
       }
