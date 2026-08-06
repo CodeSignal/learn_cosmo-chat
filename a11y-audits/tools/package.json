@@ -7,6 +7,9 @@
   "license": "ISC",
   "scripts": {
     "audit": "node audit.mjs",
+    "audit:ci": "A11Y_CI=1 A11Y_BROWSER_CHANNEL=bundled A11Y_BASELINE=./baseline.json node audit.mjs",
+    "audit:update-baseline": "A11Y_CI=1 A11Y_UPDATE_BASELINE=1 node audit.mjs",
+    "test": "node --test baseline.test.mjs",
     "verify": "node verify.mjs",
     "verify:sessions": "node verify2.mjs"
   },

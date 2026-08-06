@@ -2,7 +2,7 @@
 
 The Playwright + axe-core scripts that produced the evidence in
 [`../8-5-26/audit.md`](../8-5-26/audit.md). Kept in the repository so findings can be
-re-measured after each fix, and because `audit.mjs` is the intended starting point for the
+re-measured after each fix, and because `audit.mjs` drives the
 CI accessibility gate ([#36](https://github.com/CodeSignal/learn_cosmo-chat/issues/36)).
 
 These have their own dependency tree. They are **not** part of the application build and are
@@ -37,9 +37,36 @@ npm run audit
 | `A11Y_BASE_URL` | `http://localhost:3100` | Where the app is running |
 | `A11Y_OUT` | `a11y-out` | Directory for screenshots and `report.json` |
 | `A11Y_BROWSER_CHANNEL` | `chrome` | Set to `bundled` to use Playwright's own Chromium |
+| `A11Y_CI` | unset | `1` stubs `/api/*`, skips the live-agent send flow, and enables the baseline gate |
+| `A11Y_BASELINE` | `./baseline.json` when `A11Y_CI=1` | Path to the shrink-only axe baseline |
+| `A11Y_UPDATE_BASELINE` | unset | `1` rewrites the baseline from the current run |
 
 `A11Y_BROWSER_CHANNEL` defaults to system Chrome because Playwright's bundled Chromium was
 missing on the audit machine. In CI, run `playwright install chromium` and set it to `bundled`.
+
+### CI gate
+
+`.github/workflows/pr.yml` runs:
+
+```bash
+npm run audit:ci
+```
+
+That compares the axe results for empty / settings / settings-with-dropdown in both color
+schemes against [`baseline.json`](./baseline.json). The baseline is **shrink-only**: a new
+rule or a higher node count fails the build; a fix that removes violations should update
+`baseline.json` in the same PR so the floor ratchets down.
+
+```bash
+# after a fix that clears axe violations:
+npm run audit:update-baseline
+```
+
+CI does not exercise streaming or populated-conversation states (no live agent). Those
+axe results matched the empty-state shell in the original audit, and the settings /
+dropdown states carry the distinctive rules (`aria-input-field-name`, the extra
+`region` nodes, dark-mode contrast). Re-run the full `npm run audit` locally when a
+fix needs the live-agent states.
 
 ## What each script does
 

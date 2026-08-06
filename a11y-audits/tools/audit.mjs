@@ -1,10 +1,23 @@
 import { chromium } from 'playwright';
 import { AxeBuilder } from '@axe-core/playwright';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { compare, fingerprint, readBaseline, writeBaseline } from './baseline.mjs';
 
 const BASE = process.env.A11Y_BASE_URL ?? 'http://localhost:3100';
 const OUT = process.env.A11Y_OUT ?? 'a11y-out';
 fs.mkdirSync(OUT, { recursive: true });
+
+// CI mode skips the live-agent send flow (no Octavus in Actions) and stubs the
+// API so the app boots without credentials. It still covers empty + settings +
+// settings-with-dropdown in both color schemes — the states that carry today's
+// known axe baseline.
+const CI = process.env.A11Y_CI === '1';
+const BASELINE_PATH = process.env.A11Y_BASELINE;
+const UPDATE_BASELINE = process.env.A11Y_UPDATE_BASELINE === '1';
+const TOOLS_DIR = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_BASELINE = path.join(TOOLS_DIR, 'baseline.json');
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
 
@@ -181,6 +194,88 @@ async function scan(page, label) {
   };
 }
 
+async function maybeScreenshot(page, name) {
+  if (CI) return;
+  await page.screenshot({ path: `${OUT}/${name}`, fullPage: name.includes('empty') ? false : undefined });
+}
+
+/**
+ * Stub the JSON API so the app boots without Octavus. Used only in CI mode —
+ * the full local audit still talks to a real server/agent.
+ */
+async function installCiApiStub(page) {
+  const config = {
+    temperature: 0.7,
+    allowCustomInstructions: true,
+    customInstructions: '',
+    hideSettings: false,
+    hideHistory: false,
+    hideFileUpload: false,
+    hidePromptControls: false,
+    hideModelSettings: false,
+    model: 'anthropic/claude-sonnet-4-6',
+    allowedModels: ['anthropic/claude-sonnet-4-6'],
+    thinking: 'medium',
+    showReasoning: true,
+  };
+  const models = ['anthropic/claude-sonnet-4-6'];
+  const capabilities = {
+    'anthropic/claude-sonnet-4-6': { supportsThinking: true },
+  };
+  // Two rows so nested-interactive matches the shape the audit recorded
+  // (active session + another history item), not a single-item sidebar.
+  const sessions = [
+    {
+      session_id: 'session-1',
+      title: 'New conversation',
+      created_at: '2026-08-05T00:00:00.000Z',
+      updated_at: '2026-08-05T12:00:00.000Z',
+    },
+    {
+      session_id: 'session-0',
+      title: 'Earlier chat',
+      created_at: '2026-08-04T00:00:00.000Z',
+      updated_at: '2026-08-04T00:00:00.000Z',
+    },
+  ];
+
+  await page.route('**/api/**', async (route) => {
+    const req = route.request();
+    const url = new URL(req.url());
+    const pathname = url.pathname;
+    const method = req.method();
+    const json = (data, status = 200) =>
+      route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify(data),
+      });
+
+    if (pathname === '/api/session' && method === 'GET') {
+      return json({ sessionId: 'session-1', messages: [] });
+    }
+    if (pathname === '/api/sessions' && method === 'GET') {
+      return json({ sessions });
+    }
+    if (pathname === '/api/sessions' && method === 'POST') {
+      return json({ sessionId: 'session-2', messages: [] });
+    }
+    if (pathname === '/api/config' && method === 'GET') {
+      return json(config);
+    }
+    if (pathname === '/api/models' && method === 'GET') {
+      return json({ models, capabilities });
+    }
+    if (pathname === '/api/session/save' && method === 'POST') {
+      return json({ ok: true });
+    }
+    if (pathname === '/api/config/custom-instructions' && method === 'POST') {
+      return json({ ok: true });
+    }
+    return json({ ok: true });
+  });
+}
+
 // Defaults to system Chrome because Playwright's bundled Chromium was missing
 // on the audit machine. In CI, run `playwright install chromium` and set
 // A11Y_BROWSER_CHANNEL=bundled.
@@ -196,54 +291,73 @@ async function run(scheme) {
   const page = await ctx.newPage();
   const report = { scheme, scans: [], tabOrder: null, contrast: [], notes: [] };
 
+  if (CI) {
+    await installCiApiStub(page);
+    report.notes.push('CI mode: API stubbed; streaming/with-messages states skipped (no live agent)');
+  }
+
   await page.goto(BASE, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1500);
+
+  if (CI) {
+    // Fail fast if the stub/boot path broke — an axe scan of the boot-error
+    // screen would silently drift away from the real baseline.
+    const visible = await page.locator('.chat-app').evaluate((el) => getComputedStyle(el).visibility);
+    if (visible === 'hidden') {
+      const bootText = await page.locator('#bootError').textContent().catch(() => '');
+      throw new Error(`App did not boot in CI mode (chat-app still hidden). bootError: ${bootText}`);
+    }
+  }
 
   const boot = await page.locator('#bootError').isVisible().catch(() => false);
   report.notes.push(`bootError visible: ${boot}`);
 
   // 1. Empty state
   report.scans.push(await scan(page, 'empty-state'));
-  await page.screenshot({ path: `${OUT}/${scheme}-01-empty.png`, fullPage: false });
-  report.tabOrder = await walkTabOrder(page);
-  report.contrast.push({ state: 'empty', pairs: await contrastSample(page) });
+  await maybeScreenshot(page, `${scheme}-01-empty.png`);
+  if (!CI) {
+    report.tabOrder = await walkTabOrder(page);
+    report.contrast.push({ state: 'empty', pairs: await contrastSample(page) });
+  }
 
-  // 2. Send a prompt to get real message content rendered
-  try {
-    await page.fill('#promptInput', 'In two short sentences, what is a prompt? Then show a tiny python code block.');
-    await page.click('#sendBtn');
-    await page.waitForTimeout(1200);
-    report.scans.push(await scan(page, 'streaming'));
-    await page.screenshot({ path: `${OUT}/${scheme}-02-streaming.png` });
+  // 2. Send a prompt to get real message content rendered (full audit only)
+  if (!CI) {
+    try {
+      await page.fill('#promptInput', 'In two short sentences, what is a prompt? Then show a tiny python code block.');
+      await page.click('#sendBtn');
+      await page.waitForTimeout(1200);
+      report.scans.push(await scan(page, 'streaming'));
+      await maybeScreenshot(page, `${scheme}-02-streaming.png`);
 
-    // aria-live sanity: how much text sits inside the live region while streaming
-    report.notes.push(
-      'live region text length while streaming: ' +
-      (await page.evaluate(() => (document.querySelector('#chatHistory')?.textContent || '').length)),
-    );
+      // aria-live sanity: how much text sits inside the live region while streaming
+      report.notes.push(
+        'live region text length while streaming: ' +
+        (await page.evaluate(() => (document.querySelector('#chatHistory')?.textContent || '').length)),
+      );
 
-    await page.waitForFunction(
-      () => !document.querySelector('.message--ai--streaming'),
-      null,
-      { timeout: 60000 },
-    ).catch(() => report.notes.push('stream did not finish within 60s'));
-    await page.waitForTimeout(800);
-    report.scans.push(await scan(page, 'with-messages'));
-    await page.screenshot({ path: `${OUT}/${scheme}-03-messages.png` });
-    report.contrast.push({ state: 'messages', pairs: await contrastSample(page) });
+      await page.waitForFunction(
+        () => !document.querySelector('.message--ai--streaming'),
+        null,
+        { timeout: 60000 },
+      ).catch(() => report.notes.push('stream did not finish within 60s'));
+      await page.waitForTimeout(800);
+      report.scans.push(await scan(page, 'with-messages'));
+      await maybeScreenshot(page, `${scheme}-03-messages.png`);
+      report.contrast.push({ state: 'messages', pairs: await contrastSample(page) });
 
-    // focus-destruction test: focus a copy button, force a re-render, see where focus lands
-    const focusTest = await page.evaluate(() => {
-      const btn = document.querySelector('.message__hover-btn, .code-block__copy');
-      if (!btn) return 'no action button found';
-      btn.focus();
-      const before = document.activeElement?.className;
-      document.querySelector('#chatHistory .messages')?.dispatchEvent(new Event('x'));
-      return `focused: ${before}`;
-    });
-    report.notes.push(`hover-action focus test: ${focusTest}`);
-  } catch (e) {
-    report.notes.push(`send flow failed: ${e.message.slice(0, 160)}`);
+      // focus-destruction test: focus a copy button, force a re-render, see where focus lands
+      const focusTest = await page.evaluate(() => {
+        const btn = document.querySelector('.message__hover-btn, .code-block__copy');
+        if (!btn) return 'no action button found';
+        btn.focus();
+        const before = document.activeElement?.className;
+        document.querySelector('#chatHistory .messages')?.dispatchEvent(new Event('x'));
+        return `focused: ${before}`;
+      });
+      report.notes.push(`hover-action focus test: ${focusTest}`);
+    } catch (e) {
+      report.notes.push(`send flow failed: ${e.message.slice(0, 160)}`);
+    }
   }
 
   // 3. Settings modal
@@ -254,48 +368,50 @@ async function run(scheme) {
     report.notes.push(`settings modal open: ${modalOpen > 0}`);
     if (modalOpen) {
       report.scans.push(await scan(page, 'settings-modal'));
-      await page.screenshot({ path: `${OUT}/${scheme}-04-settings.png` });
-      report.contrast.push({ state: 'settings', pairs: await contrastSample(page) });
+      await maybeScreenshot(page, `${scheme}-04-settings.png`);
+      if (!CI) {
+        report.contrast.push({ state: 'settings', pairs: await contrastSample(page) });
 
-      // Does Tab escape the dialog?
-      const trap = await page.evaluate(async () => {
-        const dialog = document.querySelector('.modal-overlay.open');
-        const inside = [];
+        // Does Tab escape the dialog?
+        const trap = await page.evaluate(async () => {
+          const dialog = document.querySelector('.modal-overlay.open');
+          const inside = [];
+          for (let i = 0; i < 14; i++) {
+            const el = document.activeElement;
+            inside.push({
+              in: dialog.contains(el),
+              tag: el?.tagName.toLowerCase(),
+              cls: (typeof el?.className === 'string' ? el.className : '').slice(0, 50),
+            });
+            // synthetic Tab is unreliable in evaluate; rely on playwright below
+            break;
+          }
+          return inside;
+        });
+        const trapWalk = [];
         for (let i = 0; i < 14; i++) {
-          const el = document.activeElement;
-          inside.push({
-            in: dialog.contains(el),
-            tag: el?.tagName.toLowerCase(),
-            cls: (typeof el?.className === 'string' ? el.className : '').slice(0, 50),
-          });
-          // synthetic Tab is unreliable in evaluate; rely on playwright below
-          break;
+          await page.keyboard.press('Tab');
+          trapWalk.push(await page.evaluate(() => {
+            const d = document.querySelector('.modal-overlay.open');
+            const el = document.activeElement;
+            return {
+              insideDialog: d ? d.contains(el) : null,
+              tag: el?.tagName.toLowerCase(),
+              id: el?.id || null,
+              cls: (typeof el?.className === 'string' ? el.className : '').slice(0, 45),
+            };
+          }));
         }
-        return inside;
-      });
-      const trapWalk = [];
-      for (let i = 0; i < 14; i++) {
-        await page.keyboard.press('Tab');
-        trapWalk.push(await page.evaluate(() => {
-          const d = document.querySelector('.modal-overlay.open');
-          const el = document.activeElement;
-          return {
-            insideDialog: d ? d.contains(el) : null,
-            tag: el?.tagName.toLowerCase(),
-            id: el?.id || null,
-            cls: (typeof el?.className === 'string' ? el.className : '').slice(0, 45),
-          };
+        report.notes.push(`modal initial focus: ${JSON.stringify(trap)}`);
+        report.modalTabWalk = trapWalk;
+
+        // duplicate id check
+        report.notes.push(await page.evaluate(() => {
+          const ids = [...document.querySelectorAll('[id]')].map((e) => e.id);
+          const dupes = ids.filter((v, i) => ids.indexOf(v) !== i);
+          return `duplicate ids: ${JSON.stringify([...new Set(dupes)])}`;
         }));
       }
-      report.notes.push(`modal initial focus: ${JSON.stringify(trap)}`);
-      report.modalTabWalk = trapWalk;
-
-      // duplicate id check
-      report.notes.push(await page.evaluate(() => {
-        const ids = [...document.querySelectorAll('[id]')].map((e) => e.id);
-        const dupes = ids.filter((v, i) => ids.indexOf(v) !== i);
-        return `duplicate ids: ${JSON.stringify([...new Set(dupes)])}`;
-      }));
 
       // open the Thinking dropdown, check portal + aria
       await page.evaluate(() => document.querySelector('#thinkingDropdownEl .dropdown-toggle')?.click());
@@ -307,24 +423,26 @@ async function run(scheme) {
         return `thinking menu portaled: ${!!menu}; menu inside dialog: ${menu && dialog ? dialog.contains(menu) : 'n/a'}; focus after open: ${active?.tagName}.${typeof active?.className === 'string' ? active.className.slice(0, 30) : ''}; options with aria-selected: ${document.querySelectorAll('.dropdown-menu-item[aria-selected]').length}/${document.querySelectorAll('.dropdown-menu-item').length}`;
       }));
       report.scans.push(await scan(page, 'settings-modal-dropdown-open'));
-      await page.screenshot({ path: `${OUT}/${scheme}-05-dropdown.png` });
+      await maybeScreenshot(page, `${scheme}-05-dropdown.png`);
     }
   } catch (e) {
     report.notes.push(`settings flow failed: ${e.message.slice(0, 160)}`);
   }
 
-  // 4. Reflow at 320px
-  try {
-    await page.setViewportSize({ width: 320, height: 720 });
-    await page.waitForTimeout(500);
-    const overflow = await page.evaluate(() => ({
-      docScrollW: document.documentElement.scrollWidth,
-      clientW: document.documentElement.clientWidth,
-    }));
-    report.notes.push(`320px reflow: ${JSON.stringify(overflow)}`);
-    await page.screenshot({ path: `${OUT}/${scheme}-06-320px.png` });
-  } catch (e) {
-    report.notes.push(`reflow failed: ${e.message.slice(0, 120)}`);
+  // 4. Reflow at 320px (full audit only)
+  if (!CI) {
+    try {
+      await page.setViewportSize({ width: 320, height: 720 });
+      await page.waitForTimeout(500);
+      const overflow = await page.evaluate(() => ({
+        docScrollW: document.documentElement.scrollWidth,
+        clientW: document.documentElement.clientWidth,
+      }));
+      report.notes.push(`320px reflow: ${JSON.stringify(overflow)}`);
+      await maybeScreenshot(page, `${scheme}-06-320px.png`);
+    } catch (e) {
+      report.notes.push(`reflow failed: ${e.message.slice(0, 120)}`);
+    }
   }
 
   await browser.close();
@@ -332,7 +450,8 @@ async function run(scheme) {
 }
 
 // Isolated design-system dropdown page (the app only exposes one model, so the
-// model dropdown never renders in-app).
+// model dropdown never renders in-app). Skipped in CI — the test page's landmark
+// noise would dominate the baseline without guarding the app.
 async function runDsDropdown(scheme) {
   const browser = await chromium.launch(LAUNCH);
   const ctx = await browser.newContext({ colorScheme: scheme, viewport: { width: 1200, height: 900 } });
@@ -373,7 +492,7 @@ async function runDsDropdown(scheme) {
       return (el?.tagName || '') + '.' + (typeof el?.className === 'string' ? el.className : '') + ' | isBody=' + (el === document.body);
     }));
     out.axeOpen = await scan(page, 'ds-dropdown-open');
-    await page.screenshot({ path: `${OUT}/${scheme}-07-ds-dropdown.png` });
+    await maybeScreenshot(page, `${scheme}-07-ds-dropdown.png`);
   } catch (e) {
     out.notes.push(`ds dropdown failed: ${e.message.slice(0, 160)}`);
   }
@@ -384,7 +503,9 @@ async function runDsDropdown(scheme) {
 const all = {};
 for (const scheme of ['light', 'dark']) {
   all[scheme] = await run(scheme);
-  all[`${scheme}-ds-dropdown`] = await runDsDropdown(scheme);
+  if (!CI) {
+    all[`${scheme}-ds-dropdown`] = await runDsDropdown(scheme);
+  }
 }
 
 // Post-process contrast
@@ -434,3 +555,44 @@ for (const [k, v] of Object.entries(all)) {
     }
   }
 }
+
+// ── Baseline gate ─────────────────────────────────────────────
+const actual = fingerprint(all);
+const baselineFile = BASELINE_PATH || (CI || UPDATE_BASELINE ? DEFAULT_BASELINE : null);
+
+if (UPDATE_BASELINE) {
+  writeBaseline(baselineFile, actual);
+  console.log(`\nUpdated shrink-only baseline at ${baselineFile}`);
+  console.log(JSON.stringify(actual, null, 2));
+} else if (baselineFile) {
+  if (!fs.existsSync(baselineFile)) {
+    console.error(`\nBaseline file not found: ${baselineFile}`);
+    console.error('Capture one with A11Y_UPDATE_BASELINE=1');
+    process.exit(1);
+  }
+  const baseline = readBaseline(baselineFile);
+  const result = compare(actual, baseline.scans || baseline);
+  if (result.improvements.length) {
+    console.log('\nBaseline improvements (update baseline.json in this PR):');
+    result.improvements.forEach((line) => console.log(`  ✓ ${line}`));
+  }
+  if (result.missingScans.length) {
+    console.error('\nMissing scans vs baseline (audit did not cover expected states):');
+    result.missingScans.forEach((line) => console.error(`  ✗ ${line}`));
+  }
+  if (result.regressions.length) {
+    console.error('\nAxe baseline regressions:');
+    result.regressions.forEach((line) => console.error(`  ✗ ${line}`));
+  }
+  if (!result.ok) {
+    console.error('\nAccessibility CI gate failed. The baseline is shrink-only.');
+    console.error('Note: axe cannot detect live-region over-announcement (A1).');
+    process.exit(1);
+  }
+  if (result.improvements.length) {
+    console.log('\nReminder: commit an updated baseline.json so the floor ratchets down.');
+  }
+  console.log('\nAxe baseline gate passed (shrink-only).');
+  console.log('Note: axe cannot detect live-region over-announcement (A1) — a green gate is not conformance.');
+}
+
