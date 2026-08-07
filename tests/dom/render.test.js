@@ -345,4 +345,23 @@ describe('accessibility characteristics of re-rendering', () => {
     await settle();
     expect(statusEl.textContent).toBe('Response complete');
   });
+
+  it('A11: stop announces Response stopped and idle does not overwrite it', async () => {
+    await bootApp({ messages: [] });
+
+    const statusEl = q('#chatStatus');
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'partial' }], 'streaming')],
+      'streaming',
+    );
+    await settle();
+    expect(statusEl.textContent).toBe('Cosmo is responding');
+    expect(label(q('#sendBtn'))).toBe('Stop generation');
+
+    q('#sendBtn').click();
+    await settle();
+
+    expect(statusEl.textContent).toBe('Response stopped');
+    expect(q('.message__stopped')?.textContent).toBe('Response stopped');
+  });
 });

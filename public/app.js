@@ -1033,10 +1033,13 @@ function getStreamingStatus(parts = []) {
 function announceChatStatus(message) {
   const el = document.getElementById('chatStatus');
   if (!el) return;
-  // Clear-then-set so repeated identical strings still announce.
+  // Clear, force layout, then set on the next frame so AT reliably notices
+  // the change — including when the new string matches the previous one.
   el.textContent = '';
   void el.offsetWidth;
-  el.textContent = message;
+  requestAnimationFrame(() => {
+    el.textContent = message;
+  });
 }
 
 // ── Render messages ───────────────────────────────────────────
@@ -1423,9 +1426,15 @@ function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
       ${headingHtml}
       <div class="message__user-content">
         ${filesHtml}
-        ${text ? `<div class="message__bubble body-medium">${text}</div>` : ''}
       </div>
     `;
+    // User text via textContent — never interpolate into HTML (A21 / XSS).
+    if (text) {
+      const bubble = document.createElement('div');
+      bubble.className = 'message__bubble body-medium';
+      bubble.textContent = text;
+      row.querySelector('.message__user-content').appendChild(bubble);
+    }
 
     if (!chatConfig.hidePromptControls && isIdle && text) {
       const actionsEl = document.createElement('div');
