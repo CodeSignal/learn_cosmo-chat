@@ -42,6 +42,7 @@
     "Response stopped": "Respuesta detenida",
     "Cosmo is responding": "Cosmo está respondiendo",
     "Response complete": "Respuesta completa",
+    "Wait for Cosmo to finish responding before typing.": "Espera a que Cosmo termine de responder antes de escribir.",
     "Your message": "Tu mensaje",
     "Cosmo's reply": "Respuesta de Cosmo",
     "Regenerate response": "Regenerar respuesta",

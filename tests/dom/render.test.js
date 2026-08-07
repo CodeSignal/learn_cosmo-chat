@@ -365,3 +365,80 @@ describe('accessibility characteristics of re-rendering', () => {
     expect(q('.message__stopped')?.textContent).toBe('Response stopped');
   });
 });
+
+/**
+ * Accessibility acceptance — A3 (composer stays focusable mid-stream).
+ */
+describe('composer availability during streaming (A3)', () => {
+  it('uses readOnly instead of disabled while a response streams', async () => {
+    await bootApp({ messages: [] });
+    const input = q('#promptInput');
+    expect(input.disabled).toBe(false);
+    expect(input.readOnly).toBe(false);
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'partial' }], 'streaming')],
+      'streaming',
+    );
+    await settle();
+
+    expect(input.disabled).toBe(false);
+    expect(input.readOnly).toBe(true);
+    expect(input.getAttribute('aria-describedby')).toBe('promptInputBusyHint');
+    expect(q('#promptInputBusyHint').textContent).toBe(
+      'Wait for Cosmo to finish responding before typing.',
+    );
+  });
+
+  it('keeps focus on the composer across a stream tick', async () => {
+    await bootApp({ messages: [] });
+    const input = q('#promptInput');
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'Hel' }], 'streaming')],
+      'streaming',
+    );
+    await settle();
+    expect(document.activeElement).toBe(input);
+    expect(input.readOnly).toBe(true);
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'Hello' }], 'streaming')],
+      'streaming',
+    );
+    await settle();
+    expect(document.activeElement).toBe(input);
+  });
+
+  it('clears readOnly and restores focus from body when the response completes', async () => {
+    await bootApp({ messages: [] });
+    const input = q('#promptInput');
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'partial' }], 'streaming')],
+      'streaming',
+    );
+    await settle();
+    expect(input.readOnly).toBe(true);
+
+    // Simulate the pre-fix failure mode: focus already fallen to <body>.
+    document.body.focus();
+    if (document.activeElement !== document.body) {
+      document.activeElement?.blur?.();
+    }
+    expect(['BODY', 'HTML']).toContain(document.activeElement?.tagName);
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'done' }], 'done')],
+      'idle',
+    );
+    await settle();
+
+    expect(input.readOnly).toBe(false);
+    expect(input.disabled).toBe(false);
+    expect(input.hasAttribute('aria-describedby')).toBe(false);
+    expect(document.activeElement).toBe(input);
+  });
+});

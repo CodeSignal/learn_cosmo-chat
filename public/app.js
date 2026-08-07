@@ -1146,9 +1146,38 @@ function renderMessages(liveMessages, status) {
     });
   }
 
-  const streaming = status === 'streaming';
-  promptInput.disabled = streaming;
+  syncComposerAvailability(status === 'streaming');
   updateSendBtn();
+}
+
+/**
+ * Keep the composer focusable while a reply streams (A3).
+ * Prefer readOnly over disabled so focus is not dropped to <body>, and
+ * explain the wait via aria-describedby. Restore focus on completion if
+ * it fell to the document body.
+ */
+function syncComposerAvailability(streaming) {
+  // Never leave the field disabled — that removes it from the tab order.
+  promptInput.disabled = false;
+  promptInput.readOnly = streaming;
+
+  const hint = document.getElementById('promptInputBusyHint');
+  if (hint) {
+    if (streaming) {
+      hint.textContent = t('Wait for Cosmo to finish responding before typing.');
+      promptInput.setAttribute('aria-describedby', hint.id);
+    } else {
+      hint.textContent = '';
+      promptInput.removeAttribute('aria-describedby');
+    }
+  }
+
+  if (!streaming) {
+    const activeEl = document.activeElement;
+    if (activeEl === document.body || activeEl === document.documentElement) {
+      promptInput.focus({ preventScroll: true });
+    }
+  }
 }
 
 /**
