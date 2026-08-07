@@ -18,6 +18,8 @@ import {
   buildCapabilitiesPayload,
   loadCapabilities,
 } from './lib/model-capabilities.js';
+import { createAgentSession } from './lib/octavus-create.js';
+import { enqueueSessionsWrite } from './lib/sessions-file.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SESSIONS_FILE = path.join(__dirname, 'chat-sessions.json');
@@ -134,16 +136,33 @@ app.get('/api/models', async (_req, res) => {
 const readSessionsFile = () => readJsonFile(SESSIONS_FILE, { sessions: [] });
 const writeSessionsFile = (data) => writeJsonFile(SESSIONS_FILE, data);
 
+/** Run a read-modify-write against chat-sessions.json without overlapping writers. */
+function updateSessionsFile(mutator) {
+  return enqueueSessionsWrite(async () => {
+    const data = await readSessionsFile();
+    const next = await mutator(data);
+    if (next !== false) await writeSessionsFile(next ?? data);
+    return next ?? data;
+  });
+}
+
 async function createNewSession(options = {}) {
   const config = await readConfig();
   const input = buildSessionInput(options, config);
   console.log('[session] Creating with input:', JSON.stringify(input));
-  const sessionId = await octavus.agentSessions.create(AGENT_ID, input);
+  // Dedicated HTTP pool — must not share the streaming trigger dispatcher.
+  const sessionId = await createAgentSession({
+    baseUrl: process.env.OCTAVUS_API_URL,
+    apiKey: process.env.OCTAVUS_API_KEY,
+    agentId: AGENT_ID,
+    input,
+  });
   const record = buildSessionRecord(sessionId);
-  const data = await readSessionsFile();
-  // With history hidden there is only ever one conversation; drop the rest.
-  data.sessions = config.hideHistory ? [record] : [...data.sessions, record];
-  await writeSessionsFile(data);
+  await updateSessionsFile((data) => {
+    // With history hidden there is only ever one conversation; drop the rest.
+    data.sessions = config.hideHistory ? [record] : [...data.sessions, record];
+    return data;
+  });
   return record;
 }
 
@@ -186,8 +205,10 @@ app.get('/api/session', async (req, res) => {
     );
     // With history hidden, keep only the resumed session; discard any others.
     if (config.hideHistory && data.sessions.length > 1) {
-      data.sessions = [latest];
-      await writeSessionsFile(data);
+      await updateSessionsFile((current) => {
+        current.sessions = [latest];
+        return current;
+      });
     }
     return res.json({ sessionId: latest.session_id, messages: latest.messages });
   }
@@ -224,9 +245,10 @@ app.post('/api/sessions', async (req, res) => {
 // ── DELETE /api/sessions/:sessionId ──────────────────────────
 app.delete('/api/sessions/:sessionId', async (req, res) => {
   const { sessionId } = req.params;
-  const data = await readSessionsFile();
-  data.sessions = data.sessions.filter((s) => s.session_id !== sessionId);
-  await writeSessionsFile(data);
+  await updateSessionsFile((data) => {
+    data.sessions = data.sessions.filter((s) => s.session_id !== sessionId);
+    return data;
+  });
   res.json({ ok: true });
 });
 
@@ -241,16 +263,15 @@ app.post('/api/session/fork', async (req, res) => {
 
   try {
     const record = await createNewSession({ model, temperature, thinking });
-    const data = await readSessionsFile();
-
-    const idx = data.sessions.findIndex((s) => s.session_id === record.session_id);
-    if (idx >= 0) {
-      data.sessions[idx].messages = messages;
-      data.sessions[idx].updated_at = new Date().toISOString();
-    }
-
-    data.sessions = data.sessions.filter((s) => s.session_id !== oldSessionId);
-    await writeSessionsFile(data);
+    await updateSessionsFile((data) => {
+      const idx = data.sessions.findIndex((s) => s.session_id === record.session_id);
+      if (idx >= 0) {
+        data.sessions[idx].messages = messages;
+        data.sessions[idx].updated_at = new Date().toISOString();
+      }
+      data.sessions = data.sessions.filter((s) => s.session_id !== oldSessionId);
+      return data;
+    });
     res.json({ sessionId: record.session_id });
   } catch (err) {
     console.error('[session/fork] Error:', err);
@@ -267,30 +288,30 @@ app.post('/api/session/save', async (req, res) => {
   }
 
   try {
-    const data = await readSessionsFile();
     const config = await readConfig();
-    const idx = data.sessions.findIndex((s) => s.session_id === sessionId);
-    const now = new Date().toISOString();
+    await updateSessionsFile((data) => {
+      const idx = data.sessions.findIndex((s) => s.session_id === sessionId);
+      const now = new Date().toISOString();
 
-    if (idx >= 0) {
-      data.sessions[idx].messages = messages;
-      data.sessions[idx].updated_at = now;
-    } else {
-      data.sessions.push({
-        session_id: sessionId,
-        created_at: now,
-        updated_at: now,
-        messages,
-        selected_submission: null,
-      });
-    }
+      if (idx >= 0) {
+        data.sessions[idx].messages = messages;
+        data.sessions[idx].updated_at = now;
+      } else {
+        data.sessions.push({
+          session_id: sessionId,
+          created_at: now,
+          updated_at: now,
+          messages,
+          selected_submission: null,
+        });
+      }
 
-    // With history hidden, only the current conversation is ever persisted.
-    if (config.hideHistory) {
-      data.sessions = data.sessions.filter((s) => s.session_id === sessionId);
-    }
-
-    await writeSessionsFile(data);
+      // With history hidden, only the current conversation is ever persisted.
+      if (config.hideHistory) {
+        data.sessions = data.sessions.filter((s) => s.session_id === sessionId);
+      }
+      return data;
+    });
     res.json({ ok: true });
   } catch (err) {
     console.error('[session/save] Error:', err);

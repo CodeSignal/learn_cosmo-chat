@@ -442,3 +442,28 @@ describe('composer availability during streaming (A3)', () => {
     expect(document.activeElement).toBe(input);
   });
 });
+
+describe('new chat while create is slow', () => {
+  it('shows a new sidebar thread before POST /api/sessions resolves', async () => {
+    const { releaseNewSession } = await bootApp({ holdNewSession: true });
+    const chatsBefore = fakeChats.length;
+
+    const before = qa('.session-item').length;
+    q('#newChatBtn').click();
+    await settle();
+
+    // Optimistic thread appears even though Octavus create is still held.
+    expect(qa('.session-item').length).toBe(before + 1);
+    expect(qa('.session-item')[0].classList.contains('session-item--active')).toBe(true);
+    expect(q('#emptyState')?.hidden).toBe(false);
+    // Real OctavusChat is not attached until create finishes.
+    expect(fakeChats.length).toBe(chatsBefore);
+
+    releaseNewSession();
+    await settle(8);
+
+    // Create finished → runtime wired with a real chat instance.
+    expect(fakeChats.length).toBe(chatsBefore + 1);
+    expect(qa('.session-item').length).toBe(before + 1);
+  });
+});
