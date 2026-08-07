@@ -1512,7 +1512,8 @@ async function sendMessage() {
   if (!isComposerSendAllowed()) return;
 
   const text = promptInput.value.trim();
-  const readyRefs = fileItems.filter((i) => i.status === 'ready').map((i) => i.ref);
+  const savedItems = fileItems.slice();
+  const readyRefs = savedItems.filter((i) => i.status === 'ready').map((i) => i.ref);
   if (!text && readyRefs.length === 0) return;
 
   promptInput.value = '';
@@ -1520,8 +1521,20 @@ async function sendMessage() {
   clearAttachment();
   updateSendBtn();
 
+  const restoreComposer = () => {
+    promptInput.value = text;
+    fileItems = savedItems;
+    renderAttachmentPreview();
+    updateSendBtn();
+  };
+
   try {
-    await active.chat.send(
+    const rt = await ensureActiveReady();
+    if (!rt?.chat) {
+      restoreComposer();
+      return;
+    }
+    await rt.chat.send(
       'user-message',
       {
         USER_MESSAGE: text,
@@ -1555,7 +1568,7 @@ uploadImageBtn.addEventListener('click', () => openFilePicker(ACCEPT_IMAGE_TYPES
 uploadFileBtn.addEventListener('click', () => openFilePicker(ACCEPT_FILE_TYPES));
 
 async function handleFiles(files) {
-  if (!files.length || !active?.chat) return;
+  if (!files.length || (!active?.chat && !active?.pendingCreate)) return;
 
   const newItems = files.map((f) => ({
     file: f,
@@ -1569,7 +1582,9 @@ async function handleFiles(files) {
   updateSendBtn();
 
   try {
-    const refs = await active.chat.uploadFiles(files);
+    const rt = await ensureActiveReady();
+    if (!rt?.chat) throw new Error('Session not ready');
+    const refs = await rt.chat.uploadFiles(files);
     refs.forEach((ref, i) => {
       newItems[i].ref = ref;
       newItems[i].status = 'ready';
@@ -1696,8 +1711,10 @@ function clearAttachment() {
 promptInput.addEventListener('input', updateSendBtn);
 
 function isComposerSendAllowed() {
+  // Pending new chats have no OctavusChat yet, but the user should still be
+  // able to queue a send — sendMessage() awaits create before calling send.
   return canSendMessage({
-    hasActiveChat: Boolean(active?.chat),
+    hasActiveChat: Boolean(active?.chat) || Boolean(active?.pendingCreate),
     isUploading,
     activeStatus: active?.chat?.status,
     streamingCount: streamingCount(),
@@ -1705,6 +1722,17 @@ function isComposerSendAllowed() {
     hasText: promptInput.value.trim().length > 0,
     hasReadyFile: fileItems.some((i) => i.status === 'ready'),
   });
+}
+
+/** Resolve a pending optimistic session to a real Octavus-backed runtime. */
+async function ensureActiveReady() {
+  if (!active?.pendingCreate || !active.createPromise) return active;
+  try {
+    return await active.createPromise;
+  } catch (err) {
+    console.error('[ChatCPT] Pending session create failed:', err);
+    return null;
+  }
 }
 
 promptInput.addEventListener('keydown', (e) => {
@@ -1811,6 +1839,7 @@ function renderSidebar() {
       + (isStreaming ? ' session-item--streaming' : '');
     item.setAttribute('role', 'button');
     item.setAttribute('tabindex', '0');
+    item.dataset.sessionId = s.session_id;
     item.setAttribute('aria-label', isStreaming ? t('{title} (responding)', { title: s.title }) : s.title);
 
     const title = document.createElement('span');
@@ -1854,8 +1883,14 @@ function renderSidebar() {
 
 async function deleteSession(sid) {
   const wasActive = active?.sessionId === sid;
+  const pending = sessions.get(sid);
+  // Optimistic local ids never hit the server; mark aborted so a late create
+  // response deletes the remote session instead of promoting it.
+  if (pending?.pendingCreate) pending.createAborted = true;
   teardownRuntime(sid);
-  await fetch(`/api/sessions/${sid}`, { method: 'DELETE' });
+  if (!String(sid).startsWith('pending-')) {
+    await fetch(`/api/sessions/${sid}`, { method: 'DELETE' });
+  }
   allSessionsMeta = allSessionsMeta.filter((s) => s.session_id !== sid);
 
   if (wasActive) {
@@ -1927,29 +1962,116 @@ async function replaceCurrentChat() {
 }
 
 async function startNewChat() {
-  const res = await fetch('/api/sessions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: selectedModel, temperature: selectedTemperature, thinking: selectedThinking }),
-  });
-  if (!res.ok) return;
-  const data = await res.json();
+  // Switch the UI immediately. Octavus session create can stall while another
+  // conversation is streaming; waiting on it made New chat appear blocked.
+  const localId = `pending-${crypto.randomUUID()}`;
+  const pendingRt = {
+    sessionId: localId,
+    chat: null,
+    unsubscribe: null,
+    abortController: null,
+    restoredMessages: [],
+    lastStatus: null,
+    lastSaveTime: 0,
+    saveThrottleTimer: null,
+    streamingStartTime: null,
+    pendingCreate: true,
+    createAborted: false,
+    createPromise: null,
+  };
+  sessions.set(localId, pendingRt);
 
   clearAttachment();
   applyInitialPrompt();
+  active = pendingRt;
 
-  active = getOrCreateRuntime(data.sessionId, []);
-
+  const meta = {
+    session_id: localId,
+    title: t('New conversation'),
+    updated_at: new Date().toISOString(),
+  };
   if (chatConfig.hideHistory) {
-    allSessionsMeta = [{ session_id: active.sessionId, title: t('New conversation'), updated_at: new Date().toISOString() }];
+    allSessionsMeta = [meta];
   } else {
-    allSessionsMeta.unshift({ session_id: active.sessionId, title: t('New conversation'), updated_at: new Date().toISOString() });
+    allSessionsMeta.unshift(meta);
   }
 
   renderActive();
   renderSidebar();
   updateSendBtn();
   syncStreamingLoop();
+
+  pendingRt.createPromise = (async () => {
+    const res = await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: selectedModel,
+        temperature: selectedTemperature,
+        thinking: selectedThinking,
+      }),
+    });
+    if (!res.ok) throw new Error(`Failed to create session (HTTP ${res.status})`);
+    const data = await res.json();
+
+    // User deleted this optimistic thread while create was in flight.
+    if (pendingRt.createAborted || !sessions.has(localId)) {
+      sessions.delete(localId);
+      if (data.sessionId) {
+        fetch(`/api/sessions/${data.sessionId}`, { method: 'DELETE' }).catch(() => {});
+      }
+      return null;
+    }
+
+    const wasActive = active === pendingRt;
+    sessions.delete(localId);
+    const real = getOrCreateRuntime(data.sessionId, []);
+
+    const idx = allSessionsMeta.findIndex((s) => s.session_id === localId);
+    if (idx >= 0) {
+      allSessionsMeta[idx] = {
+        ...allSessionsMeta[idx],
+        session_id: data.sessionId,
+      };
+    } else if (!allSessionsMeta.some((s) => s.session_id === data.sessionId)) {
+      allSessionsMeta.unshift({
+        session_id: data.sessionId,
+        title: t('New conversation'),
+        updated_at: new Date().toISOString(),
+      });
+    }
+
+    if (wasActive) {
+      active = real;
+      renderActive();
+      updateSendBtn();
+      syncStreamingLoop();
+    }
+    renderSidebar();
+    return real;
+  })().catch((err) => {
+    console.error('[ChatCPT] New chat create failed:', err);
+    sessions.delete(localId);
+    allSessionsMeta = allSessionsMeta.filter((s) => s.session_id !== localId);
+    if (active === pendingRt) {
+      active = null;
+      if (allSessionsMeta.length > 0) {
+        // Best-effort fall back; ignore switch errors.
+        switchSession(allSessionsMeta[0].session_id).catch((switchErr) => {
+          console.error('[ChatCPT] Fallback switch after failed create:', switchErr);
+        });
+      } else {
+        renderActive();
+        renderSidebar();
+        updateSendBtn();
+      }
+    } else {
+      renderSidebar();
+    }
+    return null;
+  });
+
+  return pendingRt.createPromise;
 }
 
 // ── Regenerate / Edit ─────────────────────────────────────────

@@ -72,8 +72,18 @@ const DEFAULT_CONFIG = {
  * @param {object} [options.config]   Overrides merged into the default chat config.
  * @param {string[]} [options.models] Model ids returned by /api/models. More than
  *                                    one causes app.js to construct a real Dropdown.
+ * @param {boolean} [options.holdNewSession] When true, POST /api/sessions waits
+ *                                    until releaseNewSession() is called — used to
+ *                                    assert optimistic New chat UI.
+ * @param {boolean} [options.failNewSession] When true, POST /api/sessions returns 500.
  */
-export async function bootApp({ messages = [], config = {}, models = ['anthropic/claude-sonnet-4-6'] } = {}) {
+export async function bootApp({
+  messages = [],
+  config = {},
+  models = ['anthropic/claude-sonnet-4-6'],
+  holdNewSession = false,
+  failNewSession = false,
+} = {}) {
   vi.resetModules();
   fakeChats.length = 0;
 
@@ -83,6 +93,9 @@ export async function bootApp({ messages = [], config = {}, models = ['anthropic
   document.body.innerHTML = body;
 
   const requests = [];
+  /** @type {null | (() => void)} */
+  let releaseNewSession = null;
+
   globalThis.fetch = vi.fn(async (url, init = {}) => {
     const u = String(url);
     requests.push({ url: u, method: init.method ?? 'GET' });
@@ -92,7 +105,22 @@ export async function bootApp({ messages = [], config = {}, models = ['anthropic
     if (u === '/api/session') return json({ sessionId: 'session-1', messages });
     // startNewChat() POSTs to the same path the session list is read from, so
     // the method check has to come first.
-    if (u === '/api/sessions' && init.method === 'POST') return json({ sessionId: 'session-2' });
+    if (u === '/api/sessions' && init.method === 'POST') {
+      if (holdNewSession) {
+        await new Promise((resolve) => {
+          releaseNewSession = resolve;
+        });
+      }
+      if (failNewSession) {
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({ error: 'Failed to create session' }),
+          text: async () => 'Failed to create session',
+        };
+      }
+      return json({ sessionId: 'session-2' });
+    }
     if (u === '/api/sessions') return json({ sessions: [{ session_id: 'session-1', title: 'Test conversation', updated_at: '2026-08-05T00:00:00Z' }] });
     if (u === '/api/config') return json({ ...DEFAULT_CONFIG, ...config });
     if (u === '/api/models') return json({ models, capabilities: {} });
@@ -110,7 +138,11 @@ export async function bootApp({ messages = [], config = {}, models = ['anthropic
   await import('../../public/app.js');
   await settle();
 
-  return { requests, chat: fakeChats[0] };
+  return {
+    requests,
+    chat: fakeChats[0],
+    releaseNewSession: () => releaseNewSession?.(),
+  };
 }
 
 /** Node 26 does not expose localStorage without a backing file; app.js needs one. */

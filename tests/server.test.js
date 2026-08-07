@@ -24,9 +24,14 @@ vi.mock('@octavus/server-sdk', () => {
   };
 });
 
+vi.mock('../lib/octavus-create.js', () => ({
+  createAgentSession: vi.fn().mockResolvedValue('new-session-id'),
+}));
+
 vi.mock('dotenv/config', () => ({}));
 
 const fs = (await import('fs/promises')).default;
+const { createAgentSession } = await import('../lib/octavus-create.js');
 
 // Set env vars before importing server
 process.env.NODE_ENV = 'test';
@@ -35,6 +40,15 @@ process.env.OCTAVUS_API_KEY = 'test-key';
 process.env.OCTAVUS_AGENT_ID = 'test-agent-id';
 
 const { app } = await import('../server.js');
+
+function mockSessionsFile(data = { sessions: [] }) {
+  fs.readFile.mockImplementation(async (path) => {
+    if (String(path).includes('chat-sessions')) return JSON.stringify(data);
+    if (String(path).includes('chat-config')) return '{}';
+    throw new Error('ENOENT');
+  });
+  fs.writeFile.mockResolvedValue(undefined);
+}
 
 // ── GET /api/config ───────────────────────────────────────────
 
@@ -206,6 +220,46 @@ describe('GET /api/session', () => {
     const res = await request(app).get('/api/session');
     expect(res.status).toBe(200);
     expect(res.body.sessionId).toBe('newer');
+  });
+});
+
+// ── POST /api/sessions ────────────────────────────────────────
+
+describe('POST /api/sessions', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    createAgentSession.mockResolvedValue('new-session-id');
+  });
+
+  it('creates via the dedicated Octavus create helper and persists the record', async () => {
+    mockSessionsFile({ sessions: [] });
+
+    const res = await request(app)
+      .post('/api/sessions')
+      .send({ model: 'anthropic/claude-sonnet-4-6', temperature: 0.7, thinking: 'off' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.sessionId).toBe('new-session-id');
+    expect(createAgentSession).toHaveBeenCalledOnce();
+    expect(createAgentSession.mock.calls[0][0]).toMatchObject({
+      baseUrl: 'https://test.api',
+      apiKey: 'test-key',
+      agentId: 'test-agent-id',
+    });
+
+    const written = JSON.parse(fs.writeFile.mock.calls[0][1]);
+    expect(written.sessions).toHaveLength(1);
+    expect(written.sessions[0].session_id).toBe('new-session-id');
+  });
+
+  it('returns an error and does not persist when createAgentSession rejects', async () => {
+    mockSessionsFile({ sessions: [] });
+    createAgentSession.mockRejectedValueOnce(new Error('octavus down'));
+
+    const res = await request(app).post('/api/sessions').send({});
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(fs.writeFile).not.toHaveBeenCalled();
   });
 });
 

@@ -24,7 +24,8 @@
     "express": "^4.19.2",
     "highlight.js": "^11.11.1",
     "marked": "^18.0.3",
-    "marked-highlight": "^2.2.4"
+    "marked-highlight": "^2.2.4",
+    "undici": "^8.10.0"
   },
   "devDependencies": {
     "@octavus/cli": "^3.2.0",
