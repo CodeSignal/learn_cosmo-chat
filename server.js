@@ -136,7 +136,13 @@ app.get('/api/models', async (_req, res) => {
 const readSessionsFile = () => readJsonFile(SESSIONS_FILE, { sessions: [] });
 const writeSessionsFile = (data) => writeJsonFile(SESSIONS_FILE, data);
 
-/** Run a read-modify-write against chat-sessions.json without overlapping writers. */
+/**
+ * Run a read-modify-write against chat-sessions.json without overlapping writers.
+ * The mutator receives the current data object. Return contract:
+ *   • a new object → write that object
+ *   • undefined → write the (possibly mutated) existing data
+ *   • false → skip persistence
+ */
 function updateSessionsFile(mutator) {
   return enqueueSessionsWrite(async () => {
     const data = await readSessionsFile();

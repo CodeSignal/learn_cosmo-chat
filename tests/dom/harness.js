@@ -75,12 +75,14 @@ const DEFAULT_CONFIG = {
  * @param {boolean} [options.holdNewSession] When true, POST /api/sessions waits
  *                                    until releaseNewSession() is called — used to
  *                                    assert optimistic New chat UI.
+ * @param {boolean} [options.failNewSession] When true, POST /api/sessions returns 500.
  */
 export async function bootApp({
   messages = [],
   config = {},
   models = ['anthropic/claude-sonnet-4-6'],
   holdNewSession = false,
+  failNewSession = false,
 } = {}) {
   vi.resetModules();
   fakeChats.length = 0;
@@ -108,6 +110,14 @@ export async function bootApp({
         await new Promise((resolve) => {
           releaseNewSession = resolve;
         });
+      }
+      if (failNewSession) {
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({ error: 'Failed to create session' }),
+          text: async () => 'Failed to create session',
+        };
       }
       return json({ sessionId: 'session-2' });
     }

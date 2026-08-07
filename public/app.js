@@ -1512,7 +1512,8 @@ async function sendMessage() {
   if (!isComposerSendAllowed()) return;
 
   const text = promptInput.value.trim();
-  const readyRefs = fileItems.filter((i) => i.status === 'ready').map((i) => i.ref);
+  const savedItems = fileItems.slice();
+  const readyRefs = savedItems.filter((i) => i.status === 'ready').map((i) => i.ref);
   if (!text && readyRefs.length === 0) return;
 
   promptInput.value = '';
@@ -1520,9 +1521,19 @@ async function sendMessage() {
   clearAttachment();
   updateSendBtn();
 
+  const restoreComposer = () => {
+    promptInput.value = text;
+    fileItems = savedItems;
+    renderAttachmentPreview();
+    updateSendBtn();
+  };
+
   try {
     const rt = await ensureActiveReady();
-    if (!rt?.chat) return;
+    if (!rt?.chat) {
+      restoreComposer();
+      return;
+    }
     await rt.chat.send(
       'user-message',
       {
@@ -1828,6 +1839,7 @@ function renderSidebar() {
       + (isStreaming ? ' session-item--streaming' : '');
     item.setAttribute('role', 'button');
     item.setAttribute('tabindex', '0');
+    item.dataset.sessionId = s.session_id;
     item.setAttribute('aria-label', isStreaming ? t('{title} (responding)', { title: s.title }) : s.title);
 
     const title = document.createElement('span');
@@ -2045,7 +2057,9 @@ async function startNewChat() {
       active = null;
       if (allSessionsMeta.length > 0) {
         // Best-effort fall back; ignore switch errors.
-        switchSession(allSessionsMeta[0].session_id);
+        switchSession(allSessionsMeta[0].session_id).catch((switchErr) => {
+          console.error('[ChatCPT] Fallback switch after failed create:', switchErr);
+        });
       } else {
         renderActive();
         renderSidebar();
@@ -2054,7 +2068,7 @@ async function startNewChat() {
     } else {
       renderSidebar();
     }
-    throw err;
+    return null;
   });
 
   return pendingRt.createPromise;

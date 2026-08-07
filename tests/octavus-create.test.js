@@ -66,4 +66,19 @@ describe('createAgentSession', () => {
       createAgentSession({ agentId: 'agent-1' }),
     ).rejects.toThrow(/OCTAVUS_API_URL/);
   });
+
+  it('throws when a 200 response has no string sessionId', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ sessionId: null }),
+    });
+
+    await expect(
+      createAgentSession({
+        baseUrl: 'https://octavus.example',
+        apiKey: 'secret',
+        agentId: 'agent-1',
+      }),
+    ).rejects.toThrow(/no sessionId/);
+  });
 });
