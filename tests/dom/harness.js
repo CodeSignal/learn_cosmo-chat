@@ -103,9 +103,8 @@ export async function bootApp({ messages = [], config = {}, models = ['anthropic
   // jsdom omits these; app.js touches them on the attachment and resizer paths.
   globalThis.URL.createObjectURL = vi.fn(() => 'blob:preview');
   globalThis.URL.revokeObjectURL = vi.fn();
-  if (!globalThis.requestAnimationFrame) {
-    globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
-  }
+  // Always timer-back rAF so settle() can drain announceChatStatus's deferred write.
+  globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
   installLocalStorage();
 
   await import('../../public/app.js');

@@ -79,6 +79,10 @@
     <!-- ── MAIN CHAT AREA ── -->
     <div class="chat-main">
 
+      <!-- Persistent status live region (A1/A11). Outside the message list so
+           re-renders never recreate it; only short deliberate strings go here. -->
+      <div id="chatStatus" class="visually-hidden" role="status"></div>
+
       <!-- Chat history -->
       <main class="chat-history" id="chatHistory">
         <div class="empty-state" id="emptyState">

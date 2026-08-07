@@ -8,11 +8,11 @@
  * They are deliberately behavioural (assert on rendered DOM) rather than unit
  * tests of internals, because the render functions are not exported.
  *
- * The final block documents the two accessibility defects the refactor must fix.
- * Those use `it.fails`, so the suite stays green on main and turns red the moment
- * the bugs are fixed — at which point they should be converted to plain `it`.
+ * The final block are the A1/A2 acceptance tests for the foundation PR
+ * (reconcile message rows; do not wipe-and-rebuild). They were `it.fails` on
+ * main before the refactor and are plain `it` once reconciliation lands.
  *
- * See a11y-audits/8-5-26/resolution-plan.md → Wave 0 → P0-1.
+ * See a11y-audits/8-5-26/resolution-plan.md → Wave 1 → A1+A2+A11.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -131,6 +131,22 @@ describe('markdown rendering', () => {
     expect(q('.message__body p').textContent).not.toContain('🎉');
     expect(q('.code-block__pre').textContent).toContain('🎉');
   });
+
+  it('demotes markdown headings under the turn h2 for a correct outline', async () => {
+    await bootApp({
+      messages: [storedAssistant('# Top\n\n## Section\n\n### Detail')],
+    });
+
+    const turnHeading = q('article.message--ai > h2.visually-hidden');
+    expect(turnHeading?.textContent).toBe("Cosmo's reply");
+
+    const contentHeadings = qa('.message__body :is(h1,h2,h3,h4,h5,h6)');
+    // # and ## both become h3 (models usually start at ##); ### → h4.
+    expect(contentHeadings.map((h) => h.tagName)).toEqual(['H3', 'H3', 'H4']);
+    expect(contentHeadings.map((h) => h.textContent)).toEqual(['Top', 'Section', 'Detail']);
+    // No content heading at h2 — those would compete with the turn chrome in the rotor.
+    expect(qa('.message__body h2').length).toBe(0);
+  });
 });
 
 describe('file parts', () => {
@@ -226,22 +242,19 @@ describe('streaming state', () => {
 });
 
 /**
- * Accessibility characterization — these document defects A1 and A2.
+ * Accessibility acceptance — A1 and A2 (foundation PR with A11).
  *
- * Both are expected to FAIL against the current implementation, which is why
- * they use `it.fails`. When the reconciliation refactor lands they will start
- * passing, vitest will report the unexpected pass, and they should be converted
- * to plain `it`. That conversion is the acceptance test for the foundation PR.
+ * Converted from `it.fails` when reconciliation landed. Do not delete.
  */
 describe('accessibility characteristics of re-rendering', () => {
-  it.fails('A2: keyboard focus on a message action survives a re-render', async () => {
+  it('A2: keyboard focus on a message action survives a re-render', async () => {
     await bootApp({ messages: [storedUser('Q'), storedAssistant('A')] });
 
     const regenerate = qa('.message__hover-btn').find((b) => label(b) === 'Regenerate response');
     regenerate.focus();
     expect(document.activeElement).toBe(regenerate);
 
-    // A status tick with no content change still triggers a full re-render.
+    // A status tick with no content change must not destroy focus.
     fakeChats[0].setMessages([], 'idle');
     await settle();
 
@@ -254,7 +267,7 @@ describe('accessibility characteristics of re-rendering', () => {
     expect(q('.messages').contains(refocused)).toBe(true);
   });
 
-  it.fails('A1: an unchanged message keeps its DOM node across a re-render', async () => {
+  it('A1: an unchanged message keeps its DOM node across a re-render', async () => {
     await bootApp({ messages: [storedUser('Unchanged'), storedAssistant('Also unchanged')] });
 
     const before = qa('.message');
@@ -262,9 +275,93 @@ describe('accessibility characteristics of re-rendering', () => {
     await settle();
     const after = qa('.message');
 
-    // Reconciliation should reuse the nodes; today every row is rebuilt, so the
-    // live region reports the entire conversation as new content on every tick.
+    // Reconciliation reuses unchanged rows so AT does not see the whole
+    // conversation as new content on every tick.
     expect(after[0]).toBe(before[0]);
     expect(after[1]).toBe(before[1]);
+  });
+
+  it('exposes each message as a named article with a heading for AT navigation', async () => {
+    await bootApp({ messages: [storedUser('Q'), storedAssistant('A')] });
+
+    const rows = qa('.message');
+    expect(rows.map((r) => r.tagName)).toEqual(['ARTICLE', 'ARTICLE']);
+    expect(rows[0].getAttribute('aria-labelledby')).toBeTruthy();
+    expect(rows[1].getAttribute('aria-labelledby')).toBeTruthy();
+    expect(rows[0].querySelector('h2.visually-hidden')?.textContent).toBe('Your message');
+    expect(rows[1].querySelector('h2.visually-hidden')?.textContent).toBe("Cosmo's reply");
+  });
+
+  it('keeps the streaming reply article and heading stable across token ticks', async () => {
+    await bootApp({ messages: [storedUser('Q')] });
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'Hel' }], 'streaming')],
+      'streaming',
+    );
+    await settle();
+
+    const article = q('.message--ai');
+    const heading = article.querySelector('h2.visually-hidden');
+    expect(heading?.textContent).toBe("Cosmo's reply");
+    expect(qa('article.message > h2.visually-hidden').map((h) => h.textContent)).toEqual([
+      'Your message',
+      "Cosmo's reply",
+    ]);
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'Hello, world' }], 'streaming')],
+      'streaming',
+    );
+    await settle();
+
+    // Same nodes — not replaceWith — so VoiceOver can keep reading mid-stream.
+    expect(q('.message--ai')).toBe(article);
+    expect(article.querySelector('h2.visually-hidden')).toBe(heading);
+    expect(qa('article.message > h2.visually-hidden').length).toBe(2);
+    expect(q('.message--ai .message__body').textContent).toContain('Hello, world');
+  });
+
+  it('A11: persistent status region receives short stream lifecycle messages', async () => {
+    await bootApp({ messages: [] });
+
+    const statusEl = q('#chatStatus');
+    expect(statusEl).toBeTruthy();
+    expect(statusEl.getAttribute('role')).toBe('status');
+    expect(q('.messages')?.contains(statusEl) ?? false).toBe(false);
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'partial' }], 'streaming')],
+      'streaming',
+    );
+    await settle();
+    expect(statusEl.textContent).toBe('Cosmo is responding');
+    expect(q('.message__ai-status')?.hasAttribute('aria-live') ?? false).toBe(false);
+
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'done' }], 'done')],
+      'idle',
+    );
+    await settle();
+    expect(statusEl.textContent).toBe('Response complete');
+  });
+
+  it('A11: stop announces Response stopped and idle does not overwrite it', async () => {
+    await bootApp({ messages: [] });
+
+    const statusEl = q('#chatStatus');
+    fakeChats[0].setMessages(
+      [liveAssistant([{ type: 'text', text: 'partial' }], 'streaming')],
+      'streaming',
+    );
+    await settle();
+    expect(statusEl.textContent).toBe('Cosmo is responding');
+    expect(label(q('#sendBtn'))).toBe('Stop generation');
+
+    q('#sendBtn').click();
+    await settle();
+
+    expect(statusEl.textContent).toBe('Response stopped');
+    expect(q('.message__stopped')?.textContent).toBe('Response stopped');
   });
 });
