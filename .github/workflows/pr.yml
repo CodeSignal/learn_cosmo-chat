@@ -20,13 +20,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Populate design system submodule
         run: git submodule update --init
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '22'
           cache: 'npm'
@@ -86,7 +86,7 @@ jobs:
 
       - name: Upload axe report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: axe-report
           path: a11y-audits/tools/a11y-out-ci/
