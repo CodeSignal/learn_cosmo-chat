@@ -53,11 +53,14 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Start app server
-        # No Octavus credentials in CI — audit.mjs stubs /api/* when A11Y_CI=1.
-        # A placeholder AGENT_ID keeps the server from warning; the stub never
-        # reaches the create-session path.
+        # No real Octavus credentials in CI — audit.mjs stubs /api/* when
+        # A11Y_CI=1. Placeholders only satisfy OctavusClient construction so
+        # the static app can serve; the stub never reaches create-session.
         run: |
-          PORT=3100 AGENT_TARGET=dev OCTAVUS_AGENT_ID=ci-placeholder \
+          PORT=3100 AGENT_TARGET=dev \
+            OCTAVUS_API_URL=https://ci.placeholder \
+            OCTAVUS_API_KEY=ci-placeholder \
+            OCTAVUS_AGENT_ID=ci-placeholder \
             node server.js > /tmp/chatcpt-ci-server.log 2>&1 &
           echo $! > /tmp/chatcpt-ci-server.pid
           for i in $(seq 1 30); do
