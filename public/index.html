@@ -106,6 +106,8 @@
               rows="1"
               aria-label="Prompt input"
             ></textarea>
+            <!-- Explains transient readOnly while streaming (A3); wired via aria-describedby. -->
+            <p id="promptInputBusyHint" class="visually-hidden"></p>
           </div>
 
           <div class="composer__toolbar composer_toolarea" role="toolbar" aria-label="Composer actions">

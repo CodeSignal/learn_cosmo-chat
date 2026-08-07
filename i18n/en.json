@@ -42,6 +42,7 @@
     "Response stopped": "Response stopped",
     "Cosmo is responding": "Cosmo is responding",
     "Response complete": "Response complete",
+    "Wait for Cosmo to finish responding before typing.": "Wait for Cosmo to finish responding before typing.",
     "Your message": "Your message",
     "Cosmo's reply": "Cosmo's reply",
     "Regenerate response": "Regenerate response",
