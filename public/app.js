@@ -594,16 +594,16 @@ function openSettings() {
 
         <div class="settings-row" id="temperatureRow">
           <div class="settings-row__label-line">
-            <label class="body-small settings-row__label">${t('Temperature')}</label>
+            <label class="body-small settings-row__label" id="temperatureLabel">${t('Temperature')}</label>
             <span class="body-small settings-row__value" id="temperatureValue"></span>
           </div>
-          <p class="body-xsmall settings-row__desc">${t('Controls randomness (0–2). Lower = more focused, higher = more creative. Disabled when Thinking is on.')}</p>
+          <p class="body-xsmall settings-row__desc" id="temperatureDesc">${t('Controls randomness (0–2). Lower = more focused, higher = more creative. Disabled when Thinking is on.')}</p>
           <div class="settings-slider-container" id="temperatureSliderEl"></div>
         </div>
 
         <div class="settings-row" id="thinkingRow">
-          <label class="body-small settings-row__label">${t('Thinking')}</label>
-          <p class="body-xsmall settings-row__desc">${t('Extended reasoning depth. When enabled, temperature is ignored by the model.')}</p>
+          <label class="body-small settings-row__label" id="thinkingLabel">${t('Thinking')}</label>
+          <p class="body-xsmall settings-row__desc" id="thinkingDesc">${t('Extended reasoning depth. When enabled, temperature is ignored by the model.')}</p>
           <div class="settings-dropdown-container" id="thinkingDropdownEl"></div>
           <p class="body-xsmall settings-row__note" id="thinkingUnsupportedNote" hidden></p>
         </div>
@@ -678,6 +678,19 @@ function openSettings() {
               tempRow.classList.toggle('settings-row--disabled', value !== 'off');
             },
           });
+          // Custom widgets are not labelable via <label for>, so wire the
+          // visible row label/description through ARIA (D6).
+          const thinkingToggleValue = thinkingDropdownInstance.toggle.querySelector('.dropdown-toggle-label');
+          if (thinkingToggleValue && !thinkingToggleValue.id) {
+            thinkingToggleValue.id = 'thinkingToggleValue';
+          }
+          thinkingDropdownInstance.toggle.setAttribute(
+            'aria-labelledby',
+            thinkingToggleValue?.id ? 'thinkingLabel thinkingToggleValue' : 'thinkingLabel',
+          );
+          thinkingDropdownInstance.toggle.setAttribute('aria-describedby', 'thinkingDesc');
+          thinkingDropdownInstance.menu.setAttribute('aria-labelledby', 'thinkingLabel');
+          thinkingDropdownInstance.menu.setAttribute('aria-describedby', 'thinkingDesc');
 
           if (thinkingNote) {
             if (canThink) {
@@ -708,6 +721,9 @@ function openSettings() {
             continuousUpdates: true,
             onChange: (value) => { selectedTemperature = value; updateTempLabel(value); },
           });
+          // aria-labelledby wins over the DS default aria-label on the slider.
+          temperatureSliderInstance.wrapper.setAttribute('aria-labelledby', 'temperatureLabel');
+          temperatureSliderInstance.wrapper.setAttribute('aria-describedby', 'temperatureDesc');
 
           // Reflect current thinking state on open
           tempRow.classList.toggle('settings-row--disabled', selectedThinking !== 'off');

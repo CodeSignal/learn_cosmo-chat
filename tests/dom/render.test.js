@@ -541,3 +541,45 @@ describe('session list a11y (A4)', () => {
     expect(qa('.session-item').map((el) => el.dataset.sessionId)).toEqual(['session-1']);
   });
 });
+
+describe('settings labels a11y (D6)', () => {
+  async function openSettings() {
+    await bootApp();
+    q('#settingsBtn').click();
+    await settle();
+  }
+
+  it('associates Temperature label and description with the slider', async () => {
+    await openSettings();
+
+    const label = q('#temperatureLabel');
+    const desc = q('#temperatureDesc');
+    const slider = q('#temperatureSliderEl .numeric-slider-wrapper[role="slider"]');
+
+    expect(label?.textContent).toBe('Temperature');
+    expect(desc).toBeTruthy();
+    expect(slider?.getAttribute('aria-labelledby')).toBe('temperatureLabel');
+    expect(slider?.getAttribute('aria-describedby')).toBe('temperatureDesc');
+    expect(document.getElementById('temperatureLabel')).toBe(label);
+    expect(document.getElementById('temperatureDesc')).toBe(desc);
+  });
+
+  it('associates Thinking label and description with the dropdown toggle and listbox', async () => {
+    await openSettings();
+
+    const label = q('#thinkingLabel');
+    const desc = q('#thinkingDesc');
+    const toggle = q('#thinkingDropdownEl .dropdown-toggle');
+    const menu = document.querySelector('[id^="portal-dropdown-menu-"]');
+
+    expect(label?.textContent).toBe('Thinking');
+    expect(desc).toBeTruthy();
+    expect(toggle?.getAttribute('aria-labelledby')?.split(/\s+/)).toEqual(
+      expect.arrayContaining(['thinkingLabel']),
+    );
+    expect(toggle?.getAttribute('aria-describedby')).toBe('thinkingDesc');
+    expect(menu?.getAttribute('role')).toBe('listbox');
+    expect(menu?.getAttribute('aria-labelledby')).toBe('thinkingLabel');
+    expect(menu?.getAttribute('aria-describedby')).toBe('thinkingDesc');
+  });
+});
