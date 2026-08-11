@@ -1,10 +1,9 @@
 {
   "$comment": "Shrink-only axe baseline for PR CI. Node counts may decrease; increases or new rules fail the build. axe cannot detect live-region over-announcement (A1) — a green gate is not conformance.",
-  "generated": "2026-08-10",
+  "generated": "2026-08-11",
   "scans": {
     "dark/empty-state": {
       "color-contrast": 3,
-      "nested-interactive": 2,
       "region": 1
     },
     "dark/settings-modal": {
@@ -17,7 +16,6 @@
     },
     "light/empty-state": {
       "color-contrast": 3,
-      "nested-interactive": 2,
       "region": 1
     },
     "light/settings-modal": {
