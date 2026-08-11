@@ -486,3 +486,58 @@ describe('new chat while create is slow', () => {
     expect(after).toEqual(before);
   });
 });
+
+describe('session list a11y (A4)', () => {
+  const twoSessions = [
+    { session_id: 'session-1', title: 'Active chat', updated_at: '2026-08-05T12:00:00Z' },
+    { session_id: 'session-2', title: 'Other chat', updated_at: '2026-08-04T00:00:00Z' },
+  ];
+
+  it('renders sibling select/delete buttons inside list items', async () => {
+    await bootApp({ sessions: twoSessions });
+
+    const list = q('#sessionList .session-list');
+    expect(list?.tagName).toBe('UL');
+
+    const items = qa('.session-item');
+    expect(items).toHaveLength(2);
+    for (const item of items) {
+      expect(item.tagName).toBe('LI');
+      const select = item.querySelector(':scope > .session-item__select');
+      const del = item.querySelector(':scope > .session-item__delete');
+      expect(select?.tagName).toBe('BUTTON');
+      expect(del?.tagName).toBe('BUTTON');
+      expect(select.contains(del)).toBe(false);
+      expect(item.querySelector('.session-item__select .session-item__delete')).toBeNull();
+    }
+  });
+
+  it('exposes aria-current=page on the active conversation select control', async () => {
+    await bootApp({ sessions: twoSessions });
+
+    const active = q('.session-item--active > .session-item__select');
+    const inactive = qa('.session-item:not(.session-item--active) > .session-item__select');
+    expect(active?.getAttribute('aria-current')).toBe('page');
+    expect(inactive.every((el) => el.getAttribute('aria-current') == null)).toBe(true);
+  });
+
+  it('Enter on Delete deletes without also switching sessions', async () => {
+    const { requests } = await bootApp({ sessions: twoSessions });
+    requests.length = 0;
+
+    const other = q('.session-item[data-session-id="session-2"]');
+    const del = other.querySelector('.session-item__delete');
+    del.focus();
+    del.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    // Native buttons activate on keyup/click; jsdom does not synthesize click
+    // from keydown, so fire the activation that a real Enter would produce.
+    del.click();
+    await settle(8);
+
+    const deletes = requests.filter((r) => r.method === 'DELETE');
+    const switches = requests.filter((r) => r.url.startsWith('/api/session?id='));
+    expect(deletes).toEqual([{ url: '/api/sessions/session-2', method: 'DELETE' }]);
+    expect(switches).toEqual([]);
+    expect(qa('.session-item').map((el) => el.dataset.sessionId)).toEqual(['session-1']);
+  });
+});

@@ -66,12 +66,17 @@ const DEFAULT_CONFIG = {
   showReasoning: true,
 };
 
+const DEFAULT_SESSIONS = [
+  { session_id: 'session-1', title: 'Test conversation', updated_at: '2026-08-05T00:00:00Z' },
+];
+
 /**
  * @param {object} [options]
  * @param {Array} [options.messages]  Stored messages returned by /api/session.
  * @param {object} [options.config]   Overrides merged into the default chat config.
  * @param {string[]} [options.models] Model ids returned by /api/models. More than
  *                                    one causes app.js to construct a real Dropdown.
+ * @param {Array} [options.sessions]  Session list returned by GET /api/sessions.
  * @param {boolean} [options.holdNewSession] When true, POST /api/sessions waits
  *                                    until releaseNewSession() is called — used to
  *                                    assert optimistic New chat UI.
@@ -81,6 +86,7 @@ export async function bootApp({
   messages = [],
   config = {},
   models = ['anthropic/claude-sonnet-4-6'],
+  sessions = DEFAULT_SESSIONS,
   holdNewSession = false,
   failNewSession = false,
 } = {}) {
@@ -121,7 +127,8 @@ export async function bootApp({
       }
       return json({ sessionId: 'session-2' });
     }
-    if (u === '/api/sessions') return json({ sessions: [{ session_id: 'session-1', title: 'Test conversation', updated_at: '2026-08-05T00:00:00Z' }] });
+    if (u === '/api/sessions') return json({ sessions });
+    if (u.startsWith('/api/sessions/') && init.method === 'DELETE') return json({ ok: true });
     if (u === '/api/config') return json({ ...DEFAULT_CONFIG, ...config });
     if (u === '/api/models') return json({ models, capabilities: {} });
     if (u === '/api/session/save') return json({ ok: true });

@@ -1830,28 +1830,41 @@ function updateSendBtn() {
 function renderSidebar() {
   sessionList.innerHTML = '';
 
+  const list = document.createElement('ul');
+  list.className = 'session-list';
+
   for (const s of allSessionsMeta) {
     const isActive = s.session_id === active?.sessionId;
     const isStreaming = sessions.get(s.session_id)?.chat?.status === 'streaming';
-    const item = document.createElement('div');
+
+    const item = document.createElement('li');
     item.className = 'session-item'
       + (isActive ? ' session-item--active' : '')
       + (isStreaming ? ' session-item--streaming' : '');
-    item.setAttribute('role', 'button');
-    item.setAttribute('tabindex', '0');
     item.dataset.sessionId = s.session_id;
-    item.setAttribute('aria-label', isStreaming ? t('{title} (responding)', { title: s.title }) : s.title);
 
-    const title = document.createElement('span');
-    title.className = 'session-item__title';
-    title.textContent = s.title;
+    // Select + delete are sibling buttons so the row is not nested-interactive
+    // (A4). Native <button> handles Enter/Space; no custom keydown.
+    const select = document.createElement('button');
+    select.type = 'button';
+    select.className = 'session-item__select';
+    if (isActive) select.setAttribute('aria-current', 'page');
+    if (isStreaming) {
+      select.setAttribute('aria-label', t('{title} (responding)', { title: s.title }));
+    }
+
     if (isStreaming) {
       const dot = document.createElement('span');
       dot.className = 'session-item__streaming-dot';
       dot.setAttribute('aria-hidden', 'true');
       dot.title = t('Responding…');
-      item.appendChild(dot);
+      select.appendChild(dot);
     }
+
+    const title = document.createElement('span');
+    title.className = 'session-item__title';
+    title.textContent = s.title;
+    select.appendChild(title);
 
     const del = document.createElement('button');
     del.type = 'button';
@@ -1862,23 +1875,19 @@ function renderSidebar() {
       <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
     </svg>`;
 
-    del.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await deleteSession(s.session_id);
-    });
-
-    item.addEventListener('click', () => {
+    select.addEventListener('click', () => {
       if (s.session_id !== active?.sessionId) switchSession(s.session_id);
     });
-    item.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') switchSession(s.session_id);
+    del.addEventListener('click', () => {
+      deleteSession(s.session_id);
     });
 
-    item.appendChild(title);
+    item.appendChild(select);
     item.appendChild(del);
-    sessionList.appendChild(item);
+    list.appendChild(item);
   }
 
+  sessionList.appendChild(list);
 }
 
 async function deleteSession(sid) {
