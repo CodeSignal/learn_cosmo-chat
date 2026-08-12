@@ -31,9 +31,9 @@
     --session-item-active-bg: var(--Colors-Base-Neutral-1250);
     --markdown-hr-border-color: var(--Colors-Base-Neutral-1250);
     --chatbox-bg: var(--Colors-Base-Neutral-1250);
-    --chatbox-focus-bg: var(--Colors-Base-Neutral-1250);
+    /* A6: leave --chatbox-focus-bg and --chatbox-ring-display from :root.
+       Mirroring bg and setting ring-display:none made dark focus invisible. */
     --chatbox-bg-transition: none;
-    --chatbox-ring-display: none;
     --chatbox-placeholder-focus-opacity: 1;
     /* The DS forgets to dark-adapt the tertiary button's border (it stays
        light Neutral-300), so supply the missing dark value here. */
