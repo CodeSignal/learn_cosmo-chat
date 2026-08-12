@@ -503,11 +503,21 @@ const THINKING_OPTIONS = [
   { value: 'max',    label: 'Max' },
 ];
 
+function applyAccessibleName(el, key) {
+  if (!el) return;
+  const name = t(key);
+  el.setAttribute('aria-label', name);
+  if (el.hasAttribute('title')) el.setAttribute('title', name);
+}
+
 // Apply the (client-side) parts of chatConfig to the live UI. Safe to
 // call repeatedly — used at load and whenever a setting changes in the
 // settings modal. Toggles both ways so runtime changes take effect.
 function applyChatConfigUI() {
   if (settingsBtn) settingsBtn.style.display = chatConfig.hideSettings ? 'none' : '';
+
+  // A14: BCP 47 tag from the matched i18n catalog (htmlLang), else English.
+  document.documentElement.lang = chatConfig.htmlLang || 'en';
 
   // Static labels: a dedicated config key (heading/footer/title/...) wins when
   // set; otherwise fall back to the `strings` map keyed by the English default.
@@ -539,6 +549,17 @@ function applyChatConfigUI() {
   if (historyHeading) historyHeading.textContent = t('History');
 
   syncConversationHeading();
+
+  // A15: static chrome accessible names live in index.html as English defaults
+  // and are rewritten here the same way visible labels already are.
+  applyAccessibleName(document.querySelector('.sidebar__nav'), 'Workspace');
+  applyAccessibleName(settingsBtn, 'Open settings');
+  applyAccessibleName(sessionList, 'Conversations');
+  applyAccessibleName(document.getElementById('sidebarResizer'), 'Resize sidebar');
+  applyAccessibleName(promptInput, 'Prompt input');
+  applyAccessibleName(document.querySelector('.composer__toolbar'), 'Composer actions');
+  applyAccessibleName(uploadImageBtn, 'Attach an image');
+  applyAccessibleName(uploadFileBtn, 'Attach a file');
 
   const attachIcons = document.getElementById('attachIcons');
   if (attachIcons) attachIcons.style.display = chatConfig.hideFileUpload ? 'none' : '';
@@ -1701,7 +1722,7 @@ function renderAttachmentPreview() {
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'composer__thumb-remove';
-    removeBtn.setAttribute('aria-label', `Remove ${item.file.name || 'attachment'}`);
+    removeBtn.setAttribute('aria-label', t('Remove {name}', { name: item.file.name || t('attachment') }));
     removeBtn.innerHTML = `
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
         <path d="M18 6L6 18M6 6l12 12"/>

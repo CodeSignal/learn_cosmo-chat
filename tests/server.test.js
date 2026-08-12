@@ -68,6 +68,26 @@ describe('GET /api/config', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({});
   });
+
+  it('attaches htmlLang and catalog strings when language matches a locale', async () => {
+    fs.readdir = vi.fn().mockResolvedValue(['es.json']);
+    fs.readFile.mockImplementation(async (p) => {
+      const path = String(p);
+      if (path.includes('chat-config')) return JSON.stringify({ language: 'Spanish', model: 'x' });
+      if (path.endsWith('es.json')) {
+        return JSON.stringify({
+          languageNames: ['es', 'spanish'],
+          strings: { Settings: 'Configuración' },
+        });
+      }
+      throw new Error('ENOENT');
+    });
+    const res = await request(app).get('/api/config');
+    expect(res.status).toBe(200);
+    expect(res.body.htmlLang).toBe('es');
+    expect(res.body.strings.Settings).toBe('Configuración');
+    expect(res.body.language).toBe('Spanish');
+  });
 });
 
 // ── GET /api/models ───────────────────────────────────────────

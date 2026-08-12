@@ -67,6 +67,16 @@
     "Cancel": "Cancelar",
     "Delete & Start New": "Eliminar e iniciar nuevo",
     "Save": "Guardar",
-    "Upload failed": "Error al subir"
+    "Upload failed": "Error al subir",
+    "Workspace": "Espacio de trabajo",
+    "Open settings": "Abrir configuración",
+    "Conversations": "Conversaciones",
+    "Resize sidebar": "Redimensionar la barra lateral",
+    "Prompt input": "Campo de mensaje",
+    "Composer actions": "Acciones del compositor",
+    "Attach an image": "Adjuntar una imagen",
+    "Attach a file": "Adjuntar un archivo",
+    "Remove {name}": "Quitar {name}",
+    "attachment": "adjunto"
   }
 }

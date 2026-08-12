@@ -11,7 +11,8 @@ import {
   buildSessionInput,
   buildSessionRecord,
   filterModels,
-  matchLocaleStrings,
+  matchLocale,
+  htmlLangFromLocale,
   mergeStrings,
 } from './lib/helpers.js';
 import {
@@ -83,18 +84,26 @@ async function readLocales() {
 // i18n catalog is the base, and any `strings` in chat-config.json override it
 // per-key. This way translations live in i18n/*.json ahead of time, and the
 // config map is reserved for one-off overrides.
-async function resolveConfigStrings(config) {
+async function resolveConfigI18n(config) {
   const locales = await readLocales();
-  const base = matchLocaleStrings(config.language, locales);
-  return mergeStrings(base, config.strings);
+  const locale = matchLocale(config.language, locales);
+  const base = locale?.strings && typeof locale.strings === 'object' ? locale.strings : {};
+  const strings = mergeStrings(base, config.strings);
+  return {
+    strings,
+    htmlLang: locale ? htmlLangFromLocale(locale) : null,
+  };
 }
 
 app.get('/api/config', async (_req, res) => {
   const config = await readConfig();
-  const strings = await resolveConfigStrings(config);
-  // Only attach `strings` when something resolved so the response stays a clean
-  // passthrough when no i18n catalog matches and no overrides are configured.
-  res.json(Object.keys(strings).length > 0 ? { ...config, strings } : config);
+  const { strings, htmlLang } = await resolveConfigI18n(config);
+  // Only attach i18n fields when a catalog matched so the response stays a
+  // clean passthrough when language is unset.
+  const body = { ...config };
+  if (Object.keys(strings).length > 0) body.strings = strings;
+  if (htmlLang) body.htmlLang = htmlLang;
+  res.json(body);
 });
 
 // Persists the user-editable custom instructions back to chat-config.json so
