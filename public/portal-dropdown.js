@@ -5,14 +5,20 @@ const MENU_GAP = 4;
 let menuIdCounter = 0;
 
 /**
- * Dropdown that renders its open menu in <body> instead of inside its own
- * container.
+ * Dropdown that relocates its open menu out of the clipping container.
  *
  * The design-system Dropdown draws the menu as a child of the container, so any
  * ancestor that clips overflow cuts the menu off — the settings modal body
  * scrolls, so it does exactly that. Unclipping those ancestors is not a usable
  * workaround: it also frees tall fields lower in the form to paint over the
  * modal footer. Moving just the menu out sidesteps both.
+ *
+ * Portal host (D7): prefer the nearest `.modal-overlay` over `document.body`.
+ * After the modal marks non-overlay body children `inert`, a body-portaled menu
+ * is removed from the accessibility / interaction tree while `aria-modal` also
+ * hides it from AT. Mounting as a sibling of `.modal-dialog` keeps the menu
+ * inside the dialog subtree (and out of `inert`) while still escaping the
+ * scrolling `.modal-content` clip.
  *
  * Extra options on top of the base component:
  *   matchToggleWidth — size the menu to its toggle rather than the stylesheet's
@@ -49,6 +55,11 @@ export default class PortalDropdown extends Dropdown {
     document.addEventListener('click', this._onCaptureClick, true);
   }
 
+  /** Prefer the open modal overlay so the menu stays in the aria-modal tree. */
+  getPortalRoot() {
+    return this.container?.closest('.modal-overlay') || document.body;
+  }
+
   updateToggleState() {
     super.updateToggleState();
     if (this.isOpen) {
@@ -64,10 +75,13 @@ export default class PortalDropdown extends Dropdown {
       this._placeholder.hidden = true;
     }
 
-    if (this.menu.parentElement !== document.body) {
+    const root = this.getPortalRoot();
+    this._portalRoot = root;
+
+    if (this.menu.parentElement !== root) {
       const width = this.measureMenuWidth();
       this.container.insertBefore(this._placeholder, this.menu);
-      document.body.appendChild(this.menu);
+      root.appendChild(this.menu);
       if (width) this.menu.style.width = `${width}px`;
     }
 
@@ -106,16 +120,18 @@ export default class PortalDropdown extends Dropdown {
       if (!this.config.growToFit) this.menu.style.width = '';
     }
 
-    if (this._placeholder?.parentElement && this.menu?.parentElement === document.body) {
+    const root = this._portalRoot;
+    if (this._placeholder?.parentElement && this.menu && root && this.menu.parentElement === root) {
       this._placeholder.parentElement.insertBefore(this.menu, this._placeholder);
       this._placeholder.remove();
     }
+    this._portalRoot = null;
   }
 
   /**
    * Width has to be read while the menu is still in the container: the
    * stylesheet sizes it with `width: 100%` on narrow viewports, which would
-   * resolve against <body> once moved.
+   * resolve against the portal root once moved.
    */
   measureMenuWidth() {
     return this.config.matchToggleWidth ? this.toggle.offsetWidth : this.menu.offsetWidth;
@@ -123,7 +139,8 @@ export default class PortalDropdown extends Dropdown {
 
   remeasureMenuWidth() {
     if (!this._placeholder?.parentElement) return;
-    if (this.menu.parentElement !== document.body) return;
+    const root = this._portalRoot;
+    if (!root || this.menu.parentElement !== root) return;
 
     const parent = this._placeholder.parentElement;
     parent.insertBefore(this.menu, this._placeholder);
@@ -131,7 +148,7 @@ export default class PortalDropdown extends Dropdown {
     this.menu.style.width = '';
     const width = this.measureMenuWidth();
 
-    document.body.appendChild(this.menu);
+    root.appendChild(this.menu);
     this.menu.classList.add('dropdown-menu--portaled');
     if (width) this.menu.style.width = `${width}px`;
   }
@@ -163,8 +180,10 @@ export default class PortalDropdown extends Dropdown {
 
   destroy() {
     this.unmountMenu();
-    // The menu is still in <body> if it was never returned to the container.
-    if (this.menu?.parentElement === document.body) this.menu.remove();
+    // Still outside the container if unmount could not restore it (e.g. host gone).
+    if (this.menu?.parentElement && this.menu.parentElement !== this.container) {
+      this.menu.remove();
+    }
 
     if (this._onCaptureClick) {
       document.removeEventListener('click', this._onCaptureClick, true);

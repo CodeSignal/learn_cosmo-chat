@@ -1755,10 +1755,11 @@ textarea.input.composer__textarea {
   }
 }
 
-/* PortalDropdown moves the open menu to <body>, where the DS rule that reveals
-   it (.dropdown-container.open .dropdown-menu) no longer matches, and where it
-   is positioned from the viewport. The z-index must clear .modal-overlay
-   (10000) for menus opened from inside a modal. */
+/* PortalDropdown moves the open menu out of the dropdown container (into the
+   modal overlay when present), where the DS rule that reveals it
+   (.dropdown-container.open .dropdown-menu) no longer matches, and where it is
+   positioned from the viewport. The z-index must clear .modal-dialog content
+   for menus opened from inside a modal. */
 .dropdown-menu.dropdown-menu--portaled {
   display: block;
   position: fixed;
