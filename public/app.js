@@ -721,9 +721,12 @@ function openSettings() {
             continuousUpdates: true,
             onChange: (value) => { selectedTemperature = value; updateTempLabel(value); },
           });
-          // aria-labelledby wins over the DS default aria-label on the slider.
-          temperatureSliderInstance.wrapper.setAttribute('aria-labelledby', 'temperatureLabel');
-          temperatureSliderInstance.wrapper.setAttribute('aria-describedby', 'temperatureDesc');
+          // D5: role=slider lives on the handle; label/description go there
+          // so aria-labelledby wins over the DS default aria-label.
+          const tempHandle = temperatureSliderInstance.handle;
+          tempHandle?.setAttribute('aria-labelledby', 'temperatureLabel');
+          tempHandle?.setAttribute('aria-describedby', 'temperatureDesc');
+          tempHandle?.removeAttribute('aria-label');
 
           // Reflect current thinking state on open
           tempRow.classList.toggle('settings-row--disabled', selectedThinking !== 'off');

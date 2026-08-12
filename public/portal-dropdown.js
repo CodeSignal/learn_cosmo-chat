@@ -38,7 +38,9 @@ export default class PortalDropdown extends Dropdown {
     }
 
     menuIdCounter += 1;
-    this.menu.id = this.menu.id || `portal-dropdown-menu-${menuIdCounter}`;
+    // Prefer a stable portal id over the base listbox id so app tests/selectors
+    // and aria-controls stay aligned after D3 always assigns dropdown-listbox-*.
+    this.menu.id = `portal-dropdown-menu-${menuIdCounter}`;
     this.toggle.setAttribute('aria-controls', this.menu.id);
 
     // The base component closes on a bubble-phase document click, which never

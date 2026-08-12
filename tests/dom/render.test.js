@@ -554,10 +554,13 @@ describe('settings labels a11y (D6)', () => {
 
     const label = q('#temperatureLabel');
     const desc = q('#temperatureDesc');
-    const slider = q('#temperatureSliderEl .numeric-slider-wrapper[role="slider"]');
+    const wrapper = q('#temperatureSliderEl .numeric-slider-wrapper');
+    const slider = q('#temperatureSliderEl .numeric-slider-handle[role="slider"]');
 
     expect(label?.textContent).toBe('Temperature');
     expect(desc).toBeTruthy();
+    // D5: wrapper is presentational; the handle is the slider.
+    expect(wrapper?.getAttribute('role')).toBeNull();
     expect(slider?.getAttribute('aria-labelledby')).toBe('temperatureLabel');
     expect(slider?.getAttribute('aria-describedby')).toBe('temperatureDesc');
     expect(document.getElementById('temperatureLabel')).toBe(label);

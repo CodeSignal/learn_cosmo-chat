@@ -1666,13 +1666,13 @@ textarea.input.composer__textarea {
   opacity: 0.42;
 }
 
-/* Hint below composer */
+/* Hint below composer — full-opacity Body-Lighter so A8 contrast holds
+   (DS tokens are not safe to fade; see design-system/colors/README.md). */
 .composer__hint {
   max-width: 720px;
   margin: var(--UI-Spacing-spacing-s) auto var(--UI-Spacing-spacing-xs) auto;
   text-align: center;
   color: var(--Colors-Text-Body-Lighter);
-  opacity: 0.8;
   display: block;
 }
 
