@@ -517,9 +517,11 @@ body.is-resizing-sidebar {
   flex-shrink: 0;
   opacity: 0;
   pointer-events: none;
-  min-width: unset !important;
-  width: 22px;
-  height: 22px;
+  /* A9 / WCAG 2.5.8: target ≥24×24; icon glyph stays 12×12 */
+  min-width: 24px !important;
+  min-height: 24px;
+  width: 24px;
+  height: 24px;
   padding: 0 !important;
   margin: 0;
   border: none;
@@ -528,6 +530,9 @@ body.is-resizing-sidebar {
   color: var(--Colors-Icon-Default);
   border-radius: var(--UI-Radius-radius-xs);
   transition: opacity 0.15s ease, color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .session-item:hover .session-item__delete {
@@ -1591,8 +1596,11 @@ textarea.input.composer__textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* A9 / WCAG 2.5.8: target ≥24×24; icon glyph stays 18px via .composer__toolbar-svg */
   width: auto;
   height: auto;
+  min-width: 24px;
+  min-height: 24px;
   margin: 0;
   padding: 0;
   border: none;
@@ -1615,8 +1623,11 @@ textarea.input.composer__textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* A9 / WCAG 2.5.8: target ≥24×24; icon glyph stays 18px via .composer__toolbar-svg */
   width: auto;
   height: auto;
+  min-width: 24px;
+  min-height: 24px;
   margin: 0 0 0 auto;
   padding: 0;
   border: none;
