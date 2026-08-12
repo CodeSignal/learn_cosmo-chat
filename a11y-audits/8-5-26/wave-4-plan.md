@@ -10,7 +10,7 @@
 | ID | Issue | State |
 |---|---|---|
 | A19–A22 | [#61](https://github.com/CodeSignal/learn_cosmo-chat/issues/61)–[#64](https://github.com/CodeSignal/learn_cosmo-chat/issues/64) | Closed (verified / mitigated) |
-| A10 | [#65](https://github.com/CodeSignal/learn_cosmo-chat/issues/65) | Open |
+| A10 | [#65](https://github.com/CodeSignal/learn_cosmo-chat/issues/65) | Closed (this PR) |
 | A12 | [#66](https://github.com/CodeSignal/learn_cosmo-chat/issues/66) | Open |
 | A13 | [#67](https://github.com/CodeSignal/learn_cosmo-chat/issues/67) | Open |
 | A14 | [#68](https://github.com/CodeSignal/learn_cosmo-chat/issues/68) | Open (PR with A15) |

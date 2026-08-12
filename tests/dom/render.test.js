@@ -66,6 +66,34 @@ describe('message list', () => {
   });
 });
 
+describe('conversation heading a11y (A10)', () => {
+  it('keeps a single h1 named for the active session when empty', async () => {
+    await bootApp({ messages: [] });
+    const headings = qa('h1');
+    expect(headings).toHaveLength(1);
+    expect(headings[0].id).toBe('conversationHeading');
+    expect(headings[0].textContent).toBe('Test conversation');
+    expect(q('#emptyState .empty-state__heading')?.tagName).toBe('P');
+  });
+
+  it('keeps a single h1 named for the active session once messages exist', async () => {
+    await bootApp({ messages: [storedUser('First question'), storedAssistant('Answer')] });
+    const headings = qa('h1');
+    expect(headings).toHaveLength(1);
+    expect(headings[0].textContent).toBe('Test conversation');
+    expect(q('#emptyState').hidden).toBe(true);
+  });
+
+  it('updates the h1 when starting a new chat', async () => {
+    await bootApp({ messages: [] });
+    expect(q('#conversationHeading').textContent).toBe('Test conversation');
+    q('#newChatBtn').click();
+    await settle();
+    expect(qa('h1')).toHaveLength(1);
+    expect(q('#conversationHeading').textContent).toBe('New conversation');
+  });
+});
+
 describe('assistant reasoning', () => {
   it('renders one Thoughts section with a block per thought', async () => {
     await bootApp({
