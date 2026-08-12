@@ -85,9 +85,11 @@
 
       <!-- Chat history -->
       <main class="chat-history" id="chatHistory">
+        <!-- A10: persistent conversation title. Empty-state copy is not a heading. -->
+        <h1 id="conversationHeading" class="visually-hidden">New conversation</h1>
         <div class="empty-state" id="emptyState">
           <span class="cosmo-avatar large" aria-hidden="true"></span>
-          <h1 class="heading-small empty-state__heading">What's on your mind?</h1>
+          <p class="heading-small empty-state__heading">What's on your mind?</p>
         </div>
       </main>
 
