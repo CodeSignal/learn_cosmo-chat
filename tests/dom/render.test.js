@@ -638,3 +638,13 @@ describe('settings thinking menu a11y (D7)', () => {
     expect(toggle.textContent).toMatch(/High/i);
   });
 });
+
+describe('composer actions a11y (A13)', () => {
+  it('exposes composer actions as a group, not a toolbar', async () => {
+    await bootApp();
+    const group = q('.composer__toolbar');
+    expect(group?.getAttribute('role')).toBe('group');
+    expect(group?.getAttribute('aria-label')).toBe('Composer actions');
+    expect(q('#sendBtn')?.tagName).toBe('BUTTON');
+  });
+});

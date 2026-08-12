@@ -110,7 +110,8 @@
             <p id="promptInputBusyHint" class="visually-hidden"></p>
           </div>
 
-          <div class="composer__toolbar composer_toolarea" role="toolbar" aria-label="Composer actions">
+          <!-- A13: role="group" (not toolbar) — buttons stay ordinary Tab stops; no roving tabindex. -->
+          <div class="composer__toolbar composer_toolarea" role="group" aria-label="Composer actions">
             <div class="composer__attach-icons" id="attachIcons" style="display:none">
               <button type="button" class="composer__icon-btn" id="uploadImageBtn" aria-label="Attach an image" title="Attach an image">
                 <svg class="composer__toolbar-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true">
