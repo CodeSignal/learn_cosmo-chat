@@ -583,3 +583,55 @@ describe('settings labels a11y (D6)', () => {
     expect(menu?.getAttribute('aria-describedby')).toBe('thinkingDesc');
   });
 });
+
+describe('settings thinking menu a11y (D7)', () => {
+  async function openSettings() {
+    await bootApp();
+    q('#settingsBtn').click();
+    await settle();
+  }
+
+  it('keeps the open Thinking menu inside the aria-modal dialog and not inert', async () => {
+    await openSettings();
+
+    const overlay = q('.modal-overlay[aria-modal="true"]');
+    const toggle = q('#thinkingDropdownEl .dropdown-toggle');
+    expect(overlay).toBeTruthy();
+    expect(toggle).toBeTruthy();
+
+    toggle.click();
+    await settle();
+
+    const menu = document.querySelector('[id^="portal-dropdown-menu-"]');
+    expect(menu).toBeTruthy();
+    expect(menu.classList.contains('dropdown-menu--portaled')).toBe(true);
+    // Mounted on the overlay (sibling of .modal-dialog), not document.body.
+    expect(menu.parentElement).toBe(overlay);
+    expect(overlay.contains(menu)).toBe(true);
+    expect(menu.parentElement === document.body).toBe(false);
+    // Not under an inert subtree (body-portaled menus get inert via D1).
+    expect(menu.closest('[inert]')).toBeNull();
+    // Options remain interactive for keyboard / pointer.
+    const options = menu.querySelectorAll('.dropdown-menu-item');
+    expect(options.length).toBeGreaterThan(0);
+    expect([...options].every((el) => el.closest('[inert]') == null)).toBe(true);
+  });
+
+  it('can select a Thinking option while Settings stays open', async () => {
+    await openSettings();
+
+    const toggle = q('#thinkingDropdownEl .dropdown-toggle');
+    toggle.click();
+    await settle();
+
+    const menu = document.querySelector('[id^="portal-dropdown-menu-"]');
+    const high = menu.querySelector('.dropdown-menu-item[data-value="high"]');
+    expect(high).toBeTruthy();
+    high.click();
+    await settle();
+
+    expect(q('.modal-overlay.open')).toBeTruthy();
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.textContent).toMatch(/High/i);
+  });
+});
