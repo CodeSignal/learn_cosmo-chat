@@ -23,7 +23,12 @@ function ruleBody(source, selector) {
 
 /** Parse a CSS length in px from a declaration value, or null. */
 function pxValue(body, property) {
-  const match = body.match(new RegExp(`${property}\\s*:\\s*([^;]+);`));
+  const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Require a declaration boundary so `width` does not match inside `min-width`
+  // (same for `height` / `min-height`).
+  const match = body.match(
+    new RegExp(`(?:^|[;\\n])\\s*${escaped}\\s*:\\s*([^;]+);`),
+  );
   if (!match) return null;
   const px = String(match[1])
     .replace(/!important/i, '')
