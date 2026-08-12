@@ -18,7 +18,7 @@
 | A16 | [#70](https://github.com/CodeSignal/learn_cosmo-chat/issues/70) | Open |
 | A17 | [#71](https://github.com/CodeSignal/learn_cosmo-chat/issues/71) | Open |
 | A18 | [#72](https://github.com/CodeSignal/learn_cosmo-chat/issues/72) | Open |
-| A23 | [#73](https://github.com/CodeSignal/learn_cosmo-chat/issues/73) | Open (`#sidebarResizer`) |
+| A23 | [#73](https://github.com/CodeSignal/learn_cosmo-chat/issues/73) | Closed (this PR) |
 | D8–D12 | [DS #19](https://github.com/CodeSignal/learn_bespoke-design-system/issues/19)–[#23](https://github.com/CodeSignal/learn_bespoke-design-system/issues/23) | Open |
 
 ---

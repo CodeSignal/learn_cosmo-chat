@@ -648,3 +648,15 @@ describe('composer actions a11y (A13)', () => {
     expect(q('#sendBtn')?.tagName).toBe('BUTTON');
   });
 });
+
+describe('sidebar resizer landmark (A23)', () => {
+  it('keeps the sidebar resizer inside the complementary landmark', async () => {
+    await bootApp();
+    const resizer = q('#sidebarResizer');
+    const sidebar = q('#sidebar');
+    expect(resizer).toBeTruthy();
+    expect(sidebar?.tagName).toBe('ASIDE');
+    expect(sidebar.contains(resizer)).toBe(true);
+    expect(resizer.getAttribute('role')).toBe('separator');
+  });
+});

@@ -202,22 +202,22 @@ body {
   gap: var(--UI-Spacing-spacing-s);
   padding: var(--UI-Spacing-spacing-ms);
   border-right: 1px solid var(--sidebar-border-color);
+  position: relative; /* anchor the A23 resizer to the landmark's right edge */
   /* overflow: visible lets the Dropdown menu panel escape the sidebar bounds */
   overflow: visible;
 }
 
 /* ── Sidebar resizer ──────────────────────────────────────────
-   A draggable handle that overlays the sidebar's right edge (negative
-   margin keeps it out of the layout flow), with a highlight line on
-   hover/drag. */
+   A draggable handle on the sidebar's right edge. Positioned inside
+   <aside> (A23) so it is not an orphan interactive outside landmarks. */
 .sidebar-resizer {
-  flex-shrink: 0;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
   width: 8px;
-  margin-left: -8px;
   z-index: 5;
   cursor: col-resize;
-  position: relative;
-  align-self: stretch;
   touch-action: none;
 }
 
