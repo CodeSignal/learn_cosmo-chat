@@ -11,8 +11,8 @@
 |---|---|---|
 | A19–A22 | [#61](https://github.com/CodeSignal/learn_cosmo-chat/issues/61)–[#64](https://github.com/CodeSignal/learn_cosmo-chat/issues/64) | Closed (verified / mitigated) |
 | A10 | [#65](https://github.com/CodeSignal/learn_cosmo-chat/issues/65) | Closed (this PR) |
-| A12 | [#66](https://github.com/CodeSignal/learn_cosmo-chat/issues/66) | Open |
-| A13 | [#67](https://github.com/CodeSignal/learn_cosmo-chat/issues/67) | Open |
+| A12 | [#66](https://github.com/CodeSignal/learn_cosmo-chat/issues/66) | Closed (PR #75) |
+| A13 | [#67](https://github.com/CodeSignal/learn_cosmo-chat/issues/67) | Closed (PR #74) |
 | A14 | [#68](https://github.com/CodeSignal/learn_cosmo-chat/issues/68) | Open (PR with A15) |
 | A15 | [#69](https://github.com/CodeSignal/learn_cosmo-chat/issues/69) | Open (PR with A14) |
 | A16 | [#70](https://github.com/CodeSignal/learn_cosmo-chat/issues/70) | Open |
