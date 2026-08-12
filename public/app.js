@@ -203,6 +203,7 @@ const modelSelect         = document.getElementById('modelSelect');
 const settingsBtn         = document.getElementById('settingsBtn');
 const historyHeading      = document.getElementById('historyHeading');
 const sidebarSpacer       = document.getElementById('sidebarSpacer');
+const conversationHeading = document.getElementById('conversationHeading');
 
 /** True when the viewport is near the bottom of the chat log (follow new tokens without snapping when scrolled up). */
 function isChatNearBottom(thPx = 120) {
@@ -536,6 +537,8 @@ function applyChatConfigUI() {
   }
 
   if (historyHeading) historyHeading.textContent = t('History');
+
+  syncConversationHeading();
 
   const attachIcons = document.getElementById('attachIcons');
   if (attachIcons) attachIcons.style.display = chatConfig.hideFileUpload ? 'none' : '';
@@ -1846,6 +1849,13 @@ function updateSendBtn() {
 }
 
 // ── Sidebar ───────────────────────────────────────────────────
+/** Keep the document <h1> in sync with the active session title (A10). */
+function syncConversationHeading() {
+  if (!conversationHeading) return;
+  const meta = allSessionsMeta.find((s) => s.session_id === active?.sessionId);
+  conversationHeading.textContent = meta?.title || t('New conversation');
+}
+
 function renderSidebar() {
   sessionList.innerHTML = '';
 
@@ -1907,6 +1917,7 @@ function renderSidebar() {
   }
 
   sessionList.appendChild(list);
+  syncConversationHeading();
 }
 
 async function deleteSession(sid) {
