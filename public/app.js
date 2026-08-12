@@ -2360,6 +2360,7 @@ function startEditingMessage(row, msgIndex, originalText) {
   const content = row.querySelector('.message__user-content');
   const bubble = row.querySelector('.message__bubble');
   const actionsRow = content?.querySelector('.message__actions--user');
+  const editBtn = actionsRow?.querySelector('.button-icon');
   if (!content || !bubble) return;
 
   // Editor box matches the bubble; the textarea and the action buttons
@@ -2423,7 +2424,15 @@ function startEditingMessage(row, msgIndex, originalText) {
     box.remove();
     if (actionsRow) actionsRow.hidden = false;
     bubble.hidden = false;
+    // Cancel must not drop keyboard users onto <body> (A17).
+    editBtn?.focus();
   }
+
+  box.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    exitEditMode();
+  });
 
   cancelBtn.addEventListener('click', exitEditMode);
 
