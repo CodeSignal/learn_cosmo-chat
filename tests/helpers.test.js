@@ -11,6 +11,8 @@ import {
   VERBOSITY_LEVELS,
   normalizeLanguageName,
   matchLocaleStrings,
+  matchLocale,
+  htmlLangFromLocale,
   mergeStrings,
 } from '../lib/helpers.js';
 
@@ -354,6 +356,33 @@ describe('matchLocaleStrings', () => {
 
   it('returns {} when the matched locale has no strings object', () => {
     expect(matchLocaleStrings('es', [{ languageNames: ['es'] }])).toEqual({});
+  });
+});
+
+describe('matchLocale', () => {
+  const locales = [
+    { languageNames: ['en', 'english'], strings: { Hello: 'Hello' } },
+    { languageNames: ['es', 'spanish'], strings: { Hello: 'Hola' } },
+  ];
+
+  it('returns the matching locale object', () => {
+    expect(matchLocale('Spanish', locales)).toBe(locales[1]);
+  });
+
+  it('returns null when nothing matches', () => {
+    expect(matchLocale('French', locales)).toBeNull();
+    expect(matchLocale('', locales)).toBeNull();
+  });
+});
+
+describe('htmlLangFromLocale', () => {
+  it('uses the first languageNames entry, lowercased', () => {
+    expect(htmlLangFromLocale({ languageNames: ['ES', 'spanish'] })).toBe('es');
+  });
+
+  it('defaults to en when the locale is missing or unnamed', () => {
+    expect(htmlLangFromLocale(null)).toBe('en');
+    expect(htmlLangFromLocale({})).toBe('en');
   });
 });
 

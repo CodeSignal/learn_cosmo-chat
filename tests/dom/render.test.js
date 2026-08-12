@@ -738,3 +738,38 @@ describe('sidebar resizer landmark (A23)', () => {
     expect(resizer.getAttribute('role')).toBe('separator');
   });
 });
+
+describe('page language and chrome names (A14/A15)', () => {
+  const esChrome = {
+    Workspace: 'Espacio de trabajo',
+    'Open settings': 'Abrir configuración',
+    Conversations: 'Conversaciones',
+    'Resize sidebar': 'Redimensionar la barra lateral',
+    'Prompt input': 'Campo de mensaje',
+    'Composer actions': 'Acciones del compositor',
+    'Attach an image': 'Adjuntar una imagen',
+    'Attach a file': 'Adjuntar un archivo',
+    Settings: 'Configuración',
+  };
+
+  it('keeps html lang en when no locale is configured', async () => {
+    await bootApp();
+    expect(document.documentElement.lang).toBe('en');
+    expect(q('.sidebar__nav').getAttribute('aria-label')).toBe('Workspace');
+  });
+
+  it('sets html lang and translates static chrome names from the catalog', async () => {
+    await bootApp({ config: { htmlLang: 'es', strings: esChrome } });
+
+    expect(document.documentElement.lang).toBe('es');
+    expect(q('.sidebar__nav').getAttribute('aria-label')).toBe('Espacio de trabajo');
+    expect(q('#settingsBtn').getAttribute('aria-label')).toBe('Abrir configuración');
+    expect(q('#sessionList').getAttribute('aria-label')).toBe('Conversaciones');
+    expect(q('#sidebarResizer').getAttribute('aria-label')).toBe('Redimensionar la barra lateral');
+    expect(q('#promptInput').getAttribute('aria-label')).toBe('Campo de mensaje');
+    expect(q('.composer__toolbar').getAttribute('aria-label')).toBe('Acciones del compositor');
+    expect(q('#uploadImageBtn').getAttribute('aria-label')).toBe('Adjuntar una imagen');
+    expect(q('#uploadFileBtn').getAttribute('aria-label')).toBe('Adjuntar un archivo');
+    expect(q('#uploadImageBtn').getAttribute('title')).toBe('Adjuntar una imagen');
+  });
+});

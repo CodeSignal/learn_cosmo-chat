@@ -67,6 +67,16 @@
     "Cancel": "Cancel",
     "Delete & Start New": "Delete & Start New",
     "Save": "Save",
-    "Upload failed": "Upload failed"
+    "Upload failed": "Upload failed",
+    "Workspace": "Workspace",
+    "Open settings": "Open settings",
+    "Conversations": "Conversations",
+    "Resize sidebar": "Resize sidebar",
+    "Prompt input": "Prompt input",
+    "Composer actions": "Composer actions",
+    "Attach an image": "Attach an image",
+    "Attach a file": "Attach a file",
+    "Remove {name}": "Remove {name}",
+    "attachment": "attachment"
   }
 }
