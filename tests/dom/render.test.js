@@ -15,7 +15,7 @@
  * See a11y-audits/8-5-26/resolution-plan.md → Wave 1 → A1+A2+A11.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   bootApp,
   settle,
@@ -63,6 +63,34 @@ describe('message list', () => {
 
     await bootApp({ messages: [storedUser('Anything')] });
     expect(q('#emptyState').hidden).toBe(true);
+  });
+});
+
+describe('conversation heading a11y (A10)', () => {
+  it('keeps a single h1 named for the active session when empty', async () => {
+    await bootApp({ messages: [] });
+    const headings = qa('h1');
+    expect(headings).toHaveLength(1);
+    expect(headings[0].id).toBe('conversationHeading');
+    expect(headings[0].textContent).toBe('Test conversation');
+    expect(q('#emptyState .empty-state__heading')?.tagName).toBe('P');
+  });
+
+  it('keeps a single h1 named for the active session once messages exist', async () => {
+    await bootApp({ messages: [storedUser('First question'), storedAssistant('Answer')] });
+    const headings = qa('h1');
+    expect(headings).toHaveLength(1);
+    expect(headings[0].textContent).toBe('Test conversation');
+    expect(q('#emptyState').hidden).toBe(true);
+  });
+
+  it('updates the h1 when starting a new chat', async () => {
+    await bootApp({ messages: [] });
+    expect(q('#conversationHeading').textContent).toBe('Test conversation');
+    q('#newChatBtn').click();
+    await settle();
+    expect(qa('h1')).toHaveLength(1);
+    expect(q('#conversationHeading').textContent).toBe('New conversation');
   });
 });
 
@@ -636,6 +664,26 @@ describe('settings thinking menu a11y (D7)', () => {
     expect(q('.modal-overlay.open')).toBeTruthy();
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(toggle.textContent).toMatch(/High/i);
+  });
+});
+
+describe('copy confirmation a11y (A12)', () => {
+  it('announces Copied via the persistent status region', async () => {
+    await bootApp({ messages: [storedUser('Q'), storedAssistant('Answer to copy')] });
+
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn(async () => {}) },
+    });
+
+    const copyBtn = qa('.message--ai .message__hover-btn').find((b) => label(b) === 'Copy as Markdown');
+    expect(copyBtn).toBeTruthy();
+    copyBtn.click();
+    await settle();
+
+    expect(q('#chatStatus').textContent).toBe('Copied');
+    expect(copyBtn.getAttribute('aria-label')).toBe('Copied');
+    expect(copyBtn.querySelector('svg path')?.getAttribute('d')).toBe('M20 6 9 17l-5-5');
   });
 });
 
