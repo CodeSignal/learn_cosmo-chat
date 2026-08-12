@@ -193,6 +193,36 @@ describe('message actions', () => {
     expect(label(q('.message__actions--user .button-icon'))).toBe('Edit message');
   });
 
+  it('A17: cancelling edit restores focus to the Edit button', async () => {
+    await bootApp({ messages: [storedUser('Editable')] });
+    const editBtn = q('.message__actions--user .button-icon');
+    editBtn.focus();
+    editBtn.click();
+    await settle();
+
+    expect(q('.message__edit-textarea')).toBeTruthy();
+    expect(document.activeElement).toBe(q('.message__edit-textarea'));
+
+    q('.message__edit-actions .button-tertiary').click();
+    await settle();
+
+    expect(q('.message__edit-textarea')).toBeNull();
+    expect(document.activeElement).toBe(editBtn);
+  });
+
+  it('A17: Escape cancels edit and restores focus to the Edit button', async () => {
+    await bootApp({ messages: [storedUser('Editable')] });
+    const editBtn = q('.message__actions--user .button-icon');
+    editBtn.click();
+    await settle();
+
+    q('.message__edit-textarea').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await settle();
+
+    expect(q('.message__edit-textarea')).toBeNull();
+    expect(document.activeElement).toBe(editBtn);
+  });
+
   it('hides all message actions while streaming', async () => {
     await bootApp({ messages: [storedUser('Q'), storedAssistant('A')] });
     expect(qa('.message__hover-btn').length).toBeGreaterThan(0);
