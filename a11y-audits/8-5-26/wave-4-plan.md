@@ -10,14 +10,14 @@
 | ID | Issue | State |
 |---|---|---|
 | A19–A22 | [#61](https://github.com/CodeSignal/learn_cosmo-chat/issues/61)–[#64](https://github.com/CodeSignal/learn_cosmo-chat/issues/64) | Closed (verified / mitigated) |
-| A10 | [#65](https://github.com/CodeSignal/learn_cosmo-chat/issues/65) | Closed (this PR) |
+| A10 | [#65](https://github.com/CodeSignal/learn_cosmo-chat/issues/65) | Closed (PR #78) |
 | A12 | [#66](https://github.com/CodeSignal/learn_cosmo-chat/issues/66) | Closed (PR #75) |
 | A13 | [#67](https://github.com/CodeSignal/learn_cosmo-chat/issues/67) | Closed (PR #74) |
 | A14 | [#68](https://github.com/CodeSignal/learn_cosmo-chat/issues/68) | Open (PR with A15) |
 | A15 | [#69](https://github.com/CodeSignal/learn_cosmo-chat/issues/69) | Open (PR with A14) |
 | A16 | [#70](https://github.com/CodeSignal/learn_cosmo-chat/issues/70) | Open |
-| A17 | [#71](https://github.com/CodeSignal/learn_cosmo-chat/issues/71) | Closed (this PR) |
-| A18 | [#72](https://github.com/CodeSignal/learn_cosmo-chat/issues/72) | Open |
+| A17 | [#71](https://github.com/CodeSignal/learn_cosmo-chat/issues/71) | Closed (PR #76) |
+| A18 | [#72](https://github.com/CodeSignal/learn_cosmo-chat/issues/72) | Closed (this PR) |
 | A23 | [#73](https://github.com/CodeSignal/learn_cosmo-chat/issues/73) | Open (`#sidebarResizer`) |
 | D8–D12 | [DS #19](https://github.com/CodeSignal/learn_bespoke-design-system/issues/19)–[#23](https://github.com/CodeSignal/learn_bespoke-design-system/issues/23) | Open |
 

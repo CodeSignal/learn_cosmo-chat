@@ -547,6 +547,14 @@ body.is-resizing-sidebar {
   outline-offset: 2px;
 }
 
+/* A18: touch / no-hover devices never get :hover, so delete stayed untappable. */
+@media (hover: none) {
+  .session-item__delete {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 .session-item__delete:hover {
   color: var(--Colors-Icon-Strong);
 }
