@@ -2276,6 +2276,8 @@ async function copyWithFeedback(btn, text, { ariaLabel = t('Copy'), copiedLabel 
   btn.innerHTML = CHECK_ICON_SVG;
   btn.title = copiedLabel;
   btn.setAttribute('aria-label', copiedLabel);
+  // Mutating the focused button's name is not a reliable status message (A12).
+  announceChatStatus(copiedLabel);
   btn._copyResetTimer = setTimeout(() => {
     btn.innerHTML = original;
     btn.title = ariaLabel;
