@@ -19,6 +19,8 @@
     "Extended reasoning depth. When enabled, temperature is ignored by the model.": "Extended reasoning depth. When enabled, temperature is ignored by the model.",
     "This model does not support Thinking. Switch to a model that does, then update Thinking.": "This model does not support Thinking. Switch to a model that does, then update Thinking.",
     "Close": "Close",
+    "Close modal": "Close modal",
+    "Select option": "Select option",
     "Apply & New Chat": "Apply & New Chat",
     "Off": "Off",
     "Low": "Low",

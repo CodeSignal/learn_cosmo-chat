@@ -473,6 +473,7 @@ function renderModelSelector() {
   modelDropdownInstance = new Dropdown(modelSelect, {
     items,
     selectedValue: selectedModel || undefined,
+    placeholder: t('Select option'),
     width: '100%',
     onSelect: (value) => {
       selectedModel = value;
@@ -642,6 +643,7 @@ function openSettings() {
       size: 'medium',
       title: t('Settings'),
       content,
+      closeButtonLabel: t('Close modal'),
       closeOnOverlayClick: true,
       closeOnEscape: true,
       // The Thinking menu renders in <body>, so it outlives the modal unless
@@ -666,6 +668,7 @@ function openSettings() {
           thinkingDropdownInstance = new PortalDropdown(dropdownEl, {
             items: THINKING_OPTIONS.map((o) => ({ ...o, label: t(o.label) })),
             selectedValue: selectedThinking,
+            placeholder: t('Select option'),
             width: '100%',
             matchToggleWidth: true,
             menuClassName: 'settings-thinking-menu',
@@ -1998,6 +2001,7 @@ function confirmAndReplaceChat() {
     size: 'small',
     title: t('Start new chat?'),
     content,
+    closeButtonLabel: t('Close modal'),
     closeOnOverlayClick: true,
     closeOnEscape: true,
     footerButtons: [
