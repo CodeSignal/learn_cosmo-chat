@@ -79,6 +79,8 @@
     "Attach an image": "Attach an image",
     "Attach a file": "Attach a file",
     "Remove {name}": "Remove {name}",
-    "attachment": "attachment"
+    "attachment": "attachment",
+    "Attached image: {name}": "Attached image: {name}",
+    "Generated image": "Generated image"
   }
 }

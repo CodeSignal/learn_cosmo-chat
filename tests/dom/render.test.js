@@ -178,13 +178,20 @@ describe('markdown rendering', () => {
 });
 
 describe('file parts', () => {
-  it('renders an image part as an img with the filename as alt', async () => {
+  it('A16: labels a user image part as an attached file', async () => {
     await bootApp({
       messages: [storedUser('Look', { files: [{ filename: 'shot.png', mediaType: 'image/png', url: '/f/shot.png' }] })],
     });
     const img = q('.message__file-image');
     expect(img.getAttribute('src')).toBe('/f/shot.png');
-    expect(img.getAttribute('alt')).toBe('shot.png');
+    expect(img.alt).toBe('Attached image: shot.png');
+  });
+
+  it('A16: labels a user image with no filename as an attachment', async () => {
+    await bootApp({
+      messages: [storedUser('Look', { files: [{ mediaType: 'image/png', url: '/f/x.png' }] })],
+    });
+    expect(q('.message__file-image').alt).toBe('Attached image: attachment');
   });
 
   it('renders a non-image part as a download chip', async () => {
@@ -194,6 +201,114 @@ describe('file parts', () => {
     const chip = q('.message__file-chip');
     expect(chip.getAttribute('href')).toBe('/f/notes.pdf');
     expect(chip.textContent).toContain('notes.pdf');
+  });
+});
+
+describe('image alt text (A16)', () => {
+  it('uses the previous user message as alt for a generated file image', async () => {
+    await bootApp({
+      messages: [
+        storedUser('Draw a lighthouse at dusk'),
+        storedAssistant('', {
+          files: [{ filename: 'out.png', mediaType: 'image/png', url: '/f/out.png' }],
+        }),
+      ],
+    });
+    expect(q('.message--ai .message__file-image').alt).toBe('Draw a lighthouse at dusk');
+  });
+
+  it('uses the previous live user message as alt for a generated file image', async () => {
+    await bootApp({ messages: [] });
+    fakeChats[0].setMessages(
+      [
+        { role: 'user', status: 'done', parts: [{ type: 'text', text: 'Paint a harbor' }] },
+        liveAssistant(
+          [{ type: 'file', filename: 'harbor.png', mediaType: 'image/png', url: '/f/harbor.png' }],
+          'done',
+        ),
+      ],
+      'idle',
+    );
+    await settle();
+    expect(q('.message--ai .message__file-image').alt).toBe('Paint a harbor');
+  });
+
+  it('uses the previous user message as alt for empty markdown images', async () => {
+    await bootApp({
+      messages: [
+        storedUser('A red cube on a table'),
+        storedAssistant('![](https://cdn.example/gen.png)'),
+      ],
+    });
+    expect(q('.message--ai .message__file-image').alt).toBe('A red cube on a table');
+  });
+
+  it('keeps non-empty markdown alt text', async () => {
+    await bootApp({
+      messages: [
+        storedUser('Draw something'),
+        storedAssistant('![watercolor fox](https://cdn.example/fox.png)'),
+      ],
+    });
+    expect(q('.message--ai .message__file-image').alt).toBe('watercolor fox');
+  });
+
+  it('falls back to Generated image when no previous user prompt exists', async () => {
+    await bootApp({
+      messages: [
+        storedAssistant('', {
+          files: [{ filename: 'out.png', mediaType: 'image/png', url: '/f/out.png' }],
+        }),
+      ],
+    });
+    expect(q('.message--ai .message__file-image').alt).toBe('Generated image');
+  });
+
+  it('escapes alt text taken from the user prompt', async () => {
+    await bootApp({
+      messages: [
+        storedUser('say "hi" <img>'),
+        storedAssistant('', {
+          files: [{ filename: 'x.png', mediaType: 'image/png', url: '/f/x.png' }],
+        }),
+      ],
+    });
+    const img = q('.message--ai .message__file-image');
+    expect(img.alt).toBe('say "hi" <img>');
+    expect(qa('.message--ai img')).toHaveLength(1);
+  });
+
+  it('translates attached and generated image labels from the catalog', async () => {
+    const strings = {
+      'Attached image: {name}': 'Imagen adjunta: {name}',
+      'Generated image': 'Imagen generada',
+      attachment: 'adjunto',
+    };
+    await bootApp({
+      messages: [storedUser('Look', { files: [{ filename: 'shot.png', mediaType: 'image/png', url: '/f/shot.png' }] })],
+      config: { strings },
+    });
+    expect(q('.message--user .message__file-image').alt).toBe('Imagen adjunta: shot.png');
+
+    await bootApp({
+      messages: [
+        storedAssistant('', {
+          files: [{ filename: 'out.png', mediaType: 'image/png', url: '/f/out.png' }],
+        }),
+      ],
+      config: { strings },
+    });
+    expect(q('.message--ai .message__file-image').alt).toBe('Imagen generada');
+  });
+
+  it('labels composer thumbnails as attached images', async () => {
+    await bootApp();
+    const file = new File(['x'], 'holiday.jpg', { type: 'image/png' });
+    const input = q('#fileInput');
+    Object.defineProperty(input, 'files', { configurable: true, value: [file] });
+    input.dispatchEvent(new Event('change'));
+    await settle();
+    expect(q('.composer__thumb-img')?.alt).toBe('Attached image: holiday.jpg');
   });
 });
 

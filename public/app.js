@@ -107,12 +107,17 @@ renderer.code = function ({ text, lang }) {
   `;
 };
 
+// Fallback alt for markdown images with empty ![alt] (set while parsing a turn).
+let markdownImageAltFallback = '';
+
 // Octavus returns generated images both as a markdown reference in the text
 // AND as a file part. Rendering both causes duplicates. Apply the constrained
 // CSS class here so markdown-embedded images obey the same size limits, and
 // skip the separate file-parts pass for assistant messages.
 renderer.image = function ({ href, text }) {
-  return `<img class="message__file-image" src="${href}" alt="${text}" />`;
+  const markdownAlt = String(text ?? '').trim();
+  const alt = markdownAlt || markdownImageAltFallback || t('Generated image');
+  return `<img class="message__file-image" src="${href}" alt="${escapeHtml(alt)}" />`;
 };
 
 renderer.table = function (token) {
@@ -1120,7 +1125,7 @@ function renderMessages(liveMessages, status) {
     return -1;
   })();
 
-  /** @type {{ key: string, structureSig: string, contentSig: string, msg: object, idx: number, isLastAssistant: boolean }[]} */
+  /** @type {{ key: string, structureSig: string, contentSig: string, msg: object, idx: number, isLastAssistant: boolean, previousUserText: string }[]} */
   const planned = [];
   let userAssistantIdx = 0;
 
@@ -1130,7 +1135,8 @@ function renderMessages(liveMessages, status) {
 
     const idx = userAssistantIdx;
     const isLastAssistant = i === lastAssistantIdx;
-    const ctx = { isIdle, isLastAssistant, hidePromptControls: !!chatConfig.hidePromptControls };
+    const previousUserText = previousUserTextBefore(messages, i);
+    const ctx = { isIdle, isLastAssistant, hidePromptControls: !!chatConfig.hidePromptControls, previousUserText };
     const { structureSig, contentSig } = messageRowSignatures(msg, ctx);
     planned.push({
       key: String(i),
@@ -1139,14 +1145,15 @@ function renderMessages(liveMessages, status) {
       msg,
       idx,
       isLastAssistant,
+      previousUserText,
     });
     userAssistantIdx++;
   }
 
   for (let i = 0; i < planned.length; i++) {
-    const { key, structureSig, contentSig, msg, idx, isLastAssistant } = planned[i];
+    const { key, structureSig, contentSig, msg, idx, isLastAssistant, previousUserText } = planned[i];
     const current = messagesEl.children[i];
-    const ctx = { isIdle, isLastAssistant };
+    const ctx = { isIdle, isLastAssistant, previousUserText };
 
     // In-place edit UI is DOM-only state; never tear it down on a re-render.
     if (current?.querySelector?.('.message__edit-box')) continue;
@@ -1230,9 +1237,9 @@ function syncComposerAvailability(streaming) {
  * Split fingerprints so streaming token ticks can patch prose without
  * recreating the article/heading chrome (keeps VoiceOver's place).
  */
-function messageRowSignatures(msg, { isIdle, isLastAssistant, hidePromptControls }) {
+function messageRowSignatures(msg, { isIdle, isLastAssistant, hidePromptControls, previousUserText }) {
   if (msg.role === 'assistant') {
-    const model = buildAssistantModel(msg, { isIdle, isLastAssistant });
+    const model = buildAssistantModel(msg, { isIdle, isLastAssistant, previousUserText });
     // Structure = chrome that needs a full rebuild (action buttons/listeners,
     // trailing avatar). Prose, thoughts, and status labels are content patches.
     const structureSig = JSON.stringify({
@@ -1271,7 +1278,7 @@ function messageRowSignatures(msg, { isIdle, isLastAssistant, hidePromptControls
   return { structureSig, contentSig };
 }
 
-function buildAssistantModel(msg, { isIdle, isLastAssistant }) {
+function buildAssistantModel(msg, { isIdle, isLastAssistant, previousUserText }) {
   const rawText = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
   const fileParts = msg.parts.filter((p) => p.type === 'file');
   const segments = segmentAssistantParts(msg.parts);
@@ -1300,10 +1307,19 @@ function buildAssistantModel(msg, { isIdle, isLastAssistant }) {
     || reasoningStreaming
     || resolved.thinkingOpen;
   const showThoughts = shouldShowReasoning() && hasReasoning;
-  const renderedHtml = stripEmojisFromHtml(
-    stripHeadingLeadDecorationsFromHtml(marked.parse(text)),
-  );
-  const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
+  markdownImageAltFallback = generatedImageAlt(previousUserText);
+  let renderedHtml;
+  try {
+    renderedHtml = stripEmojisFromHtml(
+      stripHeadingLeadDecorationsFromHtml(marked.parse(text)),
+    );
+  } finally {
+    markdownImageAltFallback = '';
+  }
+  const filesHtml = fileParts.map((f) => renderFilePart(f, {
+    source: 'assistant',
+    previousUserText,
+  })).join('');
   const isImageGen = isImageGenerationLoading(msg.parts);
 
   let bodyMode = 'content';
@@ -1405,7 +1421,7 @@ function patchAssistantRowContent(row, model) {
   }
 }
 
-function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
+function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant, previousUserText }) {
   // <article> + visually hidden heading so VoiceOver's Headings / Articles
   // rotors can land on each turn. Plain divs left replies as an unlabelled
   // paragraph soup inside a scrollable main — reachable in the AX tree, but
@@ -1417,7 +1433,7 @@ function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
   const headingHtml = `<h2 id="${labelId}" class="visually-hidden">${escapeHtml(whoLabel)}</h2>`;
 
   if (msg.role === 'assistant') {
-    const model = buildAssistantModel(msg, { isIdle, isLastAssistant });
+    const model = buildAssistantModel(msg, { isIdle, isLastAssistant, previousUserText });
 
     const avatarOpen = model.streaming
       ? `<div class="message__avatar message__avatar--thinking"${thinkingBorderAnimationDelayAttr()}>`
@@ -1494,7 +1510,7 @@ function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
     const text = msg.parts.filter((p) => p.type === 'text').map((p) => p.text).join('');
     const fileParts = msg.parts.filter((p) => p.type === 'file');
 
-    const filesHtml = fileParts.map((f) => renderFilePart(f)).join('');
+    const filesHtml = fileParts.map((f) => renderFilePart(f, { source: 'user' })).join('');
 
     row.className = 'message message--user';
     row.innerHTML = `
@@ -1538,9 +1554,32 @@ function createMessageRow(msg, userAssistantIdx, { isIdle, isLastAssistant }) {
   return row;
 }
 
-function renderFilePart(part) {
+function textFromMessageParts(msg) {
+  return (msg.parts ?? []).filter((p) => p.type === 'text').map((p) => p.text).join('');
+}
+
+function previousUserTextBefore(messages, index) {
+  for (let i = index - 1; i >= 0; i--) {
+    if (messages[i].role === 'user') return textFromMessageParts(messages[i]);
+  }
+  return '';
+}
+
+function attachedImageAlt(filename) {
+  return t('Attached image: {name}', { name: filename || t('attachment') });
+}
+
+function generatedImageAlt(previousUserText) {
+  const prompt = String(previousUserText ?? '').trim();
+  return prompt || t('Generated image');
+}
+
+function renderFilePart(part, { source = 'user', previousUserText } = {}) {
   if (part.mediaType?.startsWith('image/')) {
-    return `<img class="message__file-image" src="${part.url}" alt="${part.filename || 'image'}" />`;
+    const alt = source === 'assistant'
+      ? generatedImageAlt(previousUserText)
+      : attachedImageAlt(part.filename);
+    return `<img class="message__file-image" src="${part.url}" alt="${escapeHtml(alt)}" />`;
   }
   return `
     <a class="tag outline message__file-chip" href="${part.url}" target="_blank" rel="noopener">
@@ -1684,7 +1723,7 @@ function renderAttachmentPreview() {
       const img = document.createElement('img');
       img.className = 'composer__thumb-img';
       img.src = item.previewUrl;
-      img.alt = item.file.name || '';
+      img.alt = attachedImageAlt(item.file.name);
       inner.appendChild(img);
     } else {
       const ph = document.createElement('div');
