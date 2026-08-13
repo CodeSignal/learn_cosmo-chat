@@ -35,9 +35,6 @@
        Mirroring bg and setting ring-display:none made dark focus invisible. */
     --chatbox-bg-transition: none;
     --chatbox-placeholder-focus-opacity: 1;
-    /* The DS forgets to dark-adapt the tertiary button's border (it stays
-       light Neutral-300), so supply the missing dark value here. */
-    --Colors-Buttons-Tertiary-Default: var(--Colors-Base-Neutral-1100);
   }
 }
 
@@ -256,10 +253,11 @@ body {
   opacity: 1;
 }
 
-/* Dark mode: the rest pill uses a non-adaptive light token, so darken it. */
+/* Dark mode: Stroke-Light is a hairline (Neutral-1200). The 4px grip at
+   0.5 opacity needs a stronger rest color. Stroke-Stronger is Neutral-900. */
 @media (prefers-color-scheme: dark) {
   .sidebar-resizer::before {
-    background-color: var(--Colors-Base-Neutral-900);
+    background-color: var(--Colors-Stroke-Stronger);
   }
 }
 

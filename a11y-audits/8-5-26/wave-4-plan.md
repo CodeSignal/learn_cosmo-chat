@@ -23,7 +23,7 @@
 | D9 | [DS #20](https://github.com/CodeSignal/learn_bespoke-design-system/issues/20) | Closed (DS PR #25) |
 | D10 | [DS #21](https://github.com/CodeSignal/learn_bespoke-design-system/issues/21) | Closed (DS PR #24) |
 | D11 | [DS #22](https://github.com/CodeSignal/learn_bespoke-design-system/issues/22) | Closed (DS PR #24) |
-| D12 | [DS #23](https://github.com/CodeSignal/learn_bespoke-design-system/issues/23) | Open |
+| D12 | [DS #23](https://github.com/CodeSignal/learn_bespoke-design-system/issues/23) | Closed (DS PR #27) |
 
 ---
 
