@@ -13,13 +13,17 @@
 | A10 | [#65](https://github.com/CodeSignal/learn_cosmo-chat/issues/65) | Closed (PR #78) |
 | A12 | [#66](https://github.com/CodeSignal/learn_cosmo-chat/issues/66) | Closed (PR #75) |
 | A13 | [#67](https://github.com/CodeSignal/learn_cosmo-chat/issues/67) | Closed (PR #74) |
-| A14 | [#68](https://github.com/CodeSignal/learn_cosmo-chat/issues/68) | Closed (this PR, with A15) |
-| A15 | [#69](https://github.com/CodeSignal/learn_cosmo-chat/issues/69) | Closed (this PR, with A14) |
+| A14 | [#68](https://github.com/CodeSignal/learn_cosmo-chat/issues/68) | Closed (PR #80, with A15) |
+| A15 | [#69](https://github.com/CodeSignal/learn_cosmo-chat/issues/69) | Closed (PR #80, with A14) |
 | A16 | [#70](https://github.com/CodeSignal/learn_cosmo-chat/issues/70) | Open |
 | A17 | [#71](https://github.com/CodeSignal/learn_cosmo-chat/issues/71) | Closed (PR #76) |
 | A18 | [#72](https://github.com/CodeSignal/learn_cosmo-chat/issues/72) | Closed (PR #77) |
 | A23 | [#73](https://github.com/CodeSignal/learn_cosmo-chat/issues/73) | Closed (PR #79) |
-| D8–D12 | [DS #19](https://github.com/CodeSignal/learn_bespoke-design-system/issues/19)–[#23](https://github.com/CodeSignal/learn_bespoke-design-system/issues/23) | Open |
+| D8 | [DS #19](https://github.com/CodeSignal/learn_bespoke-design-system/issues/19) | Closed (DS PR #24) |
+| D9 | [DS #20](https://github.com/CodeSignal/learn_bespoke-design-system/issues/20) | Closed (DS PR #25) |
+| D10 | [DS #21](https://github.com/CodeSignal/learn_bespoke-design-system/issues/21) | Closed (DS PR #24) |
+| D11 | [DS #22](https://github.com/CodeSignal/learn_bespoke-design-system/issues/22) | Closed (DS PR #24) |
+| D12 | [DS #23](https://github.com/CodeSignal/learn_bespoke-design-system/issues/23) | Open |
 
 ---
 

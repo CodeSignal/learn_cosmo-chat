@@ -19,6 +19,8 @@
     "Extended reasoning depth. When enabled, temperature is ignored by the model.": "Profundidad de razonamiento extendido. Cuando está activado, el modelo ignora la temperatura.",
     "This model does not support Thinking. Switch to a model that does, then update Thinking.": "Este modelo no admite Razonamiento. Cambia a un modelo que sí lo admita y luego actualiza el Razonamiento.",
     "Close": "Cerrar",
+    "Close modal": "Cerrar modal",
+    "Select option": "Seleccionar opción",
     "Apply & New Chat": "Aplicar y nuevo chat",
     "Off": "Desactivado",
     "Low": "Bajo",

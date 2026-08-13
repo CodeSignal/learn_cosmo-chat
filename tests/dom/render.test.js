@@ -773,3 +773,64 @@ describe('page language and chrome names (A14/A15)', () => {
     expect(q('#uploadImageBtn').getAttribute('title')).toBe('Adjuntar una imagen');
   });
 });
+
+describe('design-system name overrides (D8/D9 bump)', () => {
+  it('wires a unique title id and Close modal name on the settings dialog', async () => {
+    await bootApp();
+    q('#settingsBtn').click();
+    await settle();
+
+    const overlay = q('.modal-overlay.open');
+    const title = overlay?.querySelector('.modal-title');
+    expect(title?.id).toMatch(/^modal-title-\d+$/);
+    expect(overlay.getAttribute('aria-labelledby')).toBe(title.id);
+    expect(overlay.querySelector('.modal-close-button')?.getAttribute('aria-label')).toBe(
+      'Close modal',
+    );
+  });
+
+  it('translates Close modal from the catalog', async () => {
+    await bootApp({
+      config: {
+        htmlLang: 'es',
+        strings: {
+          Settings: 'Configuración',
+          'Close modal': 'Cerrar modal',
+          Close: 'Cerrar',
+          'Apply & New Chat': 'Aplicar y nuevo chat',
+        },
+      },
+    });
+    q('#settingsBtn').click();
+    await settle();
+    expect(q('.modal-overlay.open .modal-close-button')?.getAttribute('aria-label')).toBe(
+      'Cerrar modal',
+    );
+  });
+
+  it('gives settings and confirm modals distinct title ids', async () => {
+    await bootApp({
+      config: { hideHistory: true },
+      messages: [storedUser('Q'), storedAssistant('A')],
+    });
+    q('#settingsBtn').click();
+    await settle();
+    q('#newChatBtn').click();
+    await settle();
+
+    const ids = qa('.modal-title').map((el) => el.id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    expect(ids.every((id) => /^modal-title-\d+$/.test(id))).toBe(true);
+  });
+
+  it('uses Select option as the model dropdown name when nothing is selected', async () => {
+    await bootApp({
+      models: ['anthropic/claude-sonnet-4-6', 'openai/gpt-4.1'],
+      config: { model: 'not-in-list' },
+    });
+    const toggle = q('#modelSelect .dropdown-toggle');
+    const labelledBy = toggle?.getAttribute('aria-labelledby');
+    expect(document.getElementById(labelledBy)?.textContent).toBe('Select option');
+  });
+});
