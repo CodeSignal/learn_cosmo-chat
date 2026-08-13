@@ -79,6 +79,8 @@
     "Attach an image": "Adjuntar una imagen",
     "Attach a file": "Adjuntar un archivo",
     "Remove {name}": "Quitar {name}",
-    "attachment": "adjunto"
+    "attachment": "adjunto",
+    "Attached image: {name}": "Imagen adjunta: {name}",
+    "Generated image": "Imagen generada"
   }
 }
