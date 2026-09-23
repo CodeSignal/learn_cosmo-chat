@@ -18,8 +18,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@octavus/client-sdk": "^3.2.0",
-    "@octavus/server-sdk": "^3.2.0",
+    "@octavus/client-sdk": "^6.10.0",
+    "@octavus/server-sdk": "^6.10.0",
     "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "highlight.js": "^11.11.1",
@@ -28,7 +28,7 @@
     "undici": "^8.10.0"
   },
   "devDependencies": {
-    "@octavus/cli": "^3.2.0",
+    "@octavus/cli": "^6.10.0",
     "concurrently": "^10.0.1",
     "cross-env": "^7.0.3",
     "esbuild": "^0.28.0",

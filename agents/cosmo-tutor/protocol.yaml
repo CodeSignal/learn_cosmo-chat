@@ -46,7 +46,8 @@ triggers:
 
 skills:
   crawl-urls:
-    display: description
+    display: title
+    title: Crawling web pages
 
 agent:
   model: MODEL
