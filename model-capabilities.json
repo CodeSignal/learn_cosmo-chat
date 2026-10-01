@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T19:27:35.867Z",
+  "generatedAt": "2026-10-01T19:36:18.015Z",
   "source": "openrouter+octavus-provider-rules",
   "models": {
     "anthropic/claude-fable-5": {
@@ -69,6 +69,9 @@
       "supportsThinking": true
     },
     "google/gemini-3-flash-preview": {
+      "supportsThinking": true
+    },
+    "google/gemini-3-pro-preview": {
       "supportsThinking": true
     },
     "google/gemini-3.1-flash-lite": {
