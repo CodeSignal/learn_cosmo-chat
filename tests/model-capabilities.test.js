@@ -37,6 +37,8 @@ describe('providerHeuristicSupportsThinking', () => {
     expect(providerHeuristicSupportsThinking('anthropic/claude-sonnet-4-6')).toBe(true);
     expect(providerHeuristicSupportsThinking('openai/o3')).toBe(true);
     expect(providerHeuristicSupportsThinking('openai/gpt-5')).toBe(true);
+    expect(providerHeuristicSupportsThinking('openai/gpt-5.6-luna')).toBe(true);
+    expect(providerHeuristicSupportsThinking('openai/gpt-6-astra')).toBe(true);
     expect(providerHeuristicSupportsThinking('google/gemini-2.5-flash')).toBe(true);
     expect(providerHeuristicSupportsThinking('google/gemini-3-pro-preview')).toBe(true);
   });
