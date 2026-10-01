@@ -33,8 +33,8 @@ const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
 
 // ── Octavus client ────────────────────────────────────────────
 const octavus = new OctavusClient({
-  baseUrl: process.env.OCTAVUS_API_URL,
-  apiKey: process.env.OCTAVUS_API_KEY,
+  baseUrl: process.env.OCTAVUS_API_URL || 'https://octavus.ai',
+  apiKey: process.env.OCTAVUS_API_KEY || '',
 });
 
 // Which deployed agent the server talks to. Defaults to "prod" so existing
@@ -57,6 +57,11 @@ const AGENT_ID =
 app.use(express.json());
 app.use('/design-system', express.static(path.join(__dirname, 'design-system')));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ── Health ────────────────────────────────────────────────────
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, service: 'chat-cpt' });
+});
 
 // ── Config ────────────────────────────────────────────────────
 const readConfig = () => readJsonFile(CONFIG_FILE);
