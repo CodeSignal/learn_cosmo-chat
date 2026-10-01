@@ -27,19 +27,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build frontend bundle
-        run: npm run build
+      - name: Run tests
+        run: npm test
 
-      - name: Archive release package
-        run: |
-          tar -czf /tmp/dist.tar.gz \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='.env' \
-            --exclude='chat-sessions.json' \
-            --exclude='public/app.js' \
-            .
-          mv /tmp/dist.tar.gz dist.tar.gz
+      - name: Pack release
+        run: npm run pack
 
       - name: Upload build artifact (for workflow logs)
         uses: actions/upload-artifact@v7

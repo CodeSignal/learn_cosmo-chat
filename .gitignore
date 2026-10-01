@@ -7,3 +7,5 @@ public/hljs-*.css
 chat-sessions.json
 chat-config.json
 .agent-build
+dist
+dist.tar.gz

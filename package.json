@@ -15,7 +15,8 @@
     "deploy:agent:prod": "node scripts/deploy-agent.mjs prod",
     "refresh:model-capabilities": "node scripts/refresh-model-capabilities.mjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "pack": "node scripts/pack-dist.mjs"
   },
   "dependencies": {
     "@octavus/client-sdk": "^6.10.0",
