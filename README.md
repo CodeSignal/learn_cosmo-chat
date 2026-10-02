@@ -243,6 +243,19 @@ There are **two independent switches**:
 
 Typical workflow: edit `agents/cosmo-tutor/*`, run `npm run deploy:agent:dev`, test locally (dev is the default), and only run `npm run deploy:agent:prod` once you're happy.
 
+## Release package
+
+`npm run pack` builds a runnable tree into `dist/` and archives it as `dist.tar.gz`: a minified client bundle, single-file server + extract scripts (dependencies inlined — no `node_modules`), and the static files Express serves. The release workflow runs the same command and attaches `dist.tar.gz` to the GitHub release.
+
+Extract into its own directory, add `chat-config.json` and `.env`, then `node server.js`.
+
+Download URLs:
+
+- **Stable latest:** `https://github.com/CodeSignal/learn_cosmo-chat/releases/latest/download/dist.tar.gz`
+- **Newest (incl. pre-release):** `https://github.com/CodeSignal/learn_cosmo-chat/releases/download/prerelease/dist.tar.gz`
+
+Every versioned release (stable or RC) refreshes a floating `prerelease` tag/release so the newest channel always has the latest build without stealing `/latest`.
+
 ## Project Structure
 
 ```
@@ -260,6 +273,8 @@ chat-cpt/
 │   ├── app.js                # Frontend source (bundled by esbuild)
 │   ├── app.bundle.js         # Generated — do not edit directly
 │   └── app.css
+├── scripts/
+│   └── pack-dist.mjs         # Builds dist.tar.gz for GitHub releases
 ├── server.js                 # Express server + orchestration proxy
 ├── current-models.txt        # Model catalog for the picker
 ├── model-capabilities.json   # Generated Thinking capability snapshot (refresh via npm script)
