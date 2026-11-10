@@ -364,7 +364,7 @@ app.post('/api/trigger', async (req, res) => {
     return res.status(400).json({ error: 'sessionId is required' });
   }
 
-  const session = octavus.agentSessions.attach(sessionId);
+  const session = octavus.sessions.attach(sessionId);
   const events = session.execute(payload);
   const stream = toSSEStream(events);
 
