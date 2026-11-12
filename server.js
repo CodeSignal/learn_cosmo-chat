@@ -347,7 +347,7 @@ app.post('/api/upload-urls', async (req, res) => {
     return res.status(400).json({ error: 'sessionId and files[] are required' });
   }
   try {
-    const result = await octavus.files.getUploadUrls(sessionId, files);
+    const result = await octavus.files.create(files, { sessionId });
     res.json(result);
   } catch (err) {
     console.error('[upload-urls] Error:', err);

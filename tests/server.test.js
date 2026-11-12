@@ -17,7 +17,7 @@ vi.mock('@octavus/server-sdk', () => {
         attach: vi.fn().mockReturnValue({ execute: vi.fn() }),
       };
       this.files = {
-        getUploadUrls: vi.fn().mockResolvedValue({ urls: [] }),
+        create: vi.fn().mockResolvedValue({ files: [] }),
       };
     },
     toSSEStream: vi.fn(),
