@@ -12,12 +12,12 @@ vi.mock('fs/promises', () => ({
 vi.mock('@octavus/server-sdk', () => {
   return {
     OctavusClient: function () {
-      this.agentSessions = {
-        create: vi.fn().mockResolvedValue('new-session-id'),
+      this.sessions = {
+        create: vi.fn().mockResolvedValue({ id: 'new-session-id', status: 'active' }),
         attach: vi.fn().mockReturnValue({ execute: vi.fn() }),
       };
       this.files = {
-        getUploadUrls: vi.fn().mockResolvedValue({ urls: [] }),
+        create: vi.fn().mockResolvedValue({ files: [] }),
       };
     },
     toSSEStream: vi.fn(),

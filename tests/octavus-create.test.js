@@ -22,10 +22,10 @@ describe('createAgentSession', () => {
     fetchMock.mockReset();
   });
 
-  it('POSTs to /api/agent-sessions on a dedicated dispatcher', async () => {
+  it('POSTs to /api/v1/sessions on a dedicated dispatcher', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => ({ sessionId: 'sess-123' }),
+      json: async () => ({ id: 'sess-123', agentId: 'agent-1', status: 'active', createdAt: '2026-11-10T00:00:00.000Z' }),
     });
 
     const id = await createAgentSession({
@@ -38,7 +38,7 @@ describe('createAgentSession', () => {
     expect(id).toBe('sess-123');
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('https://octavus.example/api/agent-sessions');
+    expect(url).toBe('https://octavus.example/api/v1/sessions');
     expect(init.method).toBe('POST');
     expect(init.headers.Authorization).toBe('Bearer secret');
     expect(JSON.parse(init.body)).toEqual({ agentId: 'agent-1', input: { MODEL: 'x' } });
@@ -67,10 +67,10 @@ describe('createAgentSession', () => {
     ).rejects.toThrow(/OCTAVUS_API_URL/);
   });
 
-  it('throws when a 200 response has no string sessionId', async () => {
+  it('throws when a 200 response has no string session id', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
-      json: async () => ({ sessionId: null }),
+      json: async () => ({ id: null }),
     });
 
     await expect(
@@ -79,6 +79,6 @@ describe('createAgentSession', () => {
         apiKey: 'secret',
         agentId: 'agent-1',
       }),
-    ).rejects.toThrow(/no sessionId/);
+    ).rejects.toThrow(/no session id/);
   });
 });
