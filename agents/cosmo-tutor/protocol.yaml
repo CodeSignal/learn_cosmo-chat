@@ -60,7 +60,7 @@ agent:
   thinking: THINKING
   webSearch: true
   agentic: true
-  imageModel: openai/gpt-image-1
+  imageModel: openai/gpt-image-2.5-flare
   skills:
     - crawl-urls
 
